@@ -39,6 +39,8 @@ async def create_project(body: CreateProjectRequest):
 
     # Embeddings & FAISS index
     texts = [f"{c.get('summary','')}\n\n{c['content']}" for c in chunks]
+
+    logger.info(f"Embedding: {texts}")
     vectors = embed_texts(texts)
 
     # Build index with metadata (without content to save space)
@@ -62,6 +64,32 @@ async def create_project(body: CreateProjectRequest):
 
     return {"status": "created", "indexed_files": len(chunks)}
 
+def format_chunk_for_embedding(chunk: dict) -> str:
+    # Extract specified fields
+    class_name = chunk.get("class_name", "")
+    method_name = chunk.get("method_name", "")
+    chunk_type = chunk.get("chunk_type", "")
+    content = chunk.get("content", "")
+    endpoints = chunk.get("endpoints", [])
+    summary = chunk.get("summary", "")
+
+    # Format endpoints as a string
+    endpoint_str = ""
+    if endpoints:
+        endpoint = endpoints[0]  # Take the first endpoint (assuming one per method)
+        endpoint_str = f"Endpoint: {endpoint['method']} {endpoint['path']}"
+
+    # Combine fields into a string, including only non-empty values
+    parts = [
+        summary,
+        f"Class: {class_name}" if class_name else "",
+        f"Method: {method_name}" if method_name else "",
+        f"Type: {chunk_type}" if chunk_type else "",
+        endpoint_str,
+        content
+    ]
+    # Filter out empty strings and join with newlines
+    return "\n".join(part for part in parts if part)
 
 class ReindexRequest(BaseModel):
     project_id: str
@@ -83,7 +111,7 @@ async def reindex(body: ReindexRequest):
 
     # Re-parse & re-index – could be incremental, here we rebuild for clarity
     chunks, dep_graph = parse_project(repo_path)
-    texts = [f"{c.get('summary','')}\n\n{c['content']}" for c in chunks]
+    texts = [format_chunk_for_embedding(c) for c in chunks]
     vectors = embed_texts(texts)
 
     meta_for_index = [{k: v for k, v in ch.items()} for ch in chunks]

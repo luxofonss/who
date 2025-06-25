@@ -1,0 +1,20 @@
+Positive Test Cases:
+TC-PA-001: Verify that the API correctly processes a high-quality audio submission with perfectly pronounced text.
+
+TC-PA-002: Verify that the API correctly processes audio with minor deviations or a noticeable accent, providing a non-perfect but reasonable score.
+
+Negative & Edge Test Cases:
+TC-PA-003: Verify that the API gracefully handles the scenario where the external pronunciation service is down or unresponsive.
+
+TC-PA-004: Verify that the API handles an invalid or corrupted Base64 audio string.
+
+TC-PA-005: Verify that the API handles an empty Base64 audio string.
+
+TC-PA-006: Verify that the API handles an empty text field.
+
+TC-PA-007: Verify that the API processes audio and text that do not match, returning a low accuracy score.
+
+Data Integrity & Constraints Test Cases:
+TC-PA-008: Test the API's behavior with an audio file that approaches or exceeds expected size limits.
+
+TC-PA-009: Test the API's behavior with a very long text input.

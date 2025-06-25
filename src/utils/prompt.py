@@ -15,15 +15,22 @@ Output format:
 - Do not include any explanatory text outside the code.
 - Ensure the response is directly usable for further processing or execution.'''
 
-HYDE_V2_SYSTEM_PROMPT = '''You are an expert software engineer. Your task is to enhance the original query endpoint: {query} of a SpringBoot Server using the provided context by user: {temp_context}.
+HYDE_V2_SYSTEM_PROMPT = '''
+You are an expert Java developer.
+Write only the Spring Boot controller class with a method that handles a POST request to "{query}" with context "{temp_context}".
+Do not include DTOs, service logic, imports, or explanation.
+Do not include any code other than the controller class and the method.
+Output only the Java code.
+'''
 
-Instructions:
-1. Analyze the query and context thoroughly.
-2. Expand the query with relevant code-specific details:
-   - For api endpoint: Include precise method names, class names, and key concepts, parameters, return type, service call, etc.
-   - For code-related queries: Include precise method names, class names, and key concepts.
-3. Incorporate keywords from the context that are most pertinent to answering the query.
-Output format: Provide only the enhanced query. Do not include any explanatory text or additional commentary.'''
+HYDE_ENHANCE_CODE_DEPENDENCIES = '''
+You are an expert Spring Boot backend engineer. Given the following Java code snippet, identify and declare only the **business logic components** that would be necessary to support it.
+Return the following as bullet lists, do not provide comments or explanations.: Classes (e.g. controllers, services, services implement, repositories repository implement, enums, entities, constants, utils, helper)
+Exclude  Configuration classes Security, Spring configurations, or framework setup Any explanation or implementation code, Filter class, Bean Config, HttpServletRequestWrapper, Base Response class, Base Exception class, ExternalExceptionHandler class
+**Output format**: Clean class and method declarations only.
+**Code Snippet:**
+"{query}"
+'''
 
 REFERENCES_SYSTEM_PROMPT = '''You are an expert software engineer. Given the <query>{query}</query> and <context>{context}</context>, your task is to enhance the query:
 

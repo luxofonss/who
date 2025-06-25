@@ -1,12 +1,5 @@
 from __future__ import annotations
 
-"""Cross-encoder reranker for chunk relevance.
-
-The model is loaded lazily on first use and in half-precision (FP16) with
-``device_map='auto'`` to reduce peak RAM usage and avoid OOM kills when running
-in memory-constrained environments.
-"""
-
 from typing import List, Dict
 
 import torch
@@ -27,9 +20,6 @@ def _ensure_model():
     _tokenizer = AutoTokenizer.from_pretrained(_MODEL_NAME, cache_dir="models/ms-marco-MiniLM-L-6-v2")
     _model = AutoModelForSequenceClassification.from_pretrained(
         _MODEL_NAME,
-        torch_dtype=torch.float16,
-        device_map="auto",
-        low_cpu_mem_usage=True,
         cache_dir="models/ms-marco-MiniLM-L-6-v2"
     )
     _model.eval()

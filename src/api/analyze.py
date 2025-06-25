@@ -4,6 +4,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 
+from loguru import logger
+
 from utils.file import read_json, write_json, ensure_dir
 from services.analyzer_chain import AnalyzerChain
 
@@ -32,7 +34,12 @@ async def analyze(
     requirements_txt = (await requirements.read()).decode("utf-8", errors="ignore")
     testcases_txt = (await testcases.read()).decode("utf-8", errors="ignore")
 
+    logger.info(f"Analyzing project {project_id} at endpoint {endpoint}")
+
     analyzer = AnalyzerChain(project_id)
+    logger.info(f"Retrieving context for endpoint: {endpoint}")
+    logger.info(f"User text: {user_text}")
+
     result = await analyzer.run(
         endpoint=endpoint,
         requirements_txt=requirements_txt,

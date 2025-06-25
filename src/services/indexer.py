@@ -136,6 +136,7 @@ class Indexer:
 
         *query* must be 1-D embedding.
         """
+        logger.info(f"Searching index for project {self.project_id} with query shape {query.shape} and k={k}")
         if self.index is None:
             raise ValueError("Index not initialised – call build_index/load() first")
 

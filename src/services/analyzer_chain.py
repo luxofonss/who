@@ -28,10 +28,24 @@ class AnalyzerChain:
         # Retrieve code context
         logger.info(f"Retrieving context for endpoint: {endpoint}")
         logger.info(f"User text: {user_text}")
-        
-        docs = await self.retriever.retrieve(endpoint, user_text)
-        logger.info(f"Retrieved: {docs}")
+
+        # TODO: This is for test only
+        # docs = await self.retriever.retrieve(endpoint, user_text, top=3)
+        # docs = await self.retriever.retrieve(docs, user_text, top=7)
+        # docs = await self.retriever.retrieve(docs, user_text, top=13)
+
+        docs = await self.retriever.retrieve(endpoint, user_text, top=3)
+
+        # Extract text from documents
+        doc_text = "\n".join(doc.page_content for doc in docs)
+        logger.info(f"Retrieved: {doc_text}")
+
+        docs = docs + await self.retriever.retrieve(doc_text, user_text, top=30, hyde=True)
+        logger.info(f"Retrieved: {doc_text}")
+
         context = "\n".join(d.page_content for d in docs)
+
+        logger.info(f"Retrieved context: {context}")
 
         prompt = PromptBuilder.build_analysis_prompt(
             endpoint=endpoint,
