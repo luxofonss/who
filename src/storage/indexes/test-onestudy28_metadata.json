@@ -1,0 +1,2647 @@
+[
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/OneStudyApplication.java",
+    "class_name": "OneStudyApplication",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 11,
+    "line_end": 23,
+    "content": "@SpringBootApplication\n@PropertySource(value = \"classpath:errors.properties\", encoding = \"UTF-8\")\n@ComponentScan(\"com.edu\")\n@EnableCaching\n@EnableAspectJAutoProxy\n@EnableFeignClients(basePackages = \"com.edu.onestudy.thirdparty\")\npublic class OneStudyApplication {\n\n    public static void main(String[] args) {\n        SpringApplication.run(OneStudyApplication.class, args);\n    }\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/OneStudyApplication.java",
+    "class_name": "OneStudyApplication",
+    "method_name": "main",
+    "chunk_type": "other",
+    "calls": [
+      "SpringApplication.run"
+    ],
+    "called_by": [],
+    "line_start": 19,
+    "line_end": 21,
+    "content": "public static void main(String[] args) {\n        SpringApplication.run(OneStudyApplication.class, args);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/annotations/handler/LogsActivityAOPHandler.java",
+    "class_name": "LogsActivityAOPHandler",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 28,
+    "line_end": 138,
+    "content": "@Aspect\n@Component\n@Order(value = 1)\n@Slf4j\npublic class LogsActivityAOPHandler extends BaseService {\n\n    private final HttpServletRequest httpServletRequest;\n\n    public static final String service_name = \"service_name\";\n\n    public static final String request_path = \"request_path\";\n\n    public static final String query_string = \"query_string\";\n\n    public static final String code_file = \"code_file\";\n\n    public static final String method_name = \"method_name\";\n\n    public static final String message_type = \"message_type\";\n\n    public static final String request_id = \"request_id\";\n\n    public static final String request = \"request\";\n\n    public static final String response = \"response\";\n\n    public static final String execution_time = \"execution_time\";\n\n    public static final String status_code = \"status_code\";\n\n    public static final String error_code = \"error_code\";\n\n    public static final String headers = \"headers\";\n\n    public LogsActivityAOPHandler(HttpServletRequest httpServletRequest) {\n        this.httpServletRequest = httpServletRequest;\n    }\n\n    @Around(\"execution(* *(..)) && @annotation(logsActivityAnnotation)\")\n    @SneakyThrows\n    public Object logsActivityAnnotation(ProceedingJoinPoint point, LogsActivityAnnotation logsActivityAnnotation) {\n        // Parameter\n        Object objectRequest = point.getArgs().length > 0 ? point.getArgs()[0] : httpServletRequest.getParameterMap();\n        String requestId = getRequestId();\n        // Log request\n        Map<String, Object> mapCustomizeLog = new HashMap<>();\n        mapCustomizeLog.put(LogsActivityAOPHandler.request_path, httpServletRequest.getRequestURI());\n        mapCustomizeLog.put(LogsActivityAOPHandler.query_string, httpServletRequest.getQueryString());\n        mapCustomizeLog.put(LogsActivityAOPHandler.code_file, point.getSignature().getDeclaringTypeName());\n        mapCustomizeLog.put(LogsActivityAOPHandler.method_name, point.getSignature().getName());\n        mapCustomizeLog.put(LogsActivityAOPHandler.message_type, LogsActivityAOPHandler.request);\n        mapCustomizeLog.put(LogsActivityAOPHandler.request_id, requestId);\n        mapCustomizeLog.put(LogsActivityAOPHandler.headers, Utils.redact(JsonUtils.convertObjectToString(getHeaders())));\n        displayLog(objectRequest, mapCustomizeLog);\n\n        // Process and get response\n        long timeStart = new Date().getTime();\n        Object objectResponse = point.proceed();\n\n        // Log response\n        long timeHandle = new Date().getTime() - timeStart;\n        mapCustomizeLog.put(LogsActivityAOPHandler.execution_time, timeHandle);\n        mapCustomizeLog.put(LogsActivityAOPHandler.code_file, point.getSignature().getDeclaringTypeName());\n        mapCustomizeLog.put(LogsActivityAOPHandler.method_name, point.getSignature().getName());\n        mapCustomizeLog.put(LogsActivityAOPHandler.request_id, requestId);\n        mapCustomizeLog.put(LogsActivityAOPHandler.message_type, LogsActivityAOPHandler.response);\n        mapCustomizeLog.put(LogsActivityAOPHandler.headers, Utils.redact(JsonUtils.convertObjectToString(getHeaders())));\n\n        displayLog(objectResponse, mapCustomizeLog);\n        return objectResponse;\n    }\n\n    private void displayLog(Object messageObject, Map<String, Object> mapCustomizeLog) throws JsonProcessingException {\n        if (messageObject instanceof Exception) {\n            Exception e = (Exception) messageObject;\n            if (e instanceof MethodArgumentNotValidException) {\n                log.info(Utils.redact(objectMapper.writeValueAsString(getRequestBody())), entries(mapCustomizeLog));\n                return;\n            } else if (e instanceof BusinessException) {\n                BusinessException businessException = (BusinessException) e;\n                if (!ObjectUtils.isEmpty(businessException.getError())) {\n                    if (!ObjectUtils.isEmpty(businessException.getError().getMessage())) {\n                        log.info(Utils.redact(e.getMessage()), entries(mapCustomizeLog));\n                        return;\n                    } else if (!ObjectUtils.isEmpty(businessException.getError().getData())) {\n                        log.info(Utils.redact(objectMapper.writeValueAsString(businessException.getError().getData())),\n                                entries(mapCustomizeLog));\n                        return;\n                    }\n                }\n            } else if (!ObjectUtils.isEmpty(e.getMessage())) {\n                log.info(Utils.redact(e.getMessage()), entries(mapCustomizeLog));\n            }\n\n            if (mapCustomizeLog.get(LogsActivityAOPHandler.message_type).toString().equals(LogsActivityAOPHandler.request)) {\n                log.error(\"Request_id: {}, Exception: \", getRequestId(), e);\n            }\n        } else {\n            if (mapCustomizeLog.get(LogsActivityAOPHandler.message_type).toString().equals(LogsActivityAOPHandler.response)) {\n                if (messageObject instanceof ResponseEntity) {\n                    ResponseEntity responseEntity = (ResponseEntity) messageObject;\n                    BaseResponse baseResponse = JsonUtils.getGenericObject(responseEntity.getBody(), BaseResponse.class);\n                    log.info(Utils.redact(objectMapper.writeValueAsString(baseResponse)), entries(mapCustomizeLog));\n                    return;\n                }\n            }\n\n            log.info(Utils.redact(objectMapper.writeValueAsString(messageObject)), entries(mapCustomizeLog));\n        }\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/annotations/handler/LogsActivityAOPHandler.java",
+    "class_name": "LogsActivityAOPHandler",
+    "method_name": "logsActivityAnnotation",
+    "chunk_type": "other",
+    "calls": [
+      "HttpServletRequest.getParameterMap",
+      "HttpServletRequest.getQueryString",
+      "HttpServletRequest.getRequestURI",
+      "JsonUtils.convertObjectToString",
+      "LogsActivityAOPHandler.displayLog",
+      "LogsActivityAOPHandler.getHeaders",
+      "LogsActivityAOPHandler.getRequestId",
+      "ProceedingJoinPoint.getArgs",
+      "ProceedingJoinPoint.getDeclaringTypeName",
+      "ProceedingJoinPoint.getName",
+      "ProceedingJoinPoint.getSignature",
+      "ProceedingJoinPoint.proceed",
+      "Utils.redact",
+      "unknown.getTime",
+      "unknown.put"
+    ],
+    "called_by": [],
+    "line_start": 66,
+    "line_end": 98,
+    "content": "@Around(\"execution(* *(..)) && @annotation(logsActivityAnnotation)\")\n    @SneakyThrows\n    public Object logsActivityAnnotation(ProceedingJoinPoint point, LogsActivityAnnotation logsActivityAnnotation) {\n        // Parameter\n        Object objectRequest = point.getArgs().length > 0 ? point.getArgs()[0] : httpServletRequest.getParameterMap();\n        String requestId = getRequestId();\n        // Log request\n        Map<String, Object> mapCustomizeLog = new HashMap<>();\n        mapCustomizeLog.put(LogsActivityAOPHandler.request_path, httpServletRequest.getRequestURI());\n        mapCustomizeLog.put(LogsActivityAOPHandler.query_string, httpServletRequest.getQueryString());\n        mapCustomizeLog.put(LogsActivityAOPHandler.code_file, point.getSignature().getDeclaringTypeName());\n        mapCustomizeLog.put(LogsActivityAOPHandler.method_name, point.getSignature().getName());\n        mapCustomizeLog.put(LogsActivityAOPHandler.message_type, LogsActivityAOPHandler.request);\n        mapCustomizeLog.put(LogsActivityAOPHandler.request_id, requestId);\n        mapCustomizeLog.put(LogsActivityAOPHandler.headers, Utils.redact(JsonUtils.convertObjectToString(getHeaders())));\n        displayLog(objectRequest, mapCustomizeLog);\n\n        // Process and get response\n        long timeStart = new Date().getTime();\n        Object objectResponse = point.proceed();\n\n        // Log response\n        long timeHandle = new Date().getTime() - timeStart;\n        mapCustomizeLog.put(LogsActivityAOPHandler.execution_time, timeHandle);\n        mapCustomizeLog.put(LogsActivityAOPHandler.code_file, point.getSignature().getDeclaringTypeName());\n        mapCustomizeLog.put(LogsActivityAOPHandler.method_name, point.getSignature().getName());\n        mapCustomizeLog.put(LogsActivityAOPHandler.request_id, requestId);\n        mapCustomizeLog.put(LogsActivityAOPHandler.message_type, LogsActivityAOPHandler.response);\n        mapCustomizeLog.put(LogsActivityAOPHandler.headers, Utils.redact(JsonUtils.convertObjectToString(getHeaders())));\n\n        displayLog(objectResponse, mapCustomizeLog);\n        return objectResponse;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/annotations/handler/LogsActivityAOPHandler.java",
+    "class_name": "LogsActivityAOPHandler",
+    "method_name": "displayLog",
+    "chunk_type": "other",
+    "calls": [
+      "JsonUtils.getGenericObject",
+      "LogsActivityAOPHandler.entries",
+      "LogsActivityAOPHandler.getRequestBody",
+      "LogsActivityAOPHandler.getRequestId",
+      "Map<String, Object>.equals",
+      "Map<String, Object>.get",
+      "Map<String, Object>.toString",
+      "ObjectUtils.isEmpty",
+      "Utils.redact",
+      "unknown.error",
+      "unknown.getBody",
+      "unknown.getData",
+      "unknown.getError",
+      "unknown.getMessage",
+      "unknown.info",
+      "unknown.writeValueAsString"
+    ],
+    "called_by": [
+      "LogsActivityAOPHandler.logsActivityAnnotation"
+    ],
+    "line_start": 100,
+    "line_end": 137,
+    "content": "private void displayLog(Object messageObject, Map<String, Object> mapCustomizeLog) throws JsonProcessingException {\n        if (messageObject instanceof Exception) {\n            Exception e = (Exception) messageObject;\n            if (e instanceof MethodArgumentNotValidException) {\n                log.info(Utils.redact(objectMapper.writeValueAsString(getRequestBody())), entries(mapCustomizeLog));\n                return;\n            } else if (e instanceof BusinessException) {\n                BusinessException businessException = (BusinessException) e;\n                if (!ObjectUtils.isEmpty(businessException.getError())) {\n                    if (!ObjectUtils.isEmpty(businessException.getError().getMessage())) {\n                        log.info(Utils.redact(e.getMessage()), entries(mapCustomizeLog));\n                        return;\n                    } else if (!ObjectUtils.isEmpty(businessException.getError().getData())) {\n                        log.info(Utils.redact(objectMapper.writeValueAsString(businessException.getError().getData())),\n                                entries(mapCustomizeLog));\n                        return;\n                    }\n                }\n            } else if (!ObjectUtils.isEmpty(e.getMessage())) {\n                log.info(Utils.redact(e.getMessage()), entries(mapCustomizeLog));\n            }\n\n            if (mapCustomizeLog.get(LogsActivityAOPHandler.message_type).toString().equals(LogsActivityAOPHandler.request)) {\n                log.error(\"Request_id: {}, Exception: \", getRequestId(), e);\n            }\n        } else {\n            if (mapCustomizeLog.get(LogsActivityAOPHandler.message_type).toString().equals(LogsActivityAOPHandler.response)) {\n                if (messageObject instanceof ResponseEntity) {\n                    ResponseEntity responseEntity = (ResponseEntity) messageObject;\n                    BaseResponse baseResponse = JsonUtils.getGenericObject(responseEntity.getBody(), BaseResponse.class);\n                    log.info(Utils.redact(objectMapper.writeValueAsString(baseResponse)), entries(mapCustomizeLog));\n                    return;\n                }\n            }\n\n            log.info(Utils.redact(objectMapper.writeValueAsString(messageObject)), entries(mapCustomizeLog));\n        }\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/annotations/handler/ValueOfEnumValidator.java",
+    "class_name": "ValueOfEnumValidator",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 11,
+    "line_end": 29,
+    "content": "public class ValueOfEnumValidator implements ConstraintValidator<ValueOfEnum, CharSequence> {\n    private List<String> acceptedValues;\n\n    @Override\n    public void initialize(ValueOfEnum annotation) {\n        acceptedValues = Stream.of(annotation.enumClass().getEnumConstants())\n                .map(Enum::name)\n                .collect(Collectors.toList());\n    }\n\n    @Override\n    public boolean isValid(CharSequence value, ConstraintValidatorContext context) {\n        if (value == null) {\n            return true;\n        }\n\n        return acceptedValues.contains(value.toString());\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/annotations/handler/ValueOfEnumValidator.java",
+    "class_name": "ValueOfEnumValidator",
+    "method_name": "initialize",
+    "chunk_type": "other",
+    "calls": [
+      "Collectors.toList",
+      "Stream.collect",
+      "Stream.map",
+      "Stream.of",
+      "ValueOfEnum.enumClass",
+      "ValueOfEnum.getEnumConstants"
+    ],
+    "called_by": [],
+    "line_start": 14,
+    "line_end": 19,
+    "content": "@Override\n    public void initialize(ValueOfEnum annotation) {\n        acceptedValues = Stream.of(annotation.enumClass().getEnumConstants())\n                .map(Enum::name)\n                .collect(Collectors.toList());\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/annotations/handler/ValueOfEnumValidator.java",
+    "class_name": "ValueOfEnumValidator",
+    "method_name": "isValid",
+    "chunk_type": "other",
+    "calls": [
+      "CharSequence.toString",
+      "List.contains"
+    ],
+    "called_by": [],
+    "line_start": 21,
+    "line_end": 28,
+    "content": "@Override\n    public boolean isValid(CharSequence value, ConstraintValidatorContext context) {\n        if (value == null) {\n            return true;\n        }\n\n        return acceptedValues.contains(value.toString());\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/config/AppConfig.java",
+    "class_name": "AppConfig",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 13,
+    "line_end": 36,
+    "content": "@Configuration\npublic class AppConfig {\n\n    @Value(\"${cors.whitelist}\")\n    private String corsWhitelistString;\n\n    @Bean\n    public CorsConfigurationSource corsConfigurationSource() {\n        List<String> allowedOrigins = Arrays.stream(corsWhitelistString.split(\",\"))\n                .map(String::trim)\n                .filter(origin -> !origin.isEmpty())\n                .toList();\n\n        CorsConfiguration configuration = new CorsConfiguration();\n        configuration.setAllowedOrigins(allowedOrigins);\n        configuration.setAllowedMethods(List.of(\"HEAD\", \"GET\", \"POST\", \"PUT\", \"DELETE\", \"PATCH\"));\n        configuration.setAllowCredentials(true);\n        configuration.setAllowedHeaders(List.of(\"*\"));\n\n        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();\n        source.registerCorsConfiguration(\"/**\", configuration);\n        return source;\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/config/AppConfig.java",
+    "class_name": "AppConfig",
+    "method_name": "corsConfigurationSource",
+    "chunk_type": "other",
+    "calls": [
+      "Arrays.filter",
+      "Arrays.map",
+      "Arrays.stream",
+      "Arrays.toList",
+      "List.of",
+      "String.split",
+      "unknown.isEmpty",
+      "unknown.registerCorsConfiguration",
+      "unknown.setAllowCredentials",
+      "unknown.setAllowedHeaders",
+      "unknown.setAllowedMethods",
+      "unknown.setAllowedOrigins"
+    ],
+    "called_by": [],
+    "line_start": 19,
+    "line_end": 35,
+    "content": "@Bean\n    public CorsConfigurationSource corsConfigurationSource() {\n        List<String> allowedOrigins = Arrays.stream(corsWhitelistString.split(\",\"))\n                .map(String::trim)\n                .filter(origin -> !origin.isEmpty())\n                .toList();\n\n        CorsConfiguration configuration = new CorsConfiguration();\n        configuration.setAllowedOrigins(allowedOrigins);\n        configuration.setAllowedMethods(List.of(\"HEAD\", \"GET\", \"POST\", \"PUT\", \"DELETE\", \"PATCH\"));\n        configuration.setAllowCredentials(true);\n        configuration.setAllowedHeaders(List.of(\"*\"));\n\n        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();\n        source.registerCorsConfiguration(\"/**\", configuration);\n        return source;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/constant/Constant.java",
+    "class_name": "Constant",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 3,
+    "line_end": 12,
+    "content": "public final class Constant {\n\n    public static final Integer COURSE_CODE_LENGTH = 6;\n\n    public static final Integer SIGNED_URL_EXPIRATION = 60 * 1000;\n\n    public static final String STORAGE_AWS = \"AWS_S3_NORMAL\";\n\n    public static final String STORAGE_GCP = \"STORAGE_GCP\";\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/constant/ErrorConstant.java",
+    "class_name": "ErrorConstant",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 3,
+    "line_end": 74,
+    "content": "public class ErrorConstant {\n\n    private ErrorConstant() {}\n\n    /**\n     * Write the error code prefixed with 200 below\n     * 200\n     */\n    public static final int SUCCESS = 200000;\n    public static final int SUCCESS_200 = 200;\n\n    /**\n     * Write the error code prefixed with 400 below\n     * 400\n     */\n    public static final int INVALID_PARAMETERS = 4000001;\n\n    public static final int SYSTEM_CONFIGURATION_NOT_FOUND = 4004208;\n\n    public static final int TRANSACTION_NOT_FOUND = 4001210;\n\n    public static final int TRANSACTION_NOT_EXIST = 4001218;\n\n    public static final int TRANSACTION_MUST_NOT_REFUND = 4001212;\n\n    public static final int TRANSACTION_NOT_SUCCESS = 4001213;\n\n    public static final int TRANSACTION_NOT_ENOUGH_AMOUNT = 4001214;\n\n    public static final int HTTP_CONNECTION_ERROR  = 4009000;\n\n    public static final int NULL_META_DATA_RESPONSE  = 4009001;\n\n    /**\n     * Write the error code prefixed with 401 below\n     * 401\n     */\n    public static final int UNAUTHORIZED = 4010001;\n    public static final int USERNAME_PASSWORD_WRONG = 4010002;\n\n    /**\n     * Write the error code prefixed with 403 below\n     * 403\n     */\n    public static final int FORBIDDEN_ERROR = 4030001;\n\n    /**\n     *  Write the error code prefixed with 404 below\n     * 404\n     */\n    public static final int NOT_FOUND = 4040001;\n    public static final int QUIZ_NOT_FOUND = 4040002;\n    public static final int QUIZ_ATTEMPT_NOT_FOUND = 4040003;\n    public static final int QUIZ_ATTEMPT_SUBMITTED = 4040004;\n    public static final int QUESTION_DOES_NOT_BELONG_TO_QUIZ = 4040005;\n    public static final int QUESTION_NOT_FOUND = 4040006;\n    public static final int QUIZ_ATTEMPT_NOT_BELONG_TO_USER = 4040007;\n    public static final int QUIZ_TIME_LIMIT_EXCEEDED = 4040008;\n    public static final int QUIZ_NOT_SAVED = 4040009;\n    public static final int GET_PRONUNCIATION_SAMPLE_ERROR = 4040010;\n    public static final int GET_PRONUNCIATION_ACCURACY_ERROR = 4040011;\n\n    /** @Get_VA_number_information*/\n    public static final int INVALID_VA_NUMBER = 40010525;\n\n    /**\n     * Write the error code prefixed with 500 below\n     * 500\n     */\n    public static final int INTERNAL_SERVER_ERROR = 5001001;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/controller/pub/PronunciationController.java",
+    "class_name": "PronunciationController",
+    "method_name": null,
+    "chunk_type": "controller",
+    "calls": [],
+    "called_by": [],
+    "line_start": 10,
+    "line_end": 33,
+    "content": "@RestController\n@RequestMapping(\"/api/v1/pub/pronunciations\")\npublic class PronunciationController {\n\n    private final BaseService baseService;\n\n    private final PronunciationService pronunciationService;\n\n    public PronunciationController(BaseService baseService, PronunciationService pronunciationService) {\n        this.baseService = baseService;\n        this.pronunciationService = pronunciationService;\n    }\n\n    @GetMapping(\"/samples\")\n    public BaseResponse<Object> getSamplePronunciations(GetSampleRequestDto request) {\n        return baseService.ofSucceeded(pronunciationService.getSample(request));\n    }\n\n    @PostMapping(\"/accuracy\")\n    public BaseResponse<Object> getAccuracy(@RequestBody PronunciationAccuracyRequestDto request) {\n        return baseService.ofSucceeded(pronunciationService.getAccuracy(request));\n    }\n\n}",
+    "endpoints": [
+      {
+        "path": "/api/v1/pub/pronunciations",
+        "method": "REQUEST"
+      }
+    ],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/controller/pub/PronunciationController.java",
+    "class_name": "PronunciationController",
+    "method_name": "getSamplePronunciations",
+    "chunk_type": "controller",
+    "calls": [
+      "BaseService.ofSucceeded",
+      "PronunciationService.getSample"
+    ],
+    "called_by": [],
+    "line_start": 23,
+    "line_end": 26,
+    "content": "@GetMapping(\"/samples\")\n    public BaseResponse<Object> getSamplePronunciations(GetSampleRequestDto request) {\n        return baseService.ofSucceeded(pronunciationService.getSample(request));\n    }",
+    "endpoints": [
+      {
+        "path": "/api/v1/pub/pronunciations/samples",
+        "method": "GET"
+      }
+    ],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/controller/pub/PronunciationController.java",
+    "class_name": "PronunciationController",
+    "method_name": "getAccuracy",
+    "chunk_type": "controller",
+    "calls": [
+      "BaseService.ofSucceeded",
+      "PronunciationService.getAccuracy"
+    ],
+    "called_by": [],
+    "line_start": 28,
+    "line_end": 31,
+    "content": "@PostMapping(\"/accuracy\")\n    public BaseResponse<Object> getAccuracy(@RequestBody PronunciationAccuracyRequestDto request) {\n        return baseService.ofSucceeded(pronunciationService.getAccuracy(request));\n    }",
+    "endpoints": [
+      {
+        "path": "/api/v1/pub/pronunciations/accuracy",
+        "method": "POST"
+      }
+    ],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseCreateUpdateResponse.java",
+    "class_name": "BaseCreateUpdateResponse",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 7,
+    "line_end": 14,
+    "content": "@Data\n@AllArgsConstructor\n@NoArgsConstructor\npublic class BaseCreateUpdateResponse {\n\n    private String id;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 20,
+    "line_end": 187,
+    "content": "@Data\n@Accessors(chain = true)\n@JsonInclude(JsonInclude.Include.NON_NULL)\n@Slf4j\n@NoArgsConstructor\n@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)\n@SuperBuilder\npublic class BaseResponse<T> {\n\n    private Meta meta = new Meta();\n\n    private T data;\n\n    public BaseResponse(Meta meta, T data) {\n        this.meta = meta;\n        this.data = data;\n    }\n\n    public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {\n        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {\n            return;\n        }\n\n        Meta meta = baseResponse.meta;\n        if (status != meta.getCode()) {\n            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);\n        }\n    }\n\n    public static <T> BaseResponse<T> ofSucceeded(T data) {\n        BaseResponse<T> response = new BaseResponse<>();\n        response.data = data;\n        response.meta.setCode(ErrorConstant.SUCCESS);\n        response.meta.setMessage(\"OK\");\n        return response;\n    }\n\n    public static <T> BaseResponse<T> ofSucceeded() {\n        BaseResponse<T> response = new BaseResponse<>();\n        response.meta.setCode(ErrorConstant.SUCCESS);\n        return response;\n    }\n\n    public static BaseResponse ofFailed(BusinessError error) {\n        return ofFailed(error, null);\n    }\n\n    public static <T> BaseResponse<T> ofFailed(BusinessError error, T data) {\n        return ofFailed(error, null, data);\n    }\n\n    public static BaseResponse ofFailed(BusinessError error, String message) {\n        return ofFailed(error, message, null);\n    }\n\n    public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, T data) {\n        return ofFailed(error, message, null, data);\n    }\n\n    public static BaseResponse ofFailed(BusinessError error, String message, List<ErrorViolation> errors) {\n        BaseResponse response = new BaseResponse<>();\n        response.meta.setCode(error.getCode());\n        response.meta.setMessage((message != null) ? message : error.getMessage());\n        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);\n        if(errors != null && errors.size() > 0) {\n            response.meta.setMessage(errors.get(0).getDescription());\n        }\n        return response;\n    }\n\n    public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, List<ErrorViolation> errors, T data) {\n        BaseResponse<T> response = new BaseResponse<>();\n        response.meta.setCode(error.getCode());\n        response.meta.setMessage((message != null) ? message : error.getMessage());\n        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);\n        if(errors != null && errors.size() > 0) {\n            response.meta.setMessage(errors.get(0).getDescription());\n        }\n        response.data = data;\n        return response;\n    }\n\n    public static BaseResponse ofFailed(BusinessException exception) {\n        return ofFailed(exception.getError(), exception.getMessage());\n    }\n\n    public static <T> BaseResponse<T> ofFailed(BusinessException exception, T data) {\n        return ofFailed(exception.getError(), exception.getMessage(), data);\n    }\n\n    public static <T> BaseResponse<T> ofSucceeded(String requestId, T data) {\n        BaseResponse<T> response = ofSucceeded(data);\n        response.meta.setRequestId(requestId);\n        return response;\n    }\n    public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {\n        BaseResponse<T> response = ofSucceeded(data);\n        response.meta.setRequestId(requestList.getRequestId());\n        response.meta.setPageSize(requestList.getPageSize());\n        response.meta.setPageIndex(requestList.getPageIndex());\n        response.meta.setTotalItems(requestList.getTotalItems());\n        response.data = data;\n        return response;\n    }\n    public static <T> BaseResponse<T> ofSucceeded(BasicRequest request, T data) {\n        BaseResponse<T> response = ofSucceeded(data);\n        response.meta.setRequestId(request.getRequestId());\n        return response;\n    }\n\n    public static <T> BaseResponse<T> ofSucceeded(String requestId) {\n        BaseResponse<T> response = ofSucceeded();\n        response.meta.setRequestId(requestId);\n        return response;\n    }\n\n    public static BaseResponse ofFailed(String requestId, BusinessError error) {\n        BaseResponse response = ofFailed(error);\n        response.meta.setRequestId(requestId);\n        return response;\n    }\n\n    public static BaseResponse ofFailed(String requestId, BusinessError error, String message) {\n        BaseResponse response = ofFailed(error, message);\n        response.meta.setRequestId(requestId);\n        return response;\n    }\n\n    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, T data) {\n        BaseResponse<T> response = ofFailed(error, data);\n        response.meta.setRequestId(requestId);\n        response.data = data;\n        return response;\n    }\n\n    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, T data) {\n        BaseResponse<T> response = ofFailed(error, message, data);\n        response.meta.setRequestId(requestId);\n        response.data = data;\n        return response;\n    }\n\n    public static BaseResponse ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors) {\n        BaseResponse response = ofFailed(error, message, errors);\n        response.meta.setRequestId(requestId);\n        return response;\n    }\n\n    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors, T data) {\n        BaseResponse<T> response = ofFailed(error, message, errors, data);\n        response.meta.setRequestId(requestId);\n        response.data = data;\n        return response;\n    }\n\n    public static BaseResponse ofFailed(String requestId, BusinessException exception) {\n        BaseResponse response = ofFailed(exception);\n        response.meta.setRequestId(requestId);\n        return response;\n    }\n\n    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {\n        BaseResponse<T> response = ofFailed(exception, data);\n        response.meta.setRequestId(requestId);\n        response.data = data;\n        return response;\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "verifyMetaResponse",
+    "chunk_type": "other",
+    "calls": [
+      "Meta.getCode",
+      "Meta.getMessage",
+      "Objects.isNull"
+    ],
+    "called_by": [],
+    "line_start": 38,
+    "line_end": 47,
+    "content": "public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {\n        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {\n            return;\n        }\n\n        Meta meta = baseResponse.meta;\n        if (status != meta.getCode()) {\n            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);\n        }\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofSucceeded",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.setCode",
+      "unknown.setMessage"
+    ],
+    "called_by": [
+      "BaseResponse.ofSucceeded",
+      "BaseResponse.ofGetListSucceeded",
+      "BaseService.ofSucceeded"
+    ],
+    "line_start": 49,
+    "line_end": 55,
+    "content": "public static <T> BaseResponse<T> ofSucceeded(T data) {\n        BaseResponse<T> response = new BaseResponse<>();\n        response.data = data;\n        response.meta.setCode(ErrorConstant.SUCCESS);\n        response.meta.setMessage(\"OK\");\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofSucceeded",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.setCode"
+    ],
+    "called_by": [
+      "BaseResponse.ofSucceeded",
+      "BaseResponse.ofGetListSucceeded",
+      "BaseService.ofSucceeded"
+    ],
+    "line_start": 57,
+    "line_end": 61,
+    "content": "public static <T> BaseResponse<T> ofSucceeded() {\n        BaseResponse<T> response = new BaseResponse<>();\n        response.meta.setCode(ErrorConstant.SUCCESS);\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 63,
+    "line_end": 65,
+    "content": "public static BaseResponse ofFailed(BusinessError error) {\n        return ofFailed(error, null);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 67,
+    "line_end": 69,
+    "content": "public static <T> BaseResponse<T> ofFailed(BusinessError error, T data) {\n        return ofFailed(error, null, data);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 71,
+    "line_end": 73,
+    "content": "public static BaseResponse ofFailed(BusinessError error, String message) {\n        return ofFailed(error, message, null);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 75,
+    "line_end": 77,
+    "content": "public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, T data) {\n        return ofFailed(error, message, null, data);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BusinessError.getCode",
+      "BusinessError.getMessage",
+      "List<ErrorViolation>.get",
+      "List<ErrorViolation>.getDescription",
+      "List<ErrorViolation>.size",
+      "unknown.setCode",
+      "unknown.setErrors",
+      "unknown.setMessage"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 79,
+    "line_end": 88,
+    "content": "public static BaseResponse ofFailed(BusinessError error, String message, List<ErrorViolation> errors) {\n        BaseResponse response = new BaseResponse<>();\n        response.meta.setCode(error.getCode());\n        response.meta.setMessage((message != null) ? message : error.getMessage());\n        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);\n        if(errors != null && errors.size() > 0) {\n            response.meta.setMessage(errors.get(0).getDescription());\n        }\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BusinessError.getCode",
+      "BusinessError.getMessage",
+      "List<ErrorViolation>.get",
+      "List<ErrorViolation>.getDescription",
+      "List<ErrorViolation>.size",
+      "unknown.setCode",
+      "unknown.setErrors",
+      "unknown.setMessage"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 90,
+    "line_end": 100,
+    "content": "public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, List<ErrorViolation> errors, T data) {\n        BaseResponse<T> response = new BaseResponse<>();\n        response.meta.setCode(error.getCode());\n        response.meta.setMessage((message != null) ? message : error.getMessage());\n        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);\n        if(errors != null && errors.size() > 0) {\n            response.meta.setMessage(errors.get(0).getDescription());\n        }\n        response.data = data;\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BusinessException.getError",
+      "BusinessException.getMessage"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 102,
+    "line_end": 104,
+    "content": "public static BaseResponse ofFailed(BusinessException exception) {\n        return ofFailed(exception.getError(), exception.getMessage());\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BusinessException.getError",
+      "BusinessException.getMessage"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 106,
+    "line_end": 108,
+    "content": "public static <T> BaseResponse<T> ofFailed(BusinessException exception, T data) {\n        return ofFailed(exception.getError(), exception.getMessage(), data);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofSucceeded",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofSucceeded",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofSucceeded",
+      "BaseResponse.ofGetListSucceeded",
+      "BaseService.ofSucceeded"
+    ],
+    "line_start": 110,
+    "line_end": 114,
+    "content": "public static <T> BaseResponse<T> ofSucceeded(String requestId, T data) {\n        BaseResponse<T> response = ofSucceeded(data);\n        response.meta.setRequestId(requestId);\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofGetListSucceeded",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofSucceeded",
+      "BasicRequestList.getPageIndex",
+      "BasicRequestList.getPageSize",
+      "BasicRequestList.getRequestId",
+      "BasicRequestList.getTotalItems",
+      "unknown.setPageIndex",
+      "unknown.setPageSize",
+      "unknown.setRequestId",
+      "unknown.setTotalItems"
+    ],
+    "called_by": [
+      "BaseService.ofGetListSucceeded"
+    ],
+    "line_start": 115,
+    "line_end": 123,
+    "content": "public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {\n        BaseResponse<T> response = ofSucceeded(data);\n        response.meta.setRequestId(requestList.getRequestId());\n        response.meta.setPageSize(requestList.getPageSize());\n        response.meta.setPageIndex(requestList.getPageIndex());\n        response.meta.setTotalItems(requestList.getTotalItems());\n        response.data = data;\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofSucceeded",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofSucceeded",
+      "BasicRequest.getRequestId",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofSucceeded",
+      "BaseResponse.ofGetListSucceeded",
+      "BaseService.ofSucceeded"
+    ],
+    "line_start": 124,
+    "line_end": 128,
+    "content": "public static <T> BaseResponse<T> ofSucceeded(BasicRequest request, T data) {\n        BaseResponse<T> response = ofSucceeded(data);\n        response.meta.setRequestId(request.getRequestId());\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofSucceeded",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofSucceeded",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofSucceeded",
+      "BaseResponse.ofGetListSucceeded",
+      "BaseService.ofSucceeded"
+    ],
+    "line_start": 130,
+    "line_end": 134,
+    "content": "public static <T> BaseResponse<T> ofSucceeded(String requestId) {\n        BaseResponse<T> response = ofSucceeded();\n        response.meta.setRequestId(requestId);\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 136,
+    "line_end": 140,
+    "content": "public static BaseResponse ofFailed(String requestId, BusinessError error) {\n        BaseResponse response = ofFailed(error);\n        response.meta.setRequestId(requestId);\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 142,
+    "line_end": 146,
+    "content": "public static BaseResponse ofFailed(String requestId, BusinessError error, String message) {\n        BaseResponse response = ofFailed(error, message);\n        response.meta.setRequestId(requestId);\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 148,
+    "line_end": 153,
+    "content": "public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, T data) {\n        BaseResponse<T> response = ofFailed(error, data);\n        response.meta.setRequestId(requestId);\n        response.data = data;\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 155,
+    "line_end": 160,
+    "content": "public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, T data) {\n        BaseResponse<T> response = ofFailed(error, message, data);\n        response.meta.setRequestId(requestId);\n        response.data = data;\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 162,
+    "line_end": 166,
+    "content": "public static BaseResponse ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors) {\n        BaseResponse response = ofFailed(error, message, errors);\n        response.meta.setRequestId(requestId);\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 168,
+    "line_end": 173,
+    "content": "public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors, T data) {\n        BaseResponse<T> response = ofFailed(error, message, errors, data);\n        response.meta.setRequestId(requestId);\n        response.data = data;\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 175,
+    "line_end": 179,
+    "content": "public static BaseResponse ofFailed(String requestId, BusinessException exception) {\n        BaseResponse response = ofFailed(exception);\n        response.meta.setRequestId(requestId);\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BaseResponse.java",
+    "class_name": "BaseResponse",
+    "method_name": "ofFailed",
+    "chunk_type": "other",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "unknown.setRequestId"
+    ],
+    "called_by": [
+      "BaseResponse.ofFailed",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 181,
+    "line_end": 186,
+    "content": "public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {\n        BaseResponse<T> response = ofFailed(exception, data);\n        response.meta.setRequestId(requestId);\n        response.data = data;\n        return response;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BasicCreationResponse.java",
+    "class_name": "BasicCreationResponse",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 8,
+    "line_end": 15,
+    "content": "@Data\n@Builder\n@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)\npublic class BasicCreationResponse {\n\n    private String id;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BasicRequest.java",
+    "class_name": "BasicRequest",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 17,
+    "line_end": 49,
+    "content": "@NoArgsConstructor\n@AllArgsConstructor\n@Data\n@SuperBuilder\n@JsonInclude(JsonInclude.Include.NON_NULL)\n@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)\npublic class BasicRequest implements Serializable {\n\n    private static final long serialVersionUID = 1606619939033520333L;\n\n    private String requestId;\n\n    private String uri;\n\n    private String opsUserEmail;\n\n    private String opsUserId;\n\n    private String opsUsername;\n\n    private List<String> manageMerchants;\n\n    private List<String> branchCodes;\n\n    public boolean isValidByManageMerchants(String merchantCode) {\n        if (StringUtils.isBlank(merchantCode)) {\n            return true;\n        }\n\n        return new HashSet<>(manageMerchants).contains(merchantCode);\n    }\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BasicRequest.java",
+    "class_name": "BasicRequest",
+    "method_name": "isValidByManageMerchants",
+    "chunk_type": "other",
+    "calls": [
+      "StringUtils.isBlank",
+      "unknown.contains"
+    ],
+    "called_by": [],
+    "line_start": 41,
+    "line_end": 47,
+    "content": "public boolean isValidByManageMerchants(String merchantCode) {\n        if (StringUtils.isBlank(merchantCode)) {\n            return true;\n        }\n\n        return new HashSet<>(manageMerchants).contains(merchantCode);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/BasicRequestList.java",
+    "class_name": "BasicRequestList",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 12,
+    "line_end": 37,
+    "content": "@NoArgsConstructor\n@AllArgsConstructor\n@Data\n@SuperBuilder\n@JsonInclude(JsonInclude.Include.NON_NULL)\n@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)\npublic class BasicRequestList extends BasicRequest {\n\n    private static final long serialVersionUID = -2411435498386121564L;\n\n    @NotNull(message = \"page_index must not be null!\")\n    private Long pageIndex;\n\n    private Long pageStart;\n\n    @NotNull(message = \"page_size must not be null!\")\n    private Long pageSize;\n\n    private Long totalItems;\n\n    public BasicRequestList(Long totalItems, String requestId) {\n        this.setTotalItems(totalItems);\n        this.setRequestId(requestId);\n    }\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/ErrorViolation.java",
+    "class_name": "ErrorViolation",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 12,
+    "line_end": 26,
+    "content": "@Data\n@Accessors(chain = true)\n@AllArgsConstructor\n@NoArgsConstructor\n@JsonInclude(JsonInclude.Include.NON_NULL)\n@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)\n@SuperBuilder\npublic class ErrorViolation {\n\n    private String field;\n\n    private String code;\n\n    private String description;\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/Meta.java",
+    "class_name": "Meta",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 11,
+    "line_end": 47,
+    "content": "@Data\n@NoArgsConstructor\n@AllArgsConstructor\n@JsonInclude(JsonInclude.Include.NON_NULL)\n@SuperBuilder\npublic class Meta {\n\n    private Integer code;\n\n    private Long pageIndex;\n\n    private Long pageSize;\n\n    private Long totalItems;\n\n    private List<ErrorViolation> errors;\n\n    private String message;\n\n    private String requestId;\n\n\n    public Meta(String requestId, int code, Long pageIndex, Long pageSize, long totalItems) {\n        this.requestId = requestId;\n        this.code = code;\n        this.pageSize = pageSize;\n        this.pageIndex = pageIndex;\n        this.totalItems = totalItems;\n    }\n\n\n    public Meta(String requestId, int code, String message) {\n        this.requestId = requestId;\n        this.code = code;\n        this.message = message;\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/pronunciation/GetPronunciationSampleResponseDto.java",
+    "class_name": "GetPronunciationSampleResponseDto",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 7,
+    "line_end": 18,
+    "content": "@Data\n@NoArgsConstructor\n@AllArgsConstructor\npublic class GetPronunciationSampleResponseDto {\n\n    private String ipaTranscript;\n\n    private String realTranscript;\n\n    private String transcriptTranslation;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/pronunciation/GetSampleRequestDto.java",
+    "class_name": "GetSampleRequestDto",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 9,
+    "line_end": 19,
+    "content": "@Data\n@NoArgsConstructor\n@AllArgsConstructor\npublic class GetSampleRequestDto {\n\n    @NotNull\n    private PronunciationLevel level;\n\n    private String customText;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/pronunciation/PronunciationAccuracyRequestDto.java",
+    "class_name": "PronunciationAccuracyRequestDto",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 8,
+    "line_end": 18,
+    "content": "@Data\n@NoArgsConstructor\n@AllArgsConstructor\n@Builder\npublic class PronunciationAccuracyRequestDto {\n\n    private String base64Audio;\n\n    private String text;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/dto/pronunciation/PronunciationAccuracyResponseDto.java",
+    "class_name": "PronunciationAccuracyResponseDto",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 7,
+    "line_end": 34,
+    "content": "@Data\n@NoArgsConstructor\n@AllArgsConstructor\npublic class PronunciationAccuracyResponseDto {\n\n    private String startTime;\n\n    private String endTime;\n\n    private String ipaScript;\n\n    private String isLetterCorrectAllWords;\n\n    private String matchedTranscripts;\n\n    private String matchedTranscriptsIpa;\n\n    private String pairAccuracyCategory;\n\n    private Integer pronunciationAccuracy;\n\n    private String realTranscript;\n\n    private String realTranscripts;\n\n    private String realTranscriptsIpa;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/exception/BusinessError.java",
+    "class_name": "BusinessError",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 11,
+    "line_end": 57,
+    "content": "@Data\n@AllArgsConstructor\n@NoArgsConstructor\n@SuperBuilder\npublic class BusinessError implements Serializable {\n\n    private static final long serialVersionUID = 2405172041950251807L;\n\n    private int code;\n\n    private String message;\n\n    private HttpStatus httpStatus;\n\n    private Object data;\n\n    public BusinessError(int code, HttpStatus httpStatus) {\n        this.code = code;\n        this.httpStatus = httpStatus;\n    }\n\n    public BusinessError(int code) {\n        this.code = code;\n    }\n\n    public BusinessError(int code, HttpStatus httpStatus, Object data) {\n        this.code = code;\n        this.httpStatus = httpStatus;\n        this.data = data;\n    }\n\n    public BusinessError(int code, Object data) {\n        this.code = code;\n        this.data = data;\n    }\n\n    public BusinessError(int code, String message) {\n        this.code = code;\n        this.message = message;\n    }\n\n    public BusinessError(int code, String message, HttpStatus httpStatus) {\n        this.code = code;\n        this.message = message;\n        this.httpStatus = httpStatus;\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/exception/BusinessException.java",
+    "class_name": "BusinessException",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 9,
+    "line_end": 52,
+    "content": "@Getter\n@Builder\npublic class BusinessException extends RuntimeException implements Serializable {\n\n    private static final long serialVersionUID = 1905122041950251207L;\n\n    private final BusinessError error;\n\n    public BusinessException(int code, String message, HttpStatus status) {\n        super(message);\n        this.error = new BusinessError(code, message, status);\n    }\n\n    public BusinessException(int code, HttpStatus status) {\n        this.error = new BusinessError(code, status);\n    }\n\n    public BusinessException(int code) {\n        this.error = new BusinessError(code);\n    }\n\n    public BusinessException(int code, Object data) {\n        this.error = new BusinessError(code, data);\n    }\n\n    public BusinessException(int code, String message) {\n        this.error = new BusinessError(code, message);\n    }\n\n    public BusinessException(BusinessError error) {\n        super(error.getMessage());\n        this.error = error;\n    }\n\n    public BusinessException(BusinessError error, String message) {\n        super(message);\n        this.error = error;\n    }\n\n    public BusinessException(BusinessError error, String message, Throwable cause) {\n        super(message, cause);\n        this.error = error;\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/exception/CommonExceptionHandler.java",
+    "class_name": "CommonExceptionHandler",
+    "method_name": null,
+    "chunk_type": "controller",
+    "calls": [],
+    "called_by": [],
+    "line_start": 25,
+    "line_end": 128,
+    "content": "@Controller\n@ControllerAdvice\n@Slf4j\npublic class CommonExceptionHandler extends BaseService {\n\n    @ExceptionHandler(BusinessException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleBusinessException(BusinessException exception) {\n        exception.getError().setMessage(getMessage(exception.getError()));\n        Object dataException = exception.getError().getData();\n        BaseResponse<?> data = ofFailed(exception);\n        if(!ObjectUtils.isEmpty(dataException) && dataException instanceof String) {\n            data.getMeta().setErrors(Collections.singletonList(\n                ErrorViolation.builder().description((String) dataException).build()));\n        }\n        return new ResponseEntity<>(data, exception.getError().getHttpStatus() == null\n                ? HttpStatus.OK : exception.getError().getHttpStatus());\n    }\n\n    @ExceptionHandler(MethodArgumentNotValidException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleMethodArgumentNotValidException(MethodArgumentNotValidException exception) {\n        List<ErrorViolation> errors = exception.getBindingResult().getFieldErrors().stream()\n            .map(e -> ErrorViolation.builder()\n                .field(CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, e.getField()))\n                .code(Integer.toString(getErrorCode(e.getDefaultMessage(), ErrorConstant.INVALID_PARAMETERS)))\n                .description(getMessage(e.getDefaultMessage()))\n                .build())\n            .collect(Collectors.toList());\n\n        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);\n        BaseResponse<?> data = ofFailed(error, getMessage(error), errors);\n        return new ResponseEntity<>(data, HttpStatus.OK);\n    }\n\n    @ExceptionHandler(MissingServletRequestParameterException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleMethodArgumentNotValidException(MissingServletRequestParameterException exception) {\n        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);\n        BaseResponse<?> data = ofFailed(error,\"Param \" + exception.getParameterName() + \" is required\");\n        return new ResponseEntity<>(data, HttpStatus.OK);\n    }\n\n    @ExceptionHandler(Exception.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleException(Exception exception) {\n        BusinessError error = getBusinessError(ErrorConstant.INTERNAL_SERVER_ERROR);\n        BaseResponse<?> data = ofFailed(error, getMessage(error), null);\n        return new ResponseEntity<>(data, HttpStatus.OK);\n    }\n    @ExceptionHandler(HttpMessageNotReadableException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleException(HttpMessageNotReadableException exception) {\n        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);\n        BaseResponse<?> data = ofFailed(error,\"invalid parameter\");\n        return new ResponseEntity<>(data, HttpStatus.OK);\n    }\n\n    @ExceptionHandler(IllegalArgumentException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleIllegalArgumentException(IllegalArgumentException exception) {\n        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);\n        BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n        return new ResponseEntity<>(data, HttpStatus.OK);\n    }\n\n    @ExceptionHandler(HttpStatusCodeException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleHttpStatusCodeException(HttpStatusCodeException exception) {\n        HttpStatus statusCode = (HttpStatus) exception.getStatusCode();\n\n        if (statusCode.value() == HttpStatus.BAD_REQUEST.value()) {\n            BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);\n            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n            return new ResponseEntity<>(data, HttpStatus.OK);\n        }\n\n        if (statusCode.value() == HttpStatus.UNAUTHORIZED.value()) {\n            BusinessError error = getBusinessError(ErrorConstant.UNAUTHORIZED);\n            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n            return new ResponseEntity<>(data, HttpStatus.OK);\n        }\n\n        if (statusCode.value() == HttpStatus.FORBIDDEN.value()) {\n            BusinessError error = getBusinessError(ErrorConstant.FORBIDDEN_ERROR);\n            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n            return new ResponseEntity<>(data, HttpStatus.OK);\n        }\n\n        if (statusCode.value() == HttpStatus.NOT_FOUND.value()) {\n            BusinessError error = getBusinessError(ErrorConstant.NOT_FOUND);\n            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n            return new ResponseEntity<>(data, HttpStatus.OK);\n        }\n\n        if (statusCode.value() == HttpStatus.INTERNAL_SERVER_ERROR.value()) {\n            BusinessError error = getBusinessError(ErrorConstant.INTERNAL_SERVER_ERROR);\n            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n            return new ResponseEntity<>(data, HttpStatus.OK);\n        }\n\n        throw exception;\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/exception/CommonExceptionHandler.java",
+    "class_name": "CommonExceptionHandler",
+    "method_name": "handleBusinessException",
+    "chunk_type": "controller",
+    "calls": [
+      "BusinessException.getData",
+      "BusinessException.getError",
+      "BusinessException.getHttpStatus",
+      "BusinessException.setMessage",
+      "Collections.singletonList",
+      "CommonExceptionHandler.getMessage",
+      "CommonExceptionHandler.ofFailed",
+      "ErrorViolation.build",
+      "ErrorViolation.builder",
+      "ErrorViolation.description",
+      "ObjectUtils.isEmpty",
+      "unknown.getMeta",
+      "unknown.setErrors"
+    ],
+    "called_by": [],
+    "line_start": 30,
+    "line_end": 42,
+    "content": "@ExceptionHandler(BusinessException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleBusinessException(BusinessException exception) {\n        exception.getError().setMessage(getMessage(exception.getError()));\n        Object dataException = exception.getError().getData();\n        BaseResponse<?> data = ofFailed(exception);\n        if(!ObjectUtils.isEmpty(dataException) && dataException instanceof String) {\n            data.getMeta().setErrors(Collections.singletonList(\n                ErrorViolation.builder().description((String) dataException).build()));\n        }\n        return new ResponseEntity<>(data, exception.getError().getHttpStatus() == null\n                ? HttpStatus.OK : exception.getError().getHttpStatus());\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/exception/CommonExceptionHandler.java",
+    "class_name": "CommonExceptionHandler",
+    "method_name": "handleMethodArgumentNotValidException",
+    "chunk_type": "controller",
+    "calls": [
+      "Collectors.toList",
+      "CommonExceptionHandler.getBusinessError",
+      "CommonExceptionHandler.getErrorCode",
+      "CommonExceptionHandler.getMessage",
+      "CommonExceptionHandler.ofFailed",
+      "ErrorViolation.build",
+      "ErrorViolation.builder",
+      "ErrorViolation.code",
+      "ErrorViolation.description",
+      "ErrorViolation.field",
+      "Integer.toString",
+      "MethodArgumentNotValidException.collect",
+      "MethodArgumentNotValidException.getBindingResult",
+      "MethodArgumentNotValidException.getFieldErrors",
+      "MethodArgumentNotValidException.map",
+      "MethodArgumentNotValidException.stream",
+      "unknown.getDefaultMessage",
+      "unknown.getField",
+      "unknown.to"
+    ],
+    "called_by": [],
+    "line_start": 44,
+    "line_end": 58,
+    "content": "@ExceptionHandler(MethodArgumentNotValidException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleMethodArgumentNotValidException(MethodArgumentNotValidException exception) {\n        List<ErrorViolation> errors = exception.getBindingResult().getFieldErrors().stream()\n            .map(e -> ErrorViolation.builder()\n                .field(CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, e.getField()))\n                .code(Integer.toString(getErrorCode(e.getDefaultMessage(), ErrorConstant.INVALID_PARAMETERS)))\n                .description(getMessage(e.getDefaultMessage()))\n                .build())\n            .collect(Collectors.toList());\n\n        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);\n        BaseResponse<?> data = ofFailed(error, getMessage(error), errors);\n        return new ResponseEntity<>(data, HttpStatus.OK);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/exception/CommonExceptionHandler.java",
+    "class_name": "CommonExceptionHandler",
+    "method_name": "handleMethodArgumentNotValidException",
+    "chunk_type": "controller",
+    "calls": [
+      "CommonExceptionHandler.getBusinessError",
+      "CommonExceptionHandler.ofFailed",
+      "MissingServletRequestParameterException.getParameterName"
+    ],
+    "called_by": [],
+    "line_start": 60,
+    "line_end": 66,
+    "content": "@ExceptionHandler(MissingServletRequestParameterException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleMethodArgumentNotValidException(MissingServletRequestParameterException exception) {\n        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);\n        BaseResponse<?> data = ofFailed(error,\"Param \" + exception.getParameterName() + \" is required\");\n        return new ResponseEntity<>(data, HttpStatus.OK);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/exception/CommonExceptionHandler.java",
+    "class_name": "CommonExceptionHandler",
+    "method_name": "handleException",
+    "chunk_type": "controller",
+    "calls": [
+      "CommonExceptionHandler.getBusinessError",
+      "CommonExceptionHandler.getMessage",
+      "CommonExceptionHandler.ofFailed"
+    ],
+    "called_by": [],
+    "line_start": 68,
+    "line_end": 74,
+    "content": "@ExceptionHandler(Exception.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleException(Exception exception) {\n        BusinessError error = getBusinessError(ErrorConstant.INTERNAL_SERVER_ERROR);\n        BaseResponse<?> data = ofFailed(error, getMessage(error), null);\n        return new ResponseEntity<>(data, HttpStatus.OK);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/exception/CommonExceptionHandler.java",
+    "class_name": "CommonExceptionHandler",
+    "method_name": "handleException",
+    "chunk_type": "controller",
+    "calls": [
+      "CommonExceptionHandler.getBusinessError",
+      "CommonExceptionHandler.ofFailed"
+    ],
+    "called_by": [],
+    "line_start": 75,
+    "line_end": 81,
+    "content": "@ExceptionHandler(HttpMessageNotReadableException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleException(HttpMessageNotReadableException exception) {\n        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);\n        BaseResponse<?> data = ofFailed(error,\"invalid parameter\");\n        return new ResponseEntity<>(data, HttpStatus.OK);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/exception/CommonExceptionHandler.java",
+    "class_name": "CommonExceptionHandler",
+    "method_name": "handleIllegalArgumentException",
+    "chunk_type": "controller",
+    "calls": [
+      "CommonExceptionHandler.getBusinessError",
+      "CommonExceptionHandler.getMessage",
+      "CommonExceptionHandler.ofFailed",
+      "IllegalArgumentException.getMessage"
+    ],
+    "called_by": [],
+    "line_start": 83,
+    "line_end": 89,
+    "content": "@ExceptionHandler(IllegalArgumentException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleIllegalArgumentException(IllegalArgumentException exception) {\n        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);\n        BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n        return new ResponseEntity<>(data, HttpStatus.OK);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/exception/CommonExceptionHandler.java",
+    "class_name": "CommonExceptionHandler",
+    "method_name": "handleHttpStatusCodeException",
+    "chunk_type": "controller",
+    "calls": [
+      "CommonExceptionHandler.getBusinessError",
+      "CommonExceptionHandler.getMessage",
+      "CommonExceptionHandler.ofFailed",
+      "HttpStatusCodeException.getMessage",
+      "HttpStatusCodeException.getStatusCode",
+      "unknown.value"
+    ],
+    "called_by": [],
+    "line_start": 91,
+    "line_end": 127,
+    "content": "@ExceptionHandler(HttpStatusCodeException.class)\n    @LogsActivityAnnotation\n    public ResponseEntity<BaseResponse<?>> handleHttpStatusCodeException(HttpStatusCodeException exception) {\n        HttpStatus statusCode = (HttpStatus) exception.getStatusCode();\n\n        if (statusCode.value() == HttpStatus.BAD_REQUEST.value()) {\n            BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);\n            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n            return new ResponseEntity<>(data, HttpStatus.OK);\n        }\n\n        if (statusCode.value() == HttpStatus.UNAUTHORIZED.value()) {\n            BusinessError error = getBusinessError(ErrorConstant.UNAUTHORIZED);\n            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n            return new ResponseEntity<>(data, HttpStatus.OK);\n        }\n\n        if (statusCode.value() == HttpStatus.FORBIDDEN.value()) {\n            BusinessError error = getBusinessError(ErrorConstant.FORBIDDEN_ERROR);\n            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n            return new ResponseEntity<>(data, HttpStatus.OK);\n        }\n\n        if (statusCode.value() == HttpStatus.NOT_FOUND.value()) {\n            BusinessError error = getBusinessError(ErrorConstant.NOT_FOUND);\n            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n            return new ResponseEntity<>(data, HttpStatus.OK);\n        }\n\n        if (statusCode.value() == HttpStatus.INTERNAL_SERVER_ERROR.value()) {\n            BusinessError error = getBusinessError(ErrorConstant.INTERNAL_SERVER_ERROR);\n            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());\n            return new ResponseEntity<>(data, HttpStatus.OK);\n        }\n\n        throw exception;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/filter/ApiKeyVerifyRequestWrapper.java",
+    "class_name": "ApiKeyVerifyRequestWrapper",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 16,
+    "line_end": 100,
+    "content": "public class ApiKeyVerifyRequestWrapper extends HttpServletRequestWrapper {\n\n    private final String body; // Make body final as it's set once in constructor\n\n    public ApiKeyVerifyRequestWrapper(HttpServletRequest request) throws IOException {\n        super(request);\n        StringBuilder stringBuilder = new StringBuilder();\n        BufferedReader bufferedReader = null;\n        try (InputStream inputStream = request.getInputStream()) { // Use try-with-resources for auto-closing\n            if (inputStream != null) {\n                // Use StandardCharsets for consistent character encoding\n                bufferedReader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));\n                char[] charBuffer = new char[128];\n                int bytesRead;\n                while ((bytesRead = bufferedReader.read(charBuffer)) > 0) {\n                    stringBuilder.append(charBuffer, 0, bytesRead);\n                }\n            }\n        } finally {\n            // bufferedReader will be closed by try-with-resources if created\n            // However, it's good practice to ensure it's not null before closing if not in try-with-resources,\n            // or if dealing with older Java versions. Here, it's redundant due to try-with-resources on inputStream.\n            // But if bufferedReader was directly managed, you'd keep this.\n        }\n        body = stringBuilder.toString();\n    }\n\n    @Override\n    public ServletInputStream getInputStream() throws IOException {\n        // Use StandardCharsets for consistent character encoding when getting bytes\n        final ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8));\n\n        return new ServletInputStream() {\n            @Override\n            public int read() throws IOException {\n                return byteArrayInputStream.read();\n            }\n\n            @Override\n            public boolean isFinished() {\n                // This indicates if all bytes have been read from the stream.\n                return byteArrayInputStream.available() == 0;\n            }\n\n            @Override\n            public boolean isReady() {\n                // This indicates if data is available to be read without blocking.\n                return true; // Since we're reading from an in-memory byte array, it's always ready.\n            }\n\n            @Override\n            public void setReadListener(ReadListener listener) {\n                // For non-blocking I/O, you'd typically implement async reading here.\n                // For a wrapper that reads from a pre-loaded string, this can be a no-op,\n                // or you could call listener.onAllDataRead() and listener.onDataAvailable() if needed.\n                // For basic use cases with pre-read body, throwing UnsupportedOperationException might be safer\n                // if you don't intend to support async reading from this wrapper.\n                // However, returning true for isReady and overriding read() implies it's blocking-ready.\n                // In a real async scenario, you'd need to manage the listener.\n                // For now, we'll keep it as a no-op as it's common for simple wrappers.\n            }\n        };\n    }\n\n    @Override\n    public BufferedReader getReader() throws IOException {\n        // Ensure consistent encoding when creating the reader from the input stream\n        return new BufferedReader(new InputStreamReader(this.getInputStream(), StandardCharsets.UTF_8));\n    }\n\n    public String getBody() {\n        return body;\n    }\n\n    // Removing setBody as 'body' is final and set in constructor, making the wrapper immutable after creation.\n    // If you need to modify the body, you would create a new wrapper instance or redesign.\n\n    @Override\n    public String getContentType() {\n        String contentType = super.getContentType();\n        // A common default if not explicitly set, or if you expect JSON for most API requests.\n        // Be careful with this default if your API handles various content types.\n        return contentType == null ? MediaType.APPLICATION_JSON_VALUE : contentType;\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/filter/ApiKeyVerifyRequestWrapper.java",
+    "class_name": "ApiKeyVerifyRequestWrapper",
+    "method_name": "getInputStream",
+    "chunk_type": "other",
+    "calls": [
+      "String.getBytes",
+      "unknown.available",
+      "unknown.read"
+    ],
+    "called_by": [],
+    "line_start": 43,
+    "line_end": 78,
+    "content": "@Override\n    public ServletInputStream getInputStream() throws IOException {\n        // Use StandardCharsets for consistent character encoding when getting bytes\n        final ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8));\n\n        return new ServletInputStream() {\n            @Override\n            public int read() throws IOException {\n                return byteArrayInputStream.read();\n            }\n\n            @Override\n            public boolean isFinished() {\n                // This indicates if all bytes have been read from the stream.\n                return byteArrayInputStream.available() == 0;\n            }\n\n            @Override\n            public boolean isReady() {\n                // This indicates if data is available to be read without blocking.\n                return true; // Since we're reading from an in-memory byte array, it's always ready.\n            }\n\n            @Override\n            public void setReadListener(ReadListener listener) {\n                // For non-blocking I/O, you'd typically implement async reading here.\n                // For a wrapper that reads from a pre-loaded string, this can be a no-op,\n                // or you could call listener.onAllDataRead() and listener.onDataAvailable() if needed.\n                // For basic use cases with pre-read body, throwing UnsupportedOperationException might be safer\n                // if you don't intend to support async reading from this wrapper.\n                // However, returning true for isReady and overriding read() implies it's blocking-ready.\n                // In a real async scenario, you'd need to manage the listener.\n                // For now, we'll keep it as a no-op as it's common for simple wrappers.\n            }\n        };\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/filter/ApiKeyVerifyRequestWrapper.java",
+    "class_name": "ApiKeyVerifyRequestWrapper",
+    "method_name": "getReader",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.getInputStream"
+    ],
+    "called_by": [],
+    "line_start": 80,
+    "line_end": 84,
+    "content": "@Override\n    public BufferedReader getReader() throws IOException {\n        // Ensure consistent encoding when creating the reader from the input stream\n        return new BufferedReader(new InputStreamReader(this.getInputStream(), StandardCharsets.UTF_8));\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/filter/ApiKeyVerifyRequestWrapper.java",
+    "class_name": "ApiKeyVerifyRequestWrapper",
+    "method_name": "getBody",
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 86,
+    "line_end": 88,
+    "content": "public String getBody() {\n        return body;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/filter/ApiKeyVerifyRequestWrapper.java",
+    "class_name": "ApiKeyVerifyRequestWrapper",
+    "method_name": "getContentType",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.getContentType"
+    ],
+    "called_by": [],
+    "line_start": 93,
+    "line_end": 99,
+    "content": "@Override\n    public String getContentType() {\n        String contentType = super.getContentType();\n        // A common default if not explicitly set, or if you expect JSON for most API requests.\n        // Be careful with this default if your API handles various content types.\n        return contentType == null ? MediaType.APPLICATION_JSON_VALUE : contentType;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/filter/AppCorsFilter.java",
+    "class_name": "AppCorsFilter",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 27,
+    "line_end": 160,
+    "content": "@Component\n@Order(Ordered.HIGHEST_PRECEDENCE)\n@Slf4j // Lombok annotation for logging\npublic class AppCorsFilter implements Filter {\n\n    // Spring's standard multipart resolver.\n    // Autowire it if it's a bean, or create it if not.\n    // For a filter, it's often configured via a Bean or WebMvcConfigurer.\n    // If you explicitly add @Bean for MultipartResolver, Spring will use it.\n    private final MultipartResolver multipartResolver;\n\n    // Constructor injection for MultipartResolver\n    // This is good practice for dependency injection in Spring.\n    // Ensure you have a @Bean for MultipartResolver in your config, e.g.,\n    // @Bean public MultipartResolver multipartResolver() { return new StandardServletMultipartResolver(); }\n    public AppCorsFilter(MultipartResolver multipartResolver) {\n        this.multipartResolver = multipartResolver;\n    }\n\n    // Overloaded constructor for cases where Spring might instantiate without explicit injection,\n    // although the above constructor is preferred when using @Component.\n    public AppCorsFilter() {\n        // Fallback for when Spring doesn't inject it via constructor.\n        // In a typical Spring Boot setup, StandardServletMultipartResolver is usually auto-configured\n        // if multipart properties are set (e.g., spring.servlet.multipart.enabled=true).\n        // It's safer to rely on dependency injection.\n        this.multipartResolver = new StandardServletMultipartResolver();\n    }\n\n\n    @Override\n    public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain) throws IOException, ServletException {\n        HttpServletResponse response = (HttpServletResponse) res;\n        HttpServletRequest request = (HttpServletRequest) req;\n\n        // Skip health check URL\n        if (request.getRequestURI().contains(HEALTH_CHECK_URL)) {\n            chain.doFilter(req, res);\n            return;\n        }\n\n        // Initialize requestId here to ensure it's always set\n        String requestId = UUID.randomUUID().toString(); // Default if not found in header\n        ThreadContext.put(THREAD_REQUEST_ID, requestId); // Always put in ThreadContext early\n\n        try {\n            // Check if it's a multipart request (e.g., file upload)\n            boolean isMultipart = multipartResolver.isMultipart(request); // Use Spring's resolver directly\n\n            if (isMultipart) {\n                // Resolve the multipart request\n                MultipartHttpServletRequest multipartRequest = multipartResolver.resolveMultipart(request);\n\n                // Get or generate X-Request-ID\n                String headerRequestId = multipartRequest.getHeader(X_REQUEST_ID);\n                if (!ObjectUtils.isEmpty(headerRequestId)) {\n                    requestId = headerRequestId;\n                    ThreadContext.put(THREAD_REQUEST_ID, requestId); // Update if found in header\n                }\n\n                // Attach multipart request body to attribute\n                multipartRequest.setAttribute(REQUEST_BODY, multipartRequest);\n                multipartRequest.setAttribute(REQUEST_ID, requestId);\n\n                chain.doFilter(multipartRequest, response);\n\n            } else {\n                // For non-multipart requests, wrap the request to re-read the body\n                ApiKeyVerifyRequestWrapper requestWrapper = new ApiKeyVerifyRequestWrapper(request);\n\n                // Get or generate X-Request-ID from the wrapped request\n                String headerRequestId = requestWrapper.getHeader(X_REQUEST_ID);\n                if (!ObjectUtils.isEmpty(headerRequestId)) {\n                    requestId = headerRequestId;\n                    ThreadContext.put(THREAD_REQUEST_ID, requestId); // Update if found in header\n                }\n\n                // Parse JSON body if available\n                JSONObject dataRequest = new JSONObject();\n                String requestBodyString = requestWrapper.getBody();\n                if (!ObjectUtils.isEmpty(requestBodyString)) {\n                    try {\n                        JSONParser parser = new JSONParser();\n                        dataRequest = (JSONObject) parser.parse(requestBodyString);\n                    } catch (ParseException e) {\n                        log.warn(\"Failed to parse request body as JSON for URI: {}. Body: {}\", request.getRequestURI(), requestBodyString, e);\n                        // Decide how to handle non-JSON bodies. For now, dataRequest remains empty.\n                        // You might want to return 400 Bad Request here if JSON is strictly required.\n                    }\n                }\n\n                // Add request metadata to JSON object and request attributes\n                dataRequest.put(REQUEST_ID, requestId);\n                request.setAttribute(REQUEST_ID, requestId); // Use original request for attributes if chain expects it\n\n                dataRequest.put(API_KEY, requestWrapper.getHeader(API_KEY));\n                request.setAttribute(API_KEY, requestWrapper.getHeader(API_KEY));\n\n                dataRequest.put(API_SECRET, requestWrapper.getHeader(API_SECRET));\n                request.setAttribute(API_SECRET, requestWrapper.getHeader(API_SECRET));\n\n                // Note: request.getRequestURI() is already available from the original request\n                // requestWrapper.getHeader(RequestKeyConstant.URI) doesn't make sense as URI is not a header.\n                // Assuming URI is needed in dataRequest for logging/processing.\n                dataRequest.put(URI, request.getRequestURI());\n                request.setAttribute(URI, request.getRequestURI()); // Set actual URI\n\n                request.setAttribute(REQUEST_PARAMETERS, request.getParameterMap()); // Parameters from original request\n                request.setAttribute(REQUEST_BODY, dataRequest); // The parsed JSON body\n\n                // The requestWrapper's body is immutable (final), so setting it here won't change\n                // the stream that ApiKeyVerifyRequestWrapper provides.\n                // If you intend to *modify* the body and have the modified body flow downstream,\n                // you would need a more sophisticated wrapper that allows body modification\n                // before constructing its InputStream/Reader.\n                // For now, `requestWrapper.setBody(dataRequest.toString());` is removed\n                // as `setBody` was removed in the previous step and it was modifying the internal state\n                // of the wrapper, not the original request input stream for subsequent filters/servlets.\n                // The `requestWrapper` already holds the *original* request body.\n\n                chain.doFilter(requestWrapper, response);\n            }\n        } catch (IOException | ServletException e) {\n            log.error(\"Filter processing error for URI: {}\", request.getRequestURI(), e);\n            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR); // Or SC_BAD_REQUEST depending on error type\n        } catch (Throwable e) { // Catch all other unhandled throwables\n            log.error(\"An unexpected error occurred in filter for URI: {}\", request.getRequestURI(), e);\n            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);\n        } finally {\n            // Always clear ThreadContext regardless of success or failure\n            ThreadContext.clearAll();\n        }\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/filter/AppCorsFilter.java",
+    "class_name": "AppCorsFilter",
+    "method_name": "doFilter",
+    "chunk_type": "other",
+    "calls": [
+      "FilterChain.doFilter",
+      "MultipartResolver.isMultipart",
+      "MultipartResolver.resolveMultipart",
+      "ObjectUtils.isEmpty",
+      "ThreadContext.clearAll",
+      "ThreadContext.put",
+      "UUID.randomUUID",
+      "UUID.toString",
+      "unknown.contains",
+      "unknown.error",
+      "unknown.getBody",
+      "unknown.getHeader",
+      "unknown.getParameterMap",
+      "unknown.getRequestURI",
+      "unknown.parse",
+      "unknown.put",
+      "unknown.setAttribute",
+      "unknown.setStatus",
+      "unknown.warn"
+    ],
+    "called_by": [],
+    "line_start": 57,
+    "line_end": 159,
+    "content": "@Override\n    public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain) throws IOException, ServletException {\n        HttpServletResponse response = (HttpServletResponse) res;\n        HttpServletRequest request = (HttpServletRequest) req;\n\n        // Skip health check URL\n        if (request.getRequestURI().contains(HEALTH_CHECK_URL)) {\n            chain.doFilter(req, res);\n            return;\n        }\n\n        // Initialize requestId here to ensure it's always set\n        String requestId = UUID.randomUUID().toString(); // Default if not found in header\n        ThreadContext.put(THREAD_REQUEST_ID, requestId); // Always put in ThreadContext early\n\n        try {\n            // Check if it's a multipart request (e.g., file upload)\n            boolean isMultipart = multipartResolver.isMultipart(request); // Use Spring's resolver directly\n\n            if (isMultipart) {\n                // Resolve the multipart request\n                MultipartHttpServletRequest multipartRequest = multipartResolver.resolveMultipart(request);\n\n                // Get or generate X-Request-ID\n                String headerRequestId = multipartRequest.getHeader(X_REQUEST_ID);\n                if (!ObjectUtils.isEmpty(headerRequestId)) {\n                    requestId = headerRequestId;\n                    ThreadContext.put(THREAD_REQUEST_ID, requestId); // Update if found in header\n                }\n\n                // Attach multipart request body to attribute\n                multipartRequest.setAttribute(REQUEST_BODY, multipartRequest);\n                multipartRequest.setAttribute(REQUEST_ID, requestId);\n\n                chain.doFilter(multipartRequest, response);\n\n            } else {\n                // For non-multipart requests, wrap the request to re-read the body\n                ApiKeyVerifyRequestWrapper requestWrapper = new ApiKeyVerifyRequestWrapper(request);\n\n                // Get or generate X-Request-ID from the wrapped request\n                String headerRequestId = requestWrapper.getHeader(X_REQUEST_ID);\n                if (!ObjectUtils.isEmpty(headerRequestId)) {\n                    requestId = headerRequestId;\n                    ThreadContext.put(THREAD_REQUEST_ID, requestId); // Update if found in header\n                }\n\n                // Parse JSON body if available\n                JSONObject dataRequest = new JSONObject();\n                String requestBodyString = requestWrapper.getBody();\n                if (!ObjectUtils.isEmpty(requestBodyString)) {\n                    try {\n                        JSONParser parser = new JSONParser();\n                        dataRequest = (JSONObject) parser.parse(requestBodyString);\n                    } catch (ParseException e) {\n                        log.warn(\"Failed to parse request body as JSON for URI: {}. Body: {}\", request.getRequestURI(), requestBodyString, e);\n                        // Decide how to handle non-JSON bodies. For now, dataRequest remains empty.\n                        // You might want to return 400 Bad Request here if JSON is strictly required.\n                    }\n                }\n\n                // Add request metadata to JSON object and request attributes\n                dataRequest.put(REQUEST_ID, requestId);\n                request.setAttribute(REQUEST_ID, requestId); // Use original request for attributes if chain expects it\n\n                dataRequest.put(API_KEY, requestWrapper.getHeader(API_KEY));\n                request.setAttribute(API_KEY, requestWrapper.getHeader(API_KEY));\n\n                dataRequest.put(API_SECRET, requestWrapper.getHeader(API_SECRET));\n                request.setAttribute(API_SECRET, requestWrapper.getHeader(API_SECRET));\n\n                // Note: request.getRequestURI() is already available from the original request\n                // requestWrapper.getHeader(RequestKeyConstant.URI) doesn't make sense as URI is not a header.\n                // Assuming URI is needed in dataRequest for logging/processing.\n                dataRequest.put(URI, request.getRequestURI());\n                request.setAttribute(URI, request.getRequestURI()); // Set actual URI\n\n                request.setAttribute(REQUEST_PARAMETERS, request.getParameterMap()); // Parameters from original request\n                request.setAttribute(REQUEST_BODY, dataRequest); // The parsed JSON body\n\n                // The requestWrapper's body is immutable (final), so setting it here won't change\n                // the stream that ApiKeyVerifyRequestWrapper provides.\n                // If you intend to *modify* the body and have the modified body flow downstream,\n                // you would need a more sophisticated wrapper that allows body modification\n                // before constructing its InputStream/Reader.\n                // For now, `requestWrapper.setBody(dataRequest.toString());` is removed\n                // as `setBody` was removed in the previous step and it was modifying the internal state\n                // of the wrapper, not the original request input stream for subsequent filters/servlets.\n                // The `requestWrapper` already holds the *original* request body.\n\n                chain.doFilter(requestWrapper, response);\n            }\n        } catch (IOException | ServletException e) {\n            log.error(\"Filter processing error for URI: {}\", request.getRequestURI(), e);\n            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR); // Or SC_BAD_REQUEST depending on error type\n        } catch (Throwable e) { // Catch all other unhandled throwables\n            log.error(\"An unexpected error occurred in filter for URI: {}\", request.getRequestURI(), e);\n            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);\n        } finally {\n            // Always clear ThreadContext regardless of success or failure\n            ThreadContext.clearAll();\n        }\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/AuthConfig.java",
+    "class_name": "AuthConfig",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 16,
+    "line_end": 46,
+    "content": "@Configuration\n@EnableWebSecurity\n@EnableMethodSecurity(prePostEnabled = true)\n@RequiredArgsConstructor\npublic class AuthConfig {\n\n    private final AuthenticationProvider authProvider;\n\n    private final JwtFilter jwtFilter;\n\n    private final JwtAuthenticationEntryPoint unAuthorizedHandler;\n\n    @Bean\n    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {\n        http\n                .cors(Customizer.withDefaults())\n                .csrf(AbstractHttpConfigurer::disable)\n                .authorizeHttpRequests(auth -> auth\n                        .requestMatchers(\"/api/v1/pub/**\").permitAll()\n                        .anyRequest().authenticated()\n                )\n                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))\n                .authenticationProvider(authProvider)\n                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)\n                .exceptionHandling(e -> e.authenticationEntryPoint(unAuthorizedHandler))\n                .securityContext(ctx -> ctx.requireExplicitSave(false));\n\n        return http.build();\n    }\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/AuthConfig.java",
+    "class_name": "AuthConfig",
+    "method_name": "securityFilterChain",
+    "chunk_type": "other",
+    "calls": [
+      "Customizer.withDefaults",
+      "HttpSecurity.addFilterBefore",
+      "HttpSecurity.authenticationProvider",
+      "HttpSecurity.authorizeHttpRequests",
+      "HttpSecurity.build",
+      "HttpSecurity.cors",
+      "HttpSecurity.csrf",
+      "HttpSecurity.exceptionHandling",
+      "HttpSecurity.securityContext",
+      "HttpSecurity.sessionManagement",
+      "unknown.anyRequest",
+      "unknown.authenticated",
+      "unknown.authenticationEntryPoint",
+      "unknown.permitAll",
+      "unknown.requestMatchers",
+      "unknown.requireExplicitSave",
+      "unknown.sessionCreationPolicy"
+    ],
+    "called_by": [],
+    "line_start": 28,
+    "line_end": 44,
+    "content": "@Bean\n    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {\n        http\n                .cors(Customizer.withDefaults())\n                .csrf(AbstractHttpConfigurer::disable)\n                .authorizeHttpRequests(auth -> auth\n                        .requestMatchers(\"/api/v1/pub/**\").permitAll()\n                        .anyRequest().authenticated()\n                )\n                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))\n                .authenticationProvider(authProvider)\n                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)\n                .exceptionHandling(e -> e.authenticationEntryPoint(unAuthorizedHandler))\n                .securityContext(ctx -> ctx.requireExplicitSave(false));\n\n        return http.build();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/BeanConfig.java",
+    "class_name": "BeanConfig",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 14,
+    "line_end": 45,
+    "content": "@Configuration\npublic class BeanConfig {\n\n    private final UserRepository userRepository;\n\n    public BeanConfig(UserRepository userRepository) {\n        this.userRepository = userRepository;\n    }\n\n    @Bean\n    public UserDetailsService userDetailsService() {\n        return new AppUserDetailsService(userRepository);\n    }\n\n    @Bean\n    public AuthenticationProvider authenticationProvider() {\n        DaoAuthenticationProvider daoAuthProvider = new DaoAuthenticationProvider();\n        daoAuthProvider.setUserDetailsService(userDetailsService());\n        daoAuthProvider.setPasswordEncoder(passwordEncoder());\n\n        return daoAuthProvider;\n    }\n    @Bean\n    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {\n        return config.getAuthenticationManager();\n    }\n\n    @Bean\n    public PasswordEncoder passwordEncoder() {\n        return new BCryptPasswordEncoder();\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/BeanConfig.java",
+    "class_name": "BeanConfig",
+    "method_name": "userDetailsService",
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [
+      "BeanConfig.authenticationProvider"
+    ],
+    "line_start": 23,
+    "line_end": 26,
+    "content": "@Bean\n    public UserDetailsService userDetailsService() {\n        return new AppUserDetailsService(userRepository);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/BeanConfig.java",
+    "class_name": "BeanConfig",
+    "method_name": "authenticationProvider",
+    "chunk_type": "other",
+    "calls": [
+      "BeanConfig.passwordEncoder",
+      "BeanConfig.userDetailsService",
+      "unknown.setPasswordEncoder",
+      "unknown.setUserDetailsService"
+    ],
+    "called_by": [],
+    "line_start": 28,
+    "line_end": 35,
+    "content": "@Bean\n    public AuthenticationProvider authenticationProvider() {\n        DaoAuthenticationProvider daoAuthProvider = new DaoAuthenticationProvider();\n        daoAuthProvider.setUserDetailsService(userDetailsService());\n        daoAuthProvider.setPasswordEncoder(passwordEncoder());\n\n        return daoAuthProvider;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/BeanConfig.java",
+    "class_name": "BeanConfig",
+    "method_name": "authenticationManager",
+    "chunk_type": "other",
+    "calls": [
+      "AuthenticationConfiguration.getAuthenticationManager"
+    ],
+    "called_by": [],
+    "line_start": 36,
+    "line_end": 39,
+    "content": "@Bean\n    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {\n        return config.getAuthenticationManager();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/BeanConfig.java",
+    "class_name": "BeanConfig",
+    "method_name": "passwordEncoder",
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [
+      "BeanConfig.authenticationProvider"
+    ],
+    "line_start": 41,
+    "line_end": 44,
+    "content": "@Bean\n    public PasswordEncoder passwordEncoder() {\n        return new BCryptPasswordEncoder();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtAuthenticationEntryPoint.java",
+    "class_name": "JwtAuthenticationEntryPoint",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 17,
+    "line_end": 39,
+    "content": "@Component\n@Slf4j\npublic class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {\n\n    @Override\n    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {\n        log.error(\"Unauthorized error: {}\", authException.getMessage());\n\n        response.setContentType(MediaType.APPLICATION_JSON_VALUE);\n        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);\n\n        final Map<String, Object> body = new HashMap<>();\n        body.put(\"status\", HttpServletResponse.SC_UNAUTHORIZED);\n        body.put(\"error\", \"Unauthorized\");\n        body.put(\"message\", authException.getMessage());\n        body.put(\"path\", request.getServletPath());\n\n\n\n        final ObjectMapper mapper = new ObjectMapper();\n        mapper.writeValue(response.getOutputStream(), body);\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtAuthenticationEntryPoint.java",
+    "class_name": "JwtAuthenticationEntryPoint",
+    "method_name": "commence",
+    "chunk_type": "other",
+    "calls": [
+      "AuthenticationException.getMessage",
+      "HttpServletRequest.getServletPath",
+      "HttpServletResponse.getOutputStream",
+      "HttpServletResponse.setContentType",
+      "HttpServletResponse.setStatus",
+      "unknown.error",
+      "unknown.put",
+      "unknown.writeValue"
+    ],
+    "called_by": [],
+    "line_start": 21,
+    "line_end": 38,
+    "content": "@Override\n    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {\n        log.error(\"Unauthorized error: {}\", authException.getMessage());\n\n        response.setContentType(MediaType.APPLICATION_JSON_VALUE);\n        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);\n\n        final Map<String, Object> body = new HashMap<>();\n        body.put(\"status\", HttpServletResponse.SC_UNAUTHORIZED);\n        body.put(\"error\", \"Unauthorized\");\n        body.put(\"message\", authException.getMessage());\n        body.put(\"path\", request.getServletPath());\n\n\n\n        final ObjectMapper mapper = new ObjectMapper();\n        mapper.writeValue(response.getOutputStream(), body);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtFilter.java",
+    "class_name": "JwtFilter",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 21,
+    "line_end": 96,
+    "content": "@Component\n@Slf4j\npublic class JwtFilter extends OncePerRequestFilter {\n\n    private final JwtProvider jwtProvider;\n    private final UserDetailsService userDetailsService;\n\n    private static final String[] PUBLIC_URLS = {\n            \"/api/v1/pub/.*\",\n    };\n\n    public JwtFilter(JwtProvider jwtProvider, UserDetailsService userDetailsService) {\n        this.jwtProvider = jwtProvider;\n        this.userDetailsService = userDetailsService;\n    }\n\n    @Override\n    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {\n        final String requestURI = request.getRequestURI();\n\n        boolean isPublicUrl = Arrays.stream(PUBLIC_URLS)\n                .anyMatch(requestURI::matches);\n\n        if (isPublicUrl) {\n            filterChain.doFilter(request, response);\n            return;\n        }\n\n        final String authorizationHeader = request.getHeader(\"Authorization\");\n        String jwt = null;\n        String username = null;\n\n        if (authorizationHeader != null && authorizationHeader.startsWith(\"Bearer \")) {\n            jwt = authorizationHeader.substring(7);\n            try {\n                username = jwtProvider.extractUsername(jwt);\n            } catch (ExpiredJwtException ex) {\n                log.warn(\"JWT token is expired: {}\", ex.getMessage());\n            } catch (MalformedJwtException ex) {\n                log.warn(\"JWT token is malformed: {}\", ex.getMessage());\n            } catch (SignatureException ex) {\n                log.warn(\"JWT signature is invalid: {}\", ex.getMessage());\n            } catch (IllegalArgumentException ex) {\n                log.warn(\"Unable to get JWT Token or JWT claims string is empty: {}\", ex.getMessage());\n            } catch (Exception ex) {\n                log.error(\"An unexpected error occurred during JWT token processing: {}\", ex.getMessage(), ex);\n            }\n        }\n\n        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {\n            try {\n                UserPrincipal userDetails = (UserPrincipal) this.userDetailsService.loadUserByUsername(username);\n\n                if (jwtProvider.isTokenValid(jwt, userDetails)) {\n                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(\n                            userDetails,\n                            null,\n                            userDetails.getAuthorities()\n                    );\n\n                    authToken.setDetails(\n                            new WebAuthenticationDetailsSource().buildDetails(request)\n                    );\n\n                    SecurityContextHolder.getContext().setAuthentication(authToken);\n                } else {\n                    log.warn(\"Invalid JWT token for user: {}\", username);\n                }\n            } catch (Exception ex) {\n                log.error(\"Error authenticating user with JWT: {}\", ex.getMessage(), ex);\n            }\n        }\n\n        filterChain.doFilter(request, response);\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtFilter.java",
+    "class_name": "JwtFilter",
+    "method_name": "doFilterInternal",
+    "chunk_type": "other",
+    "calls": [
+      "Arrays.anyMatch",
+      "Arrays.stream",
+      "FilterChain.doFilter",
+      "HttpServletRequest.getHeader",
+      "HttpServletRequest.getRequestURI",
+      "JwtProvider.extractUsername",
+      "JwtProvider.isTokenValid",
+      "SecurityContextHolder.getAuthentication",
+      "SecurityContextHolder.getContext",
+      "SecurityContextHolder.setAuthentication",
+      "unknown.buildDetails",
+      "unknown.error",
+      "unknown.getAuthorities",
+      "unknown.getMessage",
+      "unknown.loadUserByUsername",
+      "unknown.setDetails",
+      "unknown.startsWith",
+      "unknown.substring",
+      "unknown.warn"
+    ],
+    "called_by": [],
+    "line_start": 37,
+    "line_end": 95,
+    "content": "@Override\n    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {\n        final String requestURI = request.getRequestURI();\n\n        boolean isPublicUrl = Arrays.stream(PUBLIC_URLS)\n                .anyMatch(requestURI::matches);\n\n        if (isPublicUrl) {\n            filterChain.doFilter(request, response);\n            return;\n        }\n\n        final String authorizationHeader = request.getHeader(\"Authorization\");\n        String jwt = null;\n        String username = null;\n\n        if (authorizationHeader != null && authorizationHeader.startsWith(\"Bearer \")) {\n            jwt = authorizationHeader.substring(7);\n            try {\n                username = jwtProvider.extractUsername(jwt);\n            } catch (ExpiredJwtException ex) {\n                log.warn(\"JWT token is expired: {}\", ex.getMessage());\n            } catch (MalformedJwtException ex) {\n                log.warn(\"JWT token is malformed: {}\", ex.getMessage());\n            } catch (SignatureException ex) {\n                log.warn(\"JWT signature is invalid: {}\", ex.getMessage());\n            } catch (IllegalArgumentException ex) {\n                log.warn(\"Unable to get JWT Token or JWT claims string is empty: {}\", ex.getMessage());\n            } catch (Exception ex) {\n                log.error(\"An unexpected error occurred during JWT token processing: {}\", ex.getMessage(), ex);\n            }\n        }\n\n        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {\n            try {\n                UserPrincipal userDetails = (UserPrincipal) this.userDetailsService.loadUserByUsername(username);\n\n                if (jwtProvider.isTokenValid(jwt, userDetails)) {\n                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(\n                            userDetails,\n                            null,\n                            userDetails.getAuthorities()\n                    );\n\n                    authToken.setDetails(\n                            new WebAuthenticationDetailsSource().buildDetails(request)\n                    );\n\n                    SecurityContextHolder.getContext().setAuthentication(authToken);\n                } else {\n                    log.warn(\"Invalid JWT token for user: {}\", username);\n                }\n            } catch (Exception ex) {\n                log.error(\"Error authenticating user with JWT: {}\", ex.getMessage(), ex);\n            }\n        }\n\n        filterChain.doFilter(request, response);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 21,
+    "line_end": 111,
+    "content": "@Component\n@Slf4j\npublic class JwtProvider {\n    @Value(\"${security.jwt.secret}\")\n    private String secretKey;\n\n    @Value(\"${security.jwt.access-token-expiration}\")\n    private long accessTokenExpired;\n\n    @Value(\"${security.jwt.refresh-token-expiration}\")\n    private long refreshTokenExpired;\n\n    public String extractUsername(String token) {\n        Claims claims = extractAllClaims(token);\n        return claims.getSubject();\n    }\n\n    private <T> T extractClaims(String token, Function<Claims, T> claimsResolver) {\n        final Claims claims = extractAllClaims(token);\n        return claimsResolver.apply(claims);\n    }\n\n    private Claims extractAllClaims(String token) {\n        return Jwts.\n                parserBuilder().\n                setSigningKey(getSignInKey()).\n                build().\n                parseClaimsJws(token).\n                getBody();\n    }\n\n    private Key getSignInKey() {\n        byte[] keyBytes = Decoders.BASE64.decode(secretKey);\n        return Keys.hmacShaKeyFor(keyBytes);\n    }\n\n    public String generateAccessToken(Authentication authentication) {\n        UserPrincipal userDetails = (UserPrincipal) authentication.getPrincipal();\n        return generateToken(new HashMap<>(), userDetails, accessTokenExpired);\n    }\n\n    public String generateRefreshToken(Authentication authentication) {\n        UserPrincipal userDetails = (UserPrincipal) authentication.getPrincipal();\n        return generateToken(new HashMap<>(), userDetails, refreshTokenExpired);\n    }\n\n    public String generateToken(\n            Map<String, Object> extractClaims,\n            UserPrincipal userDetails,\n            long maxAge\n    ) {\n\n        return Jwts.builder()\n                .setClaims(extractClaims)\n                .setSubject(userDetails.getUsername())\n                .claim(\"id\", userDetails.getId())\n                .claim(\"username\", userDetails.getUsername())\n                .claim(\"email\", userDetails.getEmail())\n                .claim(\"roles\", userDetails.getRoles())\n                .claim(\"authorities\", userDetails.getAuthorities())\n                .claim(\"scope\", buildScope(userDetails))\n                .setIssuedAt(new Date(System.currentTimeMillis()))\n                .setExpiration(new Date(System.currentTimeMillis() + maxAge))\n                .signWith(getSignInKey(), SignatureAlgorithm.HS256)\n                .compact();\n    }\n\n    private String buildScope(UserPrincipal user) {\n        StringJoiner stringJoiner = new StringJoiner(\" \");\n\n        if (!CollectionUtils.isEmpty(user.getRoles()))\n            user.getRoles().forEach(role -> {\n                stringJoiner.add(\"ROLE_\" + role);\n            });\n\n        return stringJoiner.toString();\n    }\n\n    public boolean isTokenExpired(String token) {\n        return extractExpiration(token).before(new Date());\n    }\n\n    private Date extractExpiration(String token) {\n        return extractClaims(token, Claims::getExpiration);\n    }\n\n    public boolean isTokenValid(String token, UserPrincipal userDetails) {\n        final String username = extractUsername(token);\n        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "extractUsername",
+    "chunk_type": "other",
+    "calls": [
+      "JwtProvider.extractAllClaims",
+      "unknown.getSubject"
+    ],
+    "called_by": [
+      "JwtFilter.doFilterInternal",
+      "JwtProvider.isTokenValid"
+    ],
+    "line_start": 33,
+    "line_end": 36,
+    "content": "public String extractUsername(String token) {\n        Claims claims = extractAllClaims(token);\n        return claims.getSubject();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "extractClaims",
+    "chunk_type": "other",
+    "calls": [
+      "Function<Claims, T>.apply",
+      "JwtProvider.extractAllClaims"
+    ],
+    "called_by": [
+      "JwtProvider.extractExpiration"
+    ],
+    "line_start": 38,
+    "line_end": 41,
+    "content": "private <T> T extractClaims(String token, Function<Claims, T> claimsResolver) {\n        final Claims claims = extractAllClaims(token);\n        return claimsResolver.apply(claims);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "extractAllClaims",
+    "chunk_type": "other",
+    "calls": [
+      "JwtProvider.getSignInKey",
+      "Jwts.build",
+      "Jwts.getBody",
+      "Jwts.parseClaimsJws",
+      "Jwts.parserBuilder",
+      "Jwts.setSigningKey"
+    ],
+    "called_by": [
+      "JwtProvider.extractUsername",
+      "JwtProvider.extractClaims"
+    ],
+    "line_start": 43,
+    "line_end": 50,
+    "content": "private Claims extractAllClaims(String token) {\n        return Jwts.\n                parserBuilder().\n                setSigningKey(getSignInKey()).\n                build().\n                parseClaimsJws(token).\n                getBody();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "getSignInKey",
+    "chunk_type": "other",
+    "calls": [
+      "Keys.hmacShaKeyFor",
+      "unknown.decode"
+    ],
+    "called_by": [
+      "JwtProvider.extractAllClaims",
+      "JwtProvider.generateToken"
+    ],
+    "line_start": 52,
+    "line_end": 55,
+    "content": "private Key getSignInKey() {\n        byte[] keyBytes = Decoders.BASE64.decode(secretKey);\n        return Keys.hmacShaKeyFor(keyBytes);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "generateAccessToken",
+    "chunk_type": "other",
+    "calls": [
+      "Authentication.getPrincipal",
+      "JwtProvider.generateToken"
+    ],
+    "called_by": [],
+    "line_start": 57,
+    "line_end": 60,
+    "content": "public String generateAccessToken(Authentication authentication) {\n        UserPrincipal userDetails = (UserPrincipal) authentication.getPrincipal();\n        return generateToken(new HashMap<>(), userDetails, accessTokenExpired);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "generateRefreshToken",
+    "chunk_type": "other",
+    "calls": [
+      "Authentication.getPrincipal",
+      "JwtProvider.generateToken"
+    ],
+    "called_by": [],
+    "line_start": 62,
+    "line_end": 65,
+    "content": "public String generateRefreshToken(Authentication authentication) {\n        UserPrincipal userDetails = (UserPrincipal) authentication.getPrincipal();\n        return generateToken(new HashMap<>(), userDetails, refreshTokenExpired);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "generateToken",
+    "chunk_type": "other",
+    "calls": [
+      "JwtProvider.buildScope",
+      "JwtProvider.getSignInKey",
+      "Jwts.builder",
+      "Jwts.claim",
+      "Jwts.compact",
+      "Jwts.setClaims",
+      "Jwts.setExpiration",
+      "Jwts.setIssuedAt",
+      "Jwts.setSubject",
+      "Jwts.signWith",
+      "System.currentTimeMillis",
+      "UserPrincipal.getAuthorities",
+      "UserPrincipal.getEmail",
+      "UserPrincipal.getId",
+      "UserPrincipal.getRoles",
+      "UserPrincipal.getUsername"
+    ],
+    "called_by": [
+      "JwtProvider.generateAccessToken",
+      "JwtProvider.generateRefreshToken"
+    ],
+    "line_start": 67,
+    "line_end": 86,
+    "content": "public String generateToken(\n            Map<String, Object> extractClaims,\n            UserPrincipal userDetails,\n            long maxAge\n    ) {\n\n        return Jwts.builder()\n                .setClaims(extractClaims)\n                .setSubject(userDetails.getUsername())\n                .claim(\"id\", userDetails.getId())\n                .claim(\"username\", userDetails.getUsername())\n                .claim(\"email\", userDetails.getEmail())\n                .claim(\"roles\", userDetails.getRoles())\n                .claim(\"authorities\", userDetails.getAuthorities())\n                .claim(\"scope\", buildScope(userDetails))\n                .setIssuedAt(new Date(System.currentTimeMillis()))\n                .setExpiration(new Date(System.currentTimeMillis() + maxAge))\n                .signWith(getSignInKey(), SignatureAlgorithm.HS256)\n                .compact();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "buildScope",
+    "chunk_type": "other",
+    "calls": [
+      "CollectionUtils.isEmpty",
+      "UserPrincipal.forEach",
+      "UserPrincipal.getRoles",
+      "unknown.add",
+      "unknown.toString"
+    ],
+    "called_by": [
+      "JwtProvider.generateToken"
+    ],
+    "line_start": 88,
+    "line_end": 97,
+    "content": "private String buildScope(UserPrincipal user) {\n        StringJoiner stringJoiner = new StringJoiner(\" \");\n\n        if (!CollectionUtils.isEmpty(user.getRoles()))\n            user.getRoles().forEach(role -> {\n                stringJoiner.add(\"ROLE_\" + role);\n            });\n\n        return stringJoiner.toString();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "isTokenExpired",
+    "chunk_type": "other",
+    "calls": [
+      "JwtProvider.extractExpiration",
+      "unknown.before"
+    ],
+    "called_by": [
+      "JwtProvider.isTokenValid"
+    ],
+    "line_start": 99,
+    "line_end": 101,
+    "content": "public boolean isTokenExpired(String token) {\n        return extractExpiration(token).before(new Date());\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "extractExpiration",
+    "chunk_type": "other",
+    "calls": [
+      "JwtProvider.extractClaims"
+    ],
+    "called_by": [
+      "JwtProvider.isTokenExpired"
+    ],
+    "line_start": 103,
+    "line_end": 105,
+    "content": "private Date extractExpiration(String token) {\n        return extractClaims(token, Claims::getExpiration);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/JwtProvider.java",
+    "class_name": "JwtProvider",
+    "method_name": "isTokenValid",
+    "chunk_type": "other",
+    "calls": [
+      "JwtProvider.extractUsername",
+      "JwtProvider.isTokenExpired",
+      "UserPrincipal.getUsername",
+      "unknown.equals"
+    ],
+    "called_by": [
+      "JwtFilter.doFilterInternal"
+    ],
+    "line_start": 107,
+    "line_end": 110,
+    "content": "public boolean isTokenValid(String token, UserPrincipal userDetails) {\n        final String username = extractUsername(token);\n        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/UserPrincipal.java",
+    "class_name": "UserPrincipal",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 16,
+    "line_end": 81,
+    "content": "@Getter\n@Builder\n@Slf4j\n@ToString\npublic class UserPrincipal implements UserDetails {\n    private UUID id;\n    private String username;\n    private String email;\n    private String password;\n    private List<String> roles;\n\n\n    @Override\n    public Collection<? extends GrantedAuthority> getAuthorities(){\n        return roles.stream()\n                .map(SimpleGrantedAuthority::new)\n                .toList();\n    }\n    public UserPrincipal(UUID id, String username, String email, String password, List<String> roles) {\n        this.id = id;\n        this.username = username;\n        this.email = email;\n        this.password = password;\n        this.roles = roles;\n    }\n\n    public static UserPrincipal from(User user) {\n        return UserPrincipal.builder()\n                .id(UUID.fromString(user.getId().toString()))\n                .username(user.getUsername())\n                .email(user.getEmail())\n                .password(user.getCredentials().getPasswordHash())\n                .roles(List.of(user.getRole().toString()))\n                .build();\n    }\n\n    @Override\n    public String getPassword() {\n        return password;\n    }\n\n    @Override\n    public String getUsername() {\n        return username;\n    }\n\n    @Override\n    public boolean isAccountNonExpired() {\n        return true;\n    }\n\n    @Override\n    public boolean isAccountNonLocked() {\n        return true;\n    }\n\n    @Override\n    public boolean isCredentialsNonExpired() {\n        return true;\n    }\n\n    @Override\n    public boolean isEnabled() {\n        return true;\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/UserPrincipal.java",
+    "class_name": "UserPrincipal",
+    "method_name": "getAuthorities",
+    "chunk_type": "other",
+    "calls": [
+      "List.map",
+      "List.stream",
+      "List.toList"
+    ],
+    "called_by": [
+      "JwtProvider.generateToken"
+    ],
+    "line_start": 28,
+    "line_end": 33,
+    "content": "@Override\n    public Collection<? extends GrantedAuthority> getAuthorities(){\n        return roles.stream()\n                .map(SimpleGrantedAuthority::new)\n                .toList();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/UserPrincipal.java",
+    "class_name": "UserPrincipal",
+    "method_name": "from",
+    "chunk_type": "other",
+    "calls": [
+      "List.of",
+      "UUID.fromString",
+      "User.getCredentials",
+      "User.getEmail",
+      "User.getId",
+      "User.getPasswordHash",
+      "User.getRole",
+      "User.getUsername",
+      "User.toString",
+      "UserPrincipal.build",
+      "UserPrincipal.builder",
+      "UserPrincipal.email",
+      "UserPrincipal.id",
+      "UserPrincipal.password",
+      "UserPrincipal.roles",
+      "UserPrincipal.username"
+    ],
+    "called_by": [],
+    "line_start": 42,
+    "line_end": 50,
+    "content": "public static UserPrincipal from(User user) {\n        return UserPrincipal.builder()\n                .id(UUID.fromString(user.getId().toString()))\n                .username(user.getUsername())\n                .email(user.getEmail())\n                .password(user.getCredentials().getPasswordHash())\n                .roles(List.of(user.getRole().toString()))\n                .build();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/UserPrincipal.java",
+    "class_name": "UserPrincipal",
+    "method_name": "getPassword",
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 52,
+    "line_end": 55,
+    "content": "@Override\n    public String getPassword() {\n        return password;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/UserPrincipal.java",
+    "class_name": "UserPrincipal",
+    "method_name": "getUsername",
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [
+      "JwtProvider.generateToken",
+      "JwtProvider.isTokenValid"
+    ],
+    "line_start": 57,
+    "line_end": 60,
+    "content": "@Override\n    public String getUsername() {\n        return username;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/UserPrincipal.java",
+    "class_name": "UserPrincipal",
+    "method_name": "isAccountNonExpired",
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 62,
+    "line_end": 65,
+    "content": "@Override\n    public boolean isAccountNonExpired() {\n        return true;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/UserPrincipal.java",
+    "class_name": "UserPrincipal",
+    "method_name": "isAccountNonLocked",
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 67,
+    "line_end": 70,
+    "content": "@Override\n    public boolean isAccountNonLocked() {\n        return true;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/UserPrincipal.java",
+    "class_name": "UserPrincipal",
+    "method_name": "isCredentialsNonExpired",
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 72,
+    "line_end": 75,
+    "content": "@Override\n    public boolean isCredentialsNonExpired() {\n        return true;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/security/UserPrincipal.java",
+    "class_name": "UserPrincipal",
+    "method_name": "isEnabled",
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 77,
+    "line_end": 80,
+    "content": "@Override\n    public boolean isEnabled() {\n        return true;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": null,
+    "chunk_type": "service",
+    "calls": [],
+    "called_by": [],
+    "line_start": 22,
+    "line_end": 147,
+    "content": "@Service\n@Slf4j\npublic class BaseService {\n\n    @Autowired\n    protected Environment env;\n\n    @Value(\"${spring.application.name}\")\n    protected String appName;\n\n    @Autowired\n    protected ObjectMapper objectMapper;\n\n    @Autowired\n    protected HttpServletRequest httpServletRequest;\n\n    @Autowired\n    protected HttpServletResponse httpServletResponse;\n\n    public String getMessage(String key) {\n        try {\n            String result = env.getProperty(key);\n            return ObjectUtils.isEmpty(result) ? key : result;\n        } catch (Exception e) {\n            return key;\n        }\n    }\n\n    public String getMessage(int code) {\n        return getMessage(String.valueOf(code));\n    }\n\n    public String getMessage(BusinessError error) {\n        return ObjectUtils.isEmpty(error.getMessage()) ? getMessage(error.getCode()) : error.getMessage();\n    }\n\n    public Object getRequestValue(String key) {\n        return getRequestValue(key, Object.class);\n    }\n\n    public <T> T getRequestValue(String key, Class<T> clazz) {\n        return clazz.cast(httpServletRequest.getAttribute(key));\n    }\n\n    public String getRequestStringValue(String key) {\n        return getRequestValue(key, String.class);\n    }\n\n    public String getRequestId() {\n        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();\n    }\n\n    public Object getRequestBody() {\n        return getRequestValue(RequestKeyConstant.REQUEST_BODY);\n    }\n\n    public <T> BaseResponse<T> ofSucceeded(T data) {\n        return BaseResponse.ofSucceeded(getRequestId(), data);\n    }\n\n    public <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {\n        return BaseResponse.ofGetListSucceeded(data, requestList);\n    }\n\n    public <T> BaseResponse<T> ofFailed(BusinessException exception, T data) {\n        return BaseResponse.ofFailed(getRequestId(), exception, data);\n    }\n\n    public <T> BaseResponse<T> ofFailed(BusinessError error, String message, T data) {\n        return BaseResponse.ofFailed(getRequestId(), error, message, data);\n    }\n\n    public <T> BaseResponse<T> ofFailed(BusinessError error, String message, List<ErrorViolation> errors, T data) {\n        return BaseResponse.ofFailed(getRequestId(), error, message, errors, data);\n    }\n\n    public BaseResponse ofFailed(BusinessException exception) {\n        return BaseResponse.ofFailed(getRequestId(), exception);\n    }\n\n    public BaseResponse ofFailed(BusinessError error, String message) {\n        return BaseResponse.ofFailed(getRequestId(), error, message);\n    }\n\n    public BaseResponse ofFailed(BusinessError error) {\n        return BaseResponse.ofFailed(getRequestId(), error, getMessage(error));\n    }\n\n    public BaseResponse ofFailed(BusinessError error, String message, List<ErrorViolation> errors) {\n        return BaseResponse.ofFailed(getRequestId(), error, message, errors);\n    }\n\n    public BaseResponse ofFailed(int errorCode) {\n        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode));\n    }\n\n    public <T> BaseResponse<T> ofFailed(int errorCode, T data) {\n        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode), data);\n    }\n\n    public BusinessError getBusinessError(int errorCode) {\n        return BusinessError.builder()\n                .code(errorCode)\n                .message(getMessage(errorCode))\n                .build();\n    }\n\n    public HttpHeaders getHeaders() {\n        HttpHeaders headers = new HttpHeaders();\n        Enumeration<String> headerNames = httpServletRequest.getHeaderNames();\n        while (headerNames.hasMoreElements()) {\n            String headerName = headerNames.nextElement();\n            String headerValue = httpServletRequest.getHeader(headerName);\n            headers.add(headerName, headerValue);\n        }\n        return headers;\n    }\n\n    public int getErrorCode(String errorCode, int errorCodeDefault) {\n        try {\n            return Integer.parseInt(errorCode);\n        } catch (NumberFormatException e) {\n            return errorCodeDefault;\n        }\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getMessage",
+    "chunk_type": "service",
+    "calls": [
+      "Environment.getProperty",
+      "ObjectUtils.isEmpty"
+    ],
+    "called_by": [
+      "BaseService.getMessage",
+      "BaseService.getBusinessError"
+    ],
+    "line_start": 41,
+    "line_end": 48,
+    "content": "public String getMessage(String key) {\n        try {\n            String result = env.getProperty(key);\n            return ObjectUtils.isEmpty(result) ? key : result;\n        } catch (Exception e) {\n            return key;\n        }\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getMessage",
+    "chunk_type": "service",
+    "calls": [
+      "BaseService.getMessage",
+      "String.valueOf"
+    ],
+    "called_by": [
+      "BaseService.getMessage",
+      "BaseService.getBusinessError"
+    ],
+    "line_start": 50,
+    "line_end": 52,
+    "content": "public String getMessage(int code) {\n        return getMessage(String.valueOf(code));\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getMessage",
+    "chunk_type": "service",
+    "calls": [
+      "BaseService.getMessage",
+      "BusinessError.getCode",
+      "BusinessError.getMessage",
+      "ObjectUtils.isEmpty"
+    ],
+    "called_by": [
+      "BaseService.getMessage",
+      "BaseService.getBusinessError"
+    ],
+    "line_start": 54,
+    "line_end": 56,
+    "content": "public String getMessage(BusinessError error) {\n        return ObjectUtils.isEmpty(error.getMessage()) ? getMessage(error.getCode()) : error.getMessage();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getRequestValue",
+    "chunk_type": "service",
+    "calls": [
+      "BaseService.getRequestValue"
+    ],
+    "called_by": [
+      "BaseService.getRequestStringValue",
+      "BaseService.getRequestId",
+      "BaseService.getRequestBody"
+    ],
+    "line_start": 58,
+    "line_end": 60,
+    "content": "public Object getRequestValue(String key) {\n        return getRequestValue(key, Object.class);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getRequestValue",
+    "chunk_type": "service",
+    "calls": [
+      "Class<T>.cast",
+      "HttpServletRequest.getAttribute"
+    ],
+    "called_by": [
+      "BaseService.getRequestStringValue",
+      "BaseService.getRequestId",
+      "BaseService.getRequestBody"
+    ],
+    "line_start": 62,
+    "line_end": 64,
+    "content": "public <T> T getRequestValue(String key, Class<T> clazz) {\n        return clazz.cast(httpServletRequest.getAttribute(key));\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getRequestStringValue",
+    "chunk_type": "service",
+    "calls": [
+      "BaseService.getRequestValue"
+    ],
+    "called_by": [],
+    "line_start": 66,
+    "line_end": 68,
+    "content": "public String getRequestStringValue(String key) {\n        return getRequestValue(key, String.class);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getRequestId",
+    "chunk_type": "service",
+    "calls": [
+      "BaseService.getRequestValue",
+      "unknown.toString"
+    ],
+    "called_by": [
+      "BaseService.ofSucceeded",
+      "BaseService.ofFailed"
+    ],
+    "line_start": 70,
+    "line_end": 72,
+    "content": "public String getRequestId() {\n        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getRequestBody",
+    "chunk_type": "service",
+    "calls": [
+      "BaseService.getRequestValue"
+    ],
+    "called_by": [],
+    "line_start": 74,
+    "line_end": 76,
+    "content": "public Object getRequestBody() {\n        return getRequestValue(RequestKeyConstant.REQUEST_BODY);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofSucceeded",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofSucceeded",
+      "BaseService.getRequestId"
+    ],
+    "called_by": [
+      "PronunciationController.getSamplePronunciations",
+      "PronunciationController.getAccuracy"
+    ],
+    "line_start": 78,
+    "line_end": 80,
+    "content": "public <T> BaseResponse<T> ofSucceeded(T data) {\n        return BaseResponse.ofSucceeded(getRequestId(), data);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofGetListSucceeded",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofGetListSucceeded"
+    ],
+    "called_by": [],
+    "line_start": 82,
+    "line_end": 84,
+    "content": "public <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {\n        return BaseResponse.ofGetListSucceeded(data, requestList);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofFailed",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BaseService.getRequestId"
+    ],
+    "called_by": [],
+    "line_start": 86,
+    "line_end": 88,
+    "content": "public <T> BaseResponse<T> ofFailed(BusinessException exception, T data) {\n        return BaseResponse.ofFailed(getRequestId(), exception, data);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofFailed",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BaseService.getRequestId"
+    ],
+    "called_by": [],
+    "line_start": 90,
+    "line_end": 92,
+    "content": "public <T> BaseResponse<T> ofFailed(BusinessError error, String message, T data) {\n        return BaseResponse.ofFailed(getRequestId(), error, message, data);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofFailed",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BaseService.getRequestId"
+    ],
+    "called_by": [],
+    "line_start": 94,
+    "line_end": 96,
+    "content": "public <T> BaseResponse<T> ofFailed(BusinessError error, String message, List<ErrorViolation> errors, T data) {\n        return BaseResponse.ofFailed(getRequestId(), error, message, errors, data);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofFailed",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BaseService.getRequestId"
+    ],
+    "called_by": [],
+    "line_start": 98,
+    "line_end": 100,
+    "content": "public BaseResponse ofFailed(BusinessException exception) {\n        return BaseResponse.ofFailed(getRequestId(), exception);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofFailed",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BaseService.getRequestId"
+    ],
+    "called_by": [],
+    "line_start": 102,
+    "line_end": 104,
+    "content": "public BaseResponse ofFailed(BusinessError error, String message) {\n        return BaseResponse.ofFailed(getRequestId(), error, message);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofFailed",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BaseService.getMessage",
+      "BaseService.getRequestId"
+    ],
+    "called_by": [],
+    "line_start": 106,
+    "line_end": 108,
+    "content": "public BaseResponse ofFailed(BusinessError error) {\n        return BaseResponse.ofFailed(getRequestId(), error, getMessage(error));\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofFailed",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BaseService.getRequestId"
+    ],
+    "called_by": [],
+    "line_start": 110,
+    "line_end": 112,
+    "content": "public BaseResponse ofFailed(BusinessError error, String message, List<ErrorViolation> errors) {\n        return BaseResponse.ofFailed(getRequestId(), error, message, errors);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofFailed",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BaseService.getBusinessError",
+      "BaseService.getRequestId"
+    ],
+    "called_by": [],
+    "line_start": 114,
+    "line_end": 116,
+    "content": "public BaseResponse ofFailed(int errorCode) {\n        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode));\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "ofFailed",
+    "chunk_type": "service",
+    "calls": [
+      "BaseResponse.ofFailed",
+      "BaseService.getBusinessError",
+      "BaseService.getRequestId"
+    ],
+    "called_by": [],
+    "line_start": 118,
+    "line_end": 120,
+    "content": "public <T> BaseResponse<T> ofFailed(int errorCode, T data) {\n        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode), data);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getBusinessError",
+    "chunk_type": "service",
+    "calls": [
+      "BaseService.getMessage",
+      "BusinessError.build",
+      "BusinessError.builder",
+      "BusinessError.code",
+      "BusinessError.message"
+    ],
+    "called_by": [
+      "BaseService.ofFailed"
+    ],
+    "line_start": 122,
+    "line_end": 127,
+    "content": "public BusinessError getBusinessError(int errorCode) {\n        return BusinessError.builder()\n                .code(errorCode)\n                .message(getMessage(errorCode))\n                .build();\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getHeaders",
+    "chunk_type": "service",
+    "calls": [
+      "HttpServletRequest.getHeader",
+      "HttpServletRequest.getHeaderNames",
+      "unknown.add",
+      "unknown.hasMoreElements",
+      "unknown.nextElement"
+    ],
+    "called_by": [],
+    "line_start": 129,
+    "line_end": 138,
+    "content": "public HttpHeaders getHeaders() {\n        HttpHeaders headers = new HttpHeaders();\n        Enumeration<String> headerNames = httpServletRequest.getHeaderNames();\n        while (headerNames.hasMoreElements()) {\n            String headerName = headerNames.nextElement();\n            String headerValue = httpServletRequest.getHeader(headerName);\n            headers.add(headerName, headerValue);\n        }\n        return headers;\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/service/BaseService.java",
+    "class_name": "BaseService",
+    "method_name": "getErrorCode",
+    "chunk_type": "service",
+    "calls": [
+      "Integer.parseInt"
+    ],
+    "called_by": [],
+    "line_start": 140,
+    "line_end": 146,
+    "content": "public int getErrorCode(String errorCode, int errorCodeDefault) {\n        try {\n            return Integer.parseInt(errorCode);\n        } catch (NumberFormatException e) {\n            return errorCodeDefault;\n        }\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/thirdparty/pronunciation_svc/PronunciationServiceImpl.java",
+    "class_name": "PronunciationServiceImpl",
+    "method_name": null,
+    "chunk_type": "service",
+    "calls": [],
+    "called_by": [],
+    "line_start": 17,
+    "line_end": 55,
+    "content": "@Service\npublic class PronunciationServiceImpl implements PronunciationService {\n\n    private final PronunciationFeignClient pronunciationFeignClient;\n\n    private final PronunciationMapper pronunciationMapper;\n\n    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {\n        this.pronunciationFeignClient = pronunciationFeignClient;\n        this.pronunciationMapper = pronunciationMapper;\n    }\n\n    @Override\n    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {\n        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);\n        req.setCategory(request.getLevel().getValue());\n        req.setLanguage(\"en\");\n        GetSampleResponse response = pronunciationFeignClient.getSample(req);\n\n        if (response == null) {\n            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);\n        }\n\n        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);\n    }\n\n    @Override\n    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {\n        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);\n        req.setLanguage(\"en\");\n        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);\n\n        if (response == null) {\n            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);\n        }\n\n        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/thirdparty/pronunciation_svc/PronunciationServiceImpl.java",
+    "class_name": "PronunciationServiceImpl",
+    "method_name": "getSample",
+    "chunk_type": "service",
+    "calls": [
+      "GetSampleRequestDto.getLevel",
+      "GetSampleRequestDto.getValue",
+      "PronunciationFeignClient.getSample",
+      "PronunciationMapper.toGetPronunciationSampleResponseDto",
+      "PronunciationMapper.toSampleRequest",
+      "unknown.setCategory",
+      "unknown.setLanguage"
+    ],
+    "called_by": [],
+    "line_start": 29,
+    "line_end": 41,
+    "content": "@Override\n    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {\n        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);\n        req.setCategory(request.getLevel().getValue());\n        req.setLanguage(\"en\");\n        GetSampleResponse response = pronunciationFeignClient.getSample(req);\n\n        if (response == null) {\n            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);\n        }\n\n        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/thirdparty/pronunciation_svc/PronunciationServiceImpl.java",
+    "class_name": "PronunciationServiceImpl",
+    "method_name": "getAccuracy",
+    "chunk_type": "service",
+    "calls": [
+      "PronunciationFeignClient.getAccuracyFromRecordedAudio",
+      "PronunciationMapper.toPronunciationAccuracyRequest",
+      "PronunciationMapper.toPronunciationAccuracyResponseDto",
+      "unknown.setLanguage"
+    ],
+    "called_by": [],
+    "line_start": 43,
+    "line_end": 54,
+    "content": "@Override\n    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {\n        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);\n        req.setLanguage(\"en\");\n        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);\n\n        if (response == null) {\n            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);\n        }\n\n        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/thirdparty/pronunciation_svc/request/GetSampleRequest.java",
+    "class_name": "GetSampleRequest",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 6,
+    "line_end": 16,
+    "content": "@Data\npublic class GetSampleRequest {\n\n    private String category;\n\n    private String language;\n\n    @JsonInclude(JsonInclude.Include.NON_NULL)\n    private String transcript;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/thirdparty/pronunciation_svc/request/PronunciationAccuracyRequest.java",
+    "class_name": "PronunciationAccuracyRequest",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 6,
+    "line_end": 16,
+    "content": "@Data\npublic class PronunciationAccuracyRequest {\n\n    private String base64Audio;\n\n    private String language;\n\n    @JsonProperty(\"title\")\n    private String text;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/thirdparty/pronunciation_svc/response/GetSampleResponse.java",
+    "class_name": "GetSampleResponse",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 8,
+    "line_end": 22,
+    "content": "@Data\n@NoArgsConstructor\n@AllArgsConstructor\npublic class GetSampleResponse {\n\n    @JsonProperty(\"ipa_transcript\")\n    private String ipaTranscript;\n\n    @JsonProperty(\"real_transcript\")\n    private String realTranscript;\n\n    @JsonProperty(\"transcript_translation\")\n    private String transcriptTranslation;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/thirdparty/pronunciation_svc/response/PronunciationAccuracyResponse.java",
+    "class_name": "PronunciationAccuracyResponse",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 7,
+    "line_end": 33,
+    "content": "@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)\n@Data\npublic class PronunciationAccuracyResponse {\n\n    private String startTime;\n\n    private String endTime;\n\n    private String ipaScript;\n\n    private String isLetterCorrectAllWords;\n\n    private String matchedTranscripts;\n\n    private String matchedTranscriptsIpa;\n\n    private String pairAccuracyCategory;\n\n    private Integer pronunciationAccuracy;\n\n    private String realTranscript;\n\n    private String realTranscripts;\n\n    private String realTranscriptsIpa;\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/FileUtils.java",
+    "class_name": "FileUtils",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 9,
+    "line_end": 21,
+    "content": "@Slf4j\npublic class FileUtils {\n\n    public static String convertToBase64(File file) {\n        try {\n            byte[] fileContent = Files.readAllBytes(file.toPath());\n            return Base64.getEncoder().encodeToString(fileContent);\n        } catch (Exception e) {\n            log.warn(\"failed to convert file to Base64: {}\", e.getMessage());\n            return null;\n        }\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/FileUtils.java",
+    "class_name": "FileUtils",
+    "method_name": "convertToBase64",
+    "chunk_type": "other",
+    "calls": [
+      "Base64.encodeToString",
+      "Base64.getEncoder",
+      "File.toPath",
+      "Files.readAllBytes",
+      "unknown.getMessage",
+      "unknown.warn"
+    ],
+    "called_by": [],
+    "line_start": 12,
+    "line_end": 20,
+    "content": "public static String convertToBase64(File file) {\n        try {\n            byte[] fileContent = Files.readAllBytes(file.toPath());\n            return Base64.getEncoder().encodeToString(fileContent);\n        } catch (Exception e) {\n            log.warn(\"failed to convert file to Base64: {}\", e.getMessage());\n            return null;\n        }\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/JsonUtils.java",
+    "class_name": "JsonUtils",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 10,
+    "line_end": 63,
+    "content": "public class JsonUtils {\n\n    private JsonUtils() {}\n\n    public static <T> T getGenericObject(Object input, Class<T> clazz) {\n        try {\n            ObjectMapper objectMapper = new ObjectMapper();\n            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);\n            objectMapper.enable(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);\n            return objectMapper.convertValue(input, clazz);\n        } catch (Exception e) {\n            return null;\n        }\n    }\n\n    public static  <T> T getEntityFromJsonStr(String input, Class<T> clazz) {\n        try {\n            ObjectMapper objectMapper = new ObjectMapper();\n            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);\n            objectMapper.enable(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);\n            return objectMapper.readValue(input, clazz);\n        } catch (IOException e) {\n            return null;\n        }\n    }\n\n    public static String convertObjectToString(Object obj) throws JsonProcessingException {\n        return new ObjectMapper().writeValueAsString(obj);\n    }\n\n    public static String toJsonString(Object input) {\n        try {\n            ObjectMapper objectMapper = new ObjectMapper();\n            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);\n            return objectMapper.writeValueAsString(input);\n        } catch (Exception e) {\n            e.printStackTrace();\n            return \"\";\n        }\n    }\n\n    public static <T> T readObject(String input, Class<T> clazz) throws IOException {\n        ObjectMapper objectMapper = new ObjectMapper();\n        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);\n        return objectMapper.readValue(input, clazz);\n    }\n\n    public static <T> T  readListObject(Object input, Class<T> clazz) throws IOException {\n        ObjectMapper objectMapper = new ObjectMapper();\n        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);\n        return objectMapper.readValue(objectMapper.writeValueAsString(input),\n                objectMapper.getTypeFactory().constructCollectionType(List.class, clazz));\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/JsonUtils.java",
+    "class_name": "JsonUtils",
+    "method_name": "getGenericObject",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.configure",
+      "unknown.convertValue",
+      "unknown.enable"
+    ],
+    "called_by": [
+      "LogsActivityAOPHandler.displayLog"
+    ],
+    "line_start": 14,
+    "line_end": 23,
+    "content": "public static <T> T getGenericObject(Object input, Class<T> clazz) {\n        try {\n            ObjectMapper objectMapper = new ObjectMapper();\n            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);\n            objectMapper.enable(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);\n            return objectMapper.convertValue(input, clazz);\n        } catch (Exception e) {\n            return null;\n        }\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/JsonUtils.java",
+    "class_name": "JsonUtils",
+    "method_name": "getEntityFromJsonStr",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.configure",
+      "unknown.enable",
+      "unknown.readValue"
+    ],
+    "called_by": [],
+    "line_start": 25,
+    "line_end": 34,
+    "content": "public static  <T> T getEntityFromJsonStr(String input, Class<T> clazz) {\n        try {\n            ObjectMapper objectMapper = new ObjectMapper();\n            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);\n            objectMapper.enable(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);\n            return objectMapper.readValue(input, clazz);\n        } catch (IOException e) {\n            return null;\n        }\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/JsonUtils.java",
+    "class_name": "JsonUtils",
+    "method_name": "convertObjectToString",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.writeValueAsString"
+    ],
+    "called_by": [
+      "LogsActivityAOPHandler.logsActivityAnnotation"
+    ],
+    "line_start": 36,
+    "line_end": 38,
+    "content": "public static String convertObjectToString(Object obj) throws JsonProcessingException {\n        return new ObjectMapper().writeValueAsString(obj);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/JsonUtils.java",
+    "class_name": "JsonUtils",
+    "method_name": "toJsonString",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.configure",
+      "unknown.printStackTrace",
+      "unknown.writeValueAsString"
+    ],
+    "called_by": [],
+    "line_start": 40,
+    "line_end": 49,
+    "content": "public static String toJsonString(Object input) {\n        try {\n            ObjectMapper objectMapper = new ObjectMapper();\n            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);\n            return objectMapper.writeValueAsString(input);\n        } catch (Exception e) {\n            e.printStackTrace();\n            return \"\";\n        }\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/JsonUtils.java",
+    "class_name": "JsonUtils",
+    "method_name": "readObject",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.configure",
+      "unknown.readValue"
+    ],
+    "called_by": [],
+    "line_start": 51,
+    "line_end": 55,
+    "content": "public static <T> T readObject(String input, Class<T> clazz) throws IOException {\n        ObjectMapper objectMapper = new ObjectMapper();\n        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);\n        return objectMapper.readValue(input, clazz);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/JsonUtils.java",
+    "class_name": "JsonUtils",
+    "method_name": "readListObject",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.configure",
+      "unknown.constructCollectionType",
+      "unknown.getTypeFactory",
+      "unknown.readValue",
+      "unknown.writeValueAsString"
+    ],
+    "called_by": [],
+    "line_start": 57,
+    "line_end": 62,
+    "content": "public static <T> T  readListObject(Object input, Class<T> clazz) throws IOException {\n        ObjectMapper objectMapper = new ObjectMapper();\n        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);\n        return objectMapper.readValue(objectMapper.writeValueAsString(input),\n                objectMapper.getTypeFactory().constructCollectionType(List.class, clazz));\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/Utils.java",
+    "class_name": "Utils",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 20,
+    "line_end": 136,
+    "content": "public class Utils {\n\n    private static final String REGEX_FILTER_KEY =\n            \"[ : ]+((?=\\\\[)\\\\[[^]]*\\\\]|(?=\\\\{)\\\\{[^\\\\}]*\\\\}|\\\\\\\"[^\\\"]*\\\\\\\"|(\\\\d+(\\\\.\\\\d+)?))\";\n    private static final Logger log = LoggerFactory.getLogger(Utils.class);\n\n    static List<String> redactKeys = Collections.unmodifiableList(Arrays.asList(\n            \"api_key\", \"apiKey\", \"api_secret\", \"apiSecret\", \"otp\", \"pin\", \"access_token\", \"accessToken\", \"full_name\",\n            \"fullName\", \"phone_number\", \"phoneNumber\", \"email\", \"mobile_number\", \"mobileNumber\", \"email_address\", \"emailAddress\",\n            \"email_preference\", \"emailReference\", \"authorization\", \"verified_token\", \"verifiedToken\", \"x-api-secret\", \"xApiSecret\",\n            \"x-api-key\", \"xApiKey\", \"Authorization\", \"partner\", \"client_id\", \"clientId\", \"public_key\", \"publicKey\",\n            \"private_key\", \"privateKey\", \"x-public-key\", \"xPublicKey\", \"x-private-key\", \"xPrivateKey\", \"newrelic\",\n            \"refresh_token\", \"refreshToken\", \"password\", \"passcode\"));\n\n    public static long genAutoId(String key) {\n        if (StringUtils.isBlank(key)) {\n            key = UUID.randomUUID().toString();\n        }\n        byte[] bytes = key.getBytes(StandardCharsets.UTF_8);\n        long h = MurmurHash3.hash64(bytes);\n        return Math.abs(h);\n    }\n\n\n    public static String redact(@NonNull String string) {\n        try {\n            for (String key : redactKeys) {\n                Matcher matcher = Pattern.compile(String.format(\"\\\"%s\\\"%s\", key, REGEX_FILTER_KEY)).matcher(string);\n                if (matcher.find() && matcher.group(1) != null) {\n                    String group = matcher.group(1);\n                    if (!ObjectUtils.isEmpty(group.trim()) && !\"\\\"\\\"\".equals(group)) {\n                        string = string.replace(group, \"\\\"**********\\\"\");\n                    }\n                }\n            }\n            return string;\n        } catch (Exception e) {\n            return string;\n        }\n    }\n\n    public static <T> Map<String, T> convertListToMap(List<T> list, Function<T, String> keyExtractor) {\n        return list.stream().collect(Collectors.toMap(keyExtractor, Function.identity(), (oldVal, newVal) -> newVal));\n    }\n\n    public static String convertDateToyyyyMMdd(Long input){\n        String pattern = \"yyyyMMdd\";\n        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);\n        Date date = new Date(input);\n        return simpleDateFormat.format(date);\n    }\n\n    public static boolean isMatchRegex(String str, String regex) {\n        try {\n            if (str == null || regex == null) {\n                return false;\n            }\n\n            Pattern pattern = Pattern.compile(regex);\n            Matcher matcher = pattern.matcher(str);\n\n            return matcher.matches();\n        } catch (Exception e) {\n            log.error(e.getMessage());\n            return false;\n        }\n\n    }\n\n\n    public static String[] getBlankProperties(Object obj) {\n        return Arrays.stream(obj.getClass().getDeclaredFields())\n                .filter(f -> {\n                    f.setAccessible(true);\n                    try {\n                        Object value = f.get(obj);\n                        return value == null || (value instanceof String && StringUtils.isBlank((String) value));\n                    } catch (IllegalAccessException e) {\n                        return true;\n                    }\n                })\n                .map(Field::getName)\n                .toArray(String[]::new);\n    }\n\n    public static String[] getExistedProperties(Object obj) {\n        return Arrays.stream(obj.getClass().getDeclaredFields())\n                .filter(f -> {\n                    f.setAccessible(true);\n                    try {\n                        Object value = f.get(obj);\n                        if (value instanceof String) {\n                            return !StringUtils.isBlank((String) value);\n                        }\n                        return value != null;\n                    } catch (IllegalAccessException e) {\n                        return true;\n                    }\n                })\n                .map(Field::getName)\n                .toArray(String[]::new);\n    }\n\n    public static <T extends Enum<T>> T enumOf(Class<T> enumType, String value) {\n        return Arrays.stream(enumType.getEnumConstants())\n                .filter(e -> e.name().equalsIgnoreCase(value))\n                .findFirst()\n                .orElse(null);\n    }\n\n    public static LocalDateTime stringToLocalDateTime(String dateOfBirth) {\n        if (StringUtils.isBlank(dateOfBirth)) {\n            return null;\n        }\n        return LocalDateTime.parse(dateOfBirth);\n    }\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/Utils.java",
+    "class_name": "Utils",
+    "method_name": "genAutoId",
+    "chunk_type": "other",
+    "calls": [
+      "Math.abs",
+      "MurmurHash3.hash64",
+      "String.getBytes",
+      "StringUtils.isBlank",
+      "UUID.randomUUID",
+      "UUID.toString"
+    ],
+    "called_by": [],
+    "line_start": 34,
+    "line_end": 41,
+    "content": "public static long genAutoId(String key) {\n        if (StringUtils.isBlank(key)) {\n            key = UUID.randomUUID().toString();\n        }\n        byte[] bytes = key.getBytes(StandardCharsets.UTF_8);\n        long h = MurmurHash3.hash64(bytes);\n        return Math.abs(h);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/Utils.java",
+    "class_name": "Utils",
+    "method_name": "redact",
+    "chunk_type": "other",
+    "calls": [
+      "ObjectUtils.isEmpty",
+      "Pattern.compile",
+      "Pattern.matcher",
+      "String.format",
+      "String.replace",
+      "unknown.equals",
+      "unknown.find",
+      "unknown.group",
+      "unknown.trim"
+    ],
+    "called_by": [
+      "LogsActivityAOPHandler.logsActivityAnnotation",
+      "LogsActivityAOPHandler.displayLog"
+    ],
+    "line_start": 44,
+    "line_end": 59,
+    "content": "public static String redact(@NonNull String string) {\n        try {\n            for (String key : redactKeys) {\n                Matcher matcher = Pattern.compile(String.format(\"\\\"%s\\\"%s\", key, REGEX_FILTER_KEY)).matcher(string);\n                if (matcher.find() && matcher.group(1) != null) {\n                    String group = matcher.group(1);\n                    if (!ObjectUtils.isEmpty(group.trim()) && !\"\\\"\\\"\".equals(group)) {\n                        string = string.replace(group, \"\\\"**********\\\"\");\n                    }\n                }\n            }\n            return string;\n        } catch (Exception e) {\n            return string;\n        }\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/Utils.java",
+    "class_name": "Utils",
+    "method_name": "convertListToMap",
+    "chunk_type": "other",
+    "calls": [
+      "Collectors.toMap",
+      "Function.identity",
+      "List<T>.collect",
+      "List<T>.stream"
+    ],
+    "called_by": [],
+    "line_start": 61,
+    "line_end": 63,
+    "content": "public static <T> Map<String, T> convertListToMap(List<T> list, Function<T, String> keyExtractor) {\n        return list.stream().collect(Collectors.toMap(keyExtractor, Function.identity(), (oldVal, newVal) -> newVal));\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/Utils.java",
+    "class_name": "Utils",
+    "method_name": "convertDateToyyyyMMdd",
+    "chunk_type": "other",
+    "calls": [
+      "unknown.format"
+    ],
+    "called_by": [],
+    "line_start": 65,
+    "line_end": 70,
+    "content": "public static String convertDateToyyyyMMdd(Long input){\n        String pattern = \"yyyyMMdd\";\n        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);\n        Date date = new Date(input);\n        return simpleDateFormat.format(date);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/Utils.java",
+    "class_name": "Utils",
+    "method_name": "isMatchRegex",
+    "chunk_type": "other",
+    "calls": [
+      "Logger.error",
+      "Pattern.compile",
+      "unknown.getMessage",
+      "unknown.matcher",
+      "unknown.matches"
+    ],
+    "called_by": [],
+    "line_start": 72,
+    "line_end": 87,
+    "content": "public static boolean isMatchRegex(String str, String regex) {\n        try {\n            if (str == null || regex == null) {\n                return false;\n            }\n\n            Pattern pattern = Pattern.compile(regex);\n            Matcher matcher = pattern.matcher(str);\n\n            return matcher.matches();\n        } catch (Exception e) {\n            log.error(e.getMessage());\n            return false;\n        }\n\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/Utils.java",
+    "class_name": "Utils",
+    "method_name": "getBlankProperties",
+    "chunk_type": "other",
+    "calls": [
+      "Arrays.filter",
+      "Arrays.map",
+      "Arrays.stream",
+      "Arrays.toArray",
+      "Object.getClass",
+      "Object.getDeclaredFields",
+      "StringUtils.isBlank",
+      "unknown.get",
+      "unknown.setAccessible"
+    ],
+    "called_by": [],
+    "line_start": 90,
+    "line_end": 103,
+    "content": "public static String[] getBlankProperties(Object obj) {\n        return Arrays.stream(obj.getClass().getDeclaredFields())\n                .filter(f -> {\n                    f.setAccessible(true);\n                    try {\n                        Object value = f.get(obj);\n                        return value == null || (value instanceof String && StringUtils.isBlank((String) value));\n                    } catch (IllegalAccessException e) {\n                        return true;\n                    }\n                })\n                .map(Field::getName)\n                .toArray(String[]::new);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/Utils.java",
+    "class_name": "Utils",
+    "method_name": "getExistedProperties",
+    "chunk_type": "other",
+    "calls": [
+      "Arrays.filter",
+      "Arrays.map",
+      "Arrays.stream",
+      "Arrays.toArray",
+      "Object.getClass",
+      "Object.getDeclaredFields",
+      "StringUtils.isBlank",
+      "unknown.get",
+      "unknown.setAccessible"
+    ],
+    "called_by": [],
+    "line_start": 105,
+    "line_end": 121,
+    "content": "public static String[] getExistedProperties(Object obj) {\n        return Arrays.stream(obj.getClass().getDeclaredFields())\n                .filter(f -> {\n                    f.setAccessible(true);\n                    try {\n                        Object value = f.get(obj);\n                        if (value instanceof String) {\n                            return !StringUtils.isBlank((String) value);\n                        }\n                        return value != null;\n                    } catch (IllegalAccessException e) {\n                        return true;\n                    }\n                })\n                .map(Field::getName)\n                .toArray(String[]::new);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/Utils.java",
+    "class_name": "Utils",
+    "method_name": "enumOf",
+    "chunk_type": "other",
+    "calls": [
+      "Arrays.filter",
+      "Arrays.findFirst",
+      "Arrays.orElse",
+      "Arrays.stream",
+      "Class<T>.getEnumConstants",
+      "unknown.equalsIgnoreCase",
+      "unknown.name"
+    ],
+    "called_by": [],
+    "line_start": 123,
+    "line_end": 128,
+    "content": "public static <T extends Enum<T>> T enumOf(Class<T> enumType, String value) {\n        return Arrays.stream(enumType.getEnumConstants())\n                .filter(e -> e.name().equalsIgnoreCase(value))\n                .findFirst()\n                .orElse(null);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/main/java/com/edu/onestudy/utils/Utils.java",
+    "class_name": "Utils",
+    "method_name": "stringToLocalDateTime",
+    "chunk_type": "other",
+    "calls": [
+      "LocalDateTime.parse",
+      "StringUtils.isBlank"
+    ],
+    "called_by": [],
+    "line_start": 130,
+    "line_end": 135,
+    "content": "public static LocalDateTime stringToLocalDateTime(String dateOfBirth) {\n        if (StringUtils.isBlank(dateOfBirth)) {\n            return null;\n        }\n        return LocalDateTime.parse(dateOfBirth);\n    }",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/test/java/com/edu/onestudy/OnestudyApplicationTests.java",
+    "class_name": "OnestudyApplicationTests",
+    "method_name": null,
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 6,
+    "line_end": 13,
+    "content": "@SpringBootTest\nclass OnestudyApplicationTests {\n\n    @Test\n    void contextLoads() {\n    }\n\n}",
+    "endpoints": [],
+    "summary": ""
+  },
+  {
+    "file_path": "storage/repos/test-onestudy28/src/test/java/com/edu/onestudy/OnestudyApplicationTests.java",
+    "class_name": "OnestudyApplicationTests",
+    "method_name": "contextLoads",
+    "chunk_type": "other",
+    "calls": [],
+    "called_by": [],
+    "line_start": 9,
+    "line_end": 11,
+    "content": "@Test\n    void contextLoads() {\n    }",
+    "endpoints": [],
+    "summary": ""
+  }
+]
