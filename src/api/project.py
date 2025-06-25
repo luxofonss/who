@@ -38,7 +38,7 @@ async def create_project(body: CreateProjectRequest):
         raise HTTPException(status_code=400, detail="No Java files found in repository")
 
     # Embeddings & FAISS index
-    texts = [c["content"] for c in chunks]
+    texts = [f"{c.get('summary','')}\n\n{c['content']}" for c in chunks]
     vectors = embed_texts(texts)
 
     # Build index with metadata (without content to save space)
@@ -83,7 +83,7 @@ async def reindex(body: ReindexRequest):
 
     # Re-parse & re-index – could be incremental, here we rebuild for clarity
     chunks, dep_graph = parse_project(repo_path)
-    texts = [c["content"] for c in chunks]
+    texts = [f"{c.get('summary','')}\n\n{c['content']}" for c in chunks]
     vectors = embed_texts(texts)
 
     meta_for_index = [{k: v for k, v in ch.items()} for ch in chunks]

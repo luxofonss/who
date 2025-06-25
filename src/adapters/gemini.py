@@ -29,7 +29,7 @@ class Gemini:  # pylint: disable=too-few-public-methods
         model_name: str = "gemini-1.5-flash",
         temperature: float = 0.1,
     ) -> None:
-        api_key = os.getenv("GOOGLE_API_KEY") or "xxx"
+        api_key = os.getenv("GOOGLE_API_KEY") or "AIzaSyAEV2gHMQpwA3IUznSHucUofFXjIgu80jk"
         if not api_key:
             raise RuntimeError("GOOGLE_API_KEY environment variable is not set")
 
@@ -50,7 +50,7 @@ class Gemini:  # pylint: disable=too-few-public-methods
         The prompt is logged at DEBUG level (up to 2 000 chars) to make tracing
         easy but avoid overwhelming the logs.
         """
-        logger.debug("Gemini prompt (first 2000 chars):\n%s", prompt[:2000])
+        logger.debug(f"Gemini prompt (first 100000 chars): {prompt[:100000]}")
 
         try:
             response = self._model.generate_content(
@@ -58,9 +58,9 @@ class Gemini:  # pylint: disable=too-few-public-methods
                 generation_config=self._generation_cfg,
             )
             text: str = response.text or ""
-            logger.debug("Gemini raw response (first 1000 chars): %s", text[:1000])
+            logger.debug(f"Gemini raw response: {text[:10000]}")
             return text
         except Exception as exc:  # noqa: BLE001
-            logger.error("Gemini API call failed: %s", exc)
+            logger.error(f"Gemini API call failed: {exc}")
             # Bubble up so caller can handle / return error JSON.
             raise 

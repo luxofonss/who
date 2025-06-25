@@ -56,10 +56,10 @@ class Indexer:
 
     def _create_index(self) -> faiss.Index:
         if self.index_type == "hnsw":
-            logger.debug("Creating IndexHNSWFlat (M=32)")
+            logger.debug(f"Creating IndexHNSWFlat (M=32)")
             index = faiss.IndexHNSWFlat(self.dim, 32)
         else:
-            logger.debug("Creating IndexFlatL2")
+            logger.debug(f"Creating IndexFlatL2")
             index = faiss.IndexFlatL2(self.dim)
         return index
 
@@ -71,7 +71,7 @@ class Indexer:
             index.add(embeddings)
         self.index = index
         self.metadata = list(metadata) if metadata is not None else []
-        logger.info("Built index with %d vectors (dim=%d)", embeddings.shape[0], self.dim)
+        logger.info(f"Built index with {embeddings.shape[0]} vectors (dim={self.dim})")
 
     def add_vectors(self, embeddings: np.ndarray, metadata: Sequence[Dict]):
         """Add new vectors + metadata without rebuilding the index."""
@@ -84,7 +84,7 @@ class Indexer:
 
         self.index.add(embeddings)
         self.metadata.extend(metadata)
-        logger.debug("Added %d vectors – index now %d vectors", embeddings.shape[0], self.index.ntotal)
+        logger.debug(f"Added {embeddings.shape[0]} vectors – index now {self.index.ntotal} vectors")
 
     # ------------------------------------------------------------------
     # Persistence (async)
@@ -93,7 +93,7 @@ class Indexer:
     async def save(self):
         """Persist FAISS index (.faiss) and metadata (.json)."""
         if self.index is None:
-            logger.warning("No index to save for project %s", self.project_id)
+            logger.warning(f"No index to save for project {self.project_id}")
             return
 
         ensure_dir(self.index_path.parent)
@@ -104,12 +104,12 @@ class Indexer:
         async with aiofiles.open(self.metadata_path, "w", encoding="utf-8") as f:
             await f.write(json.dumps(self.metadata, indent=2, ensure_ascii=False))
 
-        logger.info("Saved index + metadata for %s (vectors=%d)", self.project_id, self.index.ntotal)
+        logger.info(f"Saved index + metadata for {self.project_id} (vectors={self.index.ntotal})")
 
     async def load(self) -> Optional[faiss.Index]:
         """Load index + metadata from disk.  Returns the index or *None* if missing."""
         if not self.index_path.exists():
-            logger.warning("Index file %s not found", self.index_path)
+            logger.warning(f"Index file {self.index_path} not found")
             return None
 
         index = await asyncio.to_thread(faiss.read_index, str(self.index_path))
@@ -120,11 +120,11 @@ class Indexer:
             async with aiofiles.open(self.metadata_path, "r", encoding="utf-8") as f:
                 self.metadata = json.loads(await f.read())
         else:
-            logger.warning("Metadata file %s missing – proceeding with empty list", self.metadata_path)
+            logger.warning(f"Metadata file {self.metadata_path} missing – proceeding with empty list")
             self.metadata = []
 
         self.index = index
-        logger.info("Loaded index for %s (vectors=%d)", self.project_id, self.index.ntotal)
+        logger.info(f"Loaded index for {self.project_id} (vectors={self.index.ntotal})")
         return index
 
     # ------------------------------------------------------------------
@@ -153,7 +153,3 @@ class Indexer:
             raise ValueError(f"Embeddings must have shape (n, {self.dim})")
         if np.isnan(embs).any() or np.isinf(embs).any():
             raise ValueError("Embeddings contain NaN/Inf values")
-
-    # The caller should await ``load`` in async contexts.
-    # If synchronous loading is needed, they can use:
-    #   asyncio.run(indexer.load()) 

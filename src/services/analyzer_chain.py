@@ -26,7 +26,11 @@ class AnalyzerChain:
         user_text: str,
     ) -> Dict:
         # Retrieve code context
-        docs = await self.retriever.retrieve(endpoint)
+        logger.info(f"Retrieving context for endpoint: {endpoint}")
+        logger.info(f"User text: {user_text}")
+        
+        docs = await self.retriever.retrieve(endpoint, user_text)
+        logger.info(f"Retrieved: {docs}")
         context = "\n".join(d.page_content for d in docs)
 
         prompt = PromptBuilder.build_analysis_prompt(
@@ -36,16 +40,19 @@ class AnalyzerChain:
             testcases=testcases_txt,
             user_text=user_text,
         )
+        logger.info(f"Prompt: {prompt}")
+        return {}
+
         # Call LLM (synchronously)
         # Offload to thread to avoid blocking event loop
-        import asyncio
-        resp = await asyncio.to_thread(self.llm.invoke, prompt)
-        try:
-            data = json.loads(resp)
-        except json.JSONDecodeError:
-            logger.error("LLM returned non-JSON; wrapping into error structure")
-            data = {
-                "documentation": "LLM response was not valid JSON",
-                "raw": resp,
-            }
-        return data 
+        # import asyncio
+        # resp = await asyncio.to_thread(self.llm.invoke, prompt)
+        # try:
+        #     data = json.loads(resp)
+        # except json.JSONDecodeError:
+        #     logger.error(f"LLM returned non-JSON; wrapping into error structure")
+        #     data = {
+        #         "documentation": "LLM response was not valid JSON",
+        #         "raw": resp,
+        #     }
+        # return data 

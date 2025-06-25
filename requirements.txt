@@ -11,3 +11,7 @@ tree_sitter_languages==1.7.0
 aiofiles==23.2.1
 langchain==0.1.16
 google-generativeai==0.3.2 
+rank-bm25==0.2.2
+transformers==4.40.1
+scikit-learn==1.5.0  
+torch>=2.0  

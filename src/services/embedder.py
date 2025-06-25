@@ -15,13 +15,13 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logger.info(f"Using device: {DEVICE}")
 
 
-def _load_model(model_name: str = "microsoft/codebert-base") -> tuple[AutoTokenizer, AutoModel]:
+def _load_model(model_name: str = "Salesforce/codet5-base") -> tuple[AutoTokenizer, AutoModel]:
     global _TOKENIZER, _MODEL
 
     if _TOKENIZER is None or _MODEL is None:
         logger.info(f"Loading HuggingFace model and tokenizer ({model_name}) …")
-        _TOKENIZER = AutoTokenizer.from_pretrained(model_name)
-        _MODEL = AutoModel.from_pretrained(model_name)
+        _TOKENIZER = AutoTokenizer.from_pretrained(model_name, cache_dir="models/e5-base-code")
+        _MODEL = AutoModel.from_pretrained(model_name, cache_dir="models/e5-base-code")
         _MODEL.eval().to(DEVICE)  # Move model to GPU/CPU
     return _TOKENIZER, _MODEL
 
@@ -40,7 +40,7 @@ def _cls_pooling(model_output):
 
 def embed_texts(
     texts: List[str],
-    model_name: str = "microsoft/codebert-base",
+    model_name: str = "Salesforce/codet5-base",
     pooling: Literal["mean", "cls"] = "mean"
 ) -> np.ndarray:
     """Return a (n, 768) NumPy array of embeddings for a list of code/text strings."""
@@ -72,8 +72,14 @@ def embed_texts(
 
 def embed(
     text: str,
-    model_name: str = "microsoft/codebert-base",
+    model_name: str = "Salesforce/codet5-base",
     pooling: Literal["mean", "cls"] = "mean"
 ) -> np.ndarray:
     """Return a 1D embedding vector for a single text or code snippet."""
     return embed_texts([text], model_name, pooling).reshape(-1)
+
+
+def embed_chunk(chunk: dict) -> np.ndarray:
+    """Embed summary + content of a chunk."""
+    text = f"{chunk.get('summary','')}\n\n{chunk.get('content','')}"
+    return embed_texts([text]).reshape(-1)

@@ -33,14 +33,37 @@ Test cases:
 Additional instructions:
 {user_text}
 
-Respond ONLY with valid JSON matching this schema:
+Your response MUST be valid JSON and follow **exactly** this schema:
+
 {{
-  "documentation": str,
-  "requirement_coverage": list,
-  "testcases_coverage": list,
-  "issues": list,
-  "improvements": list
+  "document": "<A detailed explanation of what the endpoint does, how it works, and any relevant observations about the code design or functionality. Mention request structure, flow, validation, and response if applicable>",
+
+  "requirement_coverage": [
+    {{
+      "requirement": "<Exact text of one requirement>",
+      "coverage_score": "Score from 0 to 100",
+      "explain": "<Explain how the source code meets or fails to meet this requirement. Mention flow of logic, validation, branching, service calls, and anything relevant>"
+    }}
+  ],
+
+  "test_cases": [
+    {{
+      "test_case": "<Exact test case text>",
+      "coverage_score": "Score from 0 to 100",
+      "explain": "<Explain why this test case is (or is not) covered by the code. Mention error handling, branching, edge cases, etc.>"
+    }}
+  ],
+
+  "improvements": [
+    {{
+      "type": "<code_convention | issue | unhandled_exception | naming | structure | other>",
+      "reason": "<Why it's a problem or could be improved>",
+      "solution": "<Recommended fix or improvement>"
+    }}
+  ]
 }}
+
+Do not include any explanation outside the JSON.
             """
         ),
     )
@@ -58,7 +81,7 @@ You are an AI assistant helping with a Java codebase. Use the following code con
 Conversation history:
 {history}
 
-User question:
+User question or guidance:
 {message}
             """
         ),
