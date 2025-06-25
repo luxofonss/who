@@ -21,7 +21,7 @@ def _load_model(model_name: str = "Salesforce/codet5-base") -> tuple[AutoTokeniz
     if _TOKENIZER is None or _MODEL is None:
         logger.info(f"Loading HuggingFace model and tokenizer ({model_name}) …")
         _TOKENIZER = AutoTokenizer.from_pretrained(model_name, cache_dir="models/e5-base-code")
-        _MODEL = AutoModel.from_pretrained(model_name, cache_dir="models/e5-base-code")
+        _MODEL = AutoModel.from_pretrained(model_name, cache_dir="models/e5-base-code", device_map="auto")
         _MODEL.eval().to(DEVICE)  # Move model to GPU/CPU
     return _TOKENIZER, _MODEL
 
@@ -54,7 +54,7 @@ def embed_texts(
         return_tensors="pt",
         padding=True,
         truncation=True,
-        max_length=512
+        max_length=256
     ).to(DEVICE)
 
     with torch.no_grad():
