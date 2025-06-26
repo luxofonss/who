@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="6464961b-b689-48f8-a7d2-1add8e90b52f" name="Changes" comment="use agent">
+      <change afterPath="$PROJECT_DIR$/src/services/tools.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy11_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy13_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy15_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy20_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy27_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy2_@method=GET @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy2_@method=POST @endpoint=_api_v1_private_asg_aweg_gaw_eg.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy2_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy2_@method=POST @endpoint=_api_v1_pub_pronunciations_sample.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy2_@method=POST @endpoint=_api_v1_resources.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy11.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy11_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy12.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy12_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy13.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy13_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy14.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy14_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy15.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy15_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy16.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy16_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy2.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy20.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy20_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy21.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy21_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy22.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy22_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy23.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy23_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy24.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy24_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy25.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy25_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy26.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy26_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy27.faiss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy27_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy2_metadata.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy11.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy12.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy13.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy14.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy15.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy16.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy2.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy20.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy21.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy22.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy23.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy24.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy25.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy26.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy27.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy11.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy12.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy13.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy14.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy15.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy16.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy2.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy20.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy21.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy22.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy23.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy24.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy25.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy26.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy27.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
+  <component name="ProjectId" id="2z0F2LP17s4Opb83cIUDelIX9rV" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.go.migrated.go.modules.settings": "true",
+    "git-widget-placeholder": "agent",
+    "go.import.settings.migrated": "true",
+    "last_opened_file_path": "F:/_side_projects/ai-tcbs5",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "Project",
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.0",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="6464961b-b689-48f8-a7d2-1add8e90b52f" name="Changes" comment="" />
+      <created>1750859875907</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1750859875907</updated>
+      <workItem from="1750859878205" duration="33655000" />
+    </task>
+    <task id="LOCAL-00001" summary="backup">
+      <option name="closed" value="true" />
+      <created>1750894180532</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1750894180532</updated>
+    </task>
+    <task id="LOCAL-00002" summary="use agent">
+      <option name="closed" value="true" />
+      <created>1750895108672</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1750895108672</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="fix" />
+    <MESSAGE value="backup" />
+    <MESSAGE value="use agent" />
+    <option name="LAST_COMMIT_MESSAGE" value="use agent" />
+  </component>
+  <component name="VgoProject">
+    <settings-migrated>true</settings-migrated>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/services/parser.py</url>
+          <line>248</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>

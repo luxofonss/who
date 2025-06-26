@@ -123,3 +123,23 @@ class LangChainRetriever:
                 full_text = f"# Summary: {chunk.get('summary', '')}\n\n{chunk['content']}"
                 found.append(Document(page_content=full_text, metadata=chunk))
         return found
+
+    # ------------------------------------------------------------------
+    # Convenience sync wrapper for LangChain tools / agents
+    # ------------------------------------------------------------------
+
+    def retrieve_sync(self, query: str, user_text: str = "", top: int = 5, hyde: bool = False) -> List[Document]:
+        """Blocking wrapper around *retrieve* for non-async callers.
+
+        If called from within a running event loop it schedules the task and
+        waits; otherwise it spins up a new loop with ``asyncio.run``.
+        """
+        import asyncio
+
+        coro = self.retrieve(query, user_text, top, hyde)
+
+        try:
+            return asyncio.run(coro)
+        except RuntimeError:
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(coro)

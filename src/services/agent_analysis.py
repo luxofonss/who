@@ -1,4 +1,4 @@
-from agent_runner import agent_executor
+from services.agent_runner import run_agent
 
 async def run_agent_analysis(
         endpoint: str,
@@ -19,4 +19,4 @@ Testcases:\n{testcases}
 User Question:\n{user_text}
 """
 
-    return agent_executor.run(system_instruction)
+    return run_agent(project_id, system_instruction)
