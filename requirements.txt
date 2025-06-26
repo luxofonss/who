@@ -7,7 +7,7 @@ faiss-cpu==1.7.4
 pydantic==2.6.4
 python-multipart==0.0.9
 tree_sitter==0.20.1
-tree_sitter_languages==1.7.0
+tree_sitter_languages==1.10.2
 aiofiles==23.2.1
 langchain==0.1.16
 google-generativeai==0.3.2 
