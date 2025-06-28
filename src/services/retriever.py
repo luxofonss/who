@@ -62,7 +62,9 @@ class LangChainRetriever:
         bm25_task = asyncio.to_thread(bm25_search, query, self.indexer.metadata, top_k=top)
         faiss_task = asyncio.to_thread(self.indexer.search, query_emb, top)
         bm25_results, faiss_results = await asyncio.gather(bm25_task, faiss_task)
-        faiss_results = faiss_results[1]  # Just chunks
+
+        # TODO: check this
+        # faiss_results = faiss_results[1]  # Just chunks
 
         # 4. Combine & rerank
         all_candidates = bm25_results + faiss_results

@@ -89,25 +89,52 @@ class AnalyzerChain:
         self._build_graph()
         logger.info("✅ LangGraph setup complete")
 
+    def _build_graph(self):
+        """Build the LangGraph workflow."""
+        graph = StateGraph(AgentState)
+
+        # Add nodes
+        graph.add_node("agent", self._agent_node)
+        graph.add_node("use_tool", self._call_tool_node)
+
+        # Add conditional edges
+        graph.add_conditional_edges(
+            "agent",
+            self._should_use_tool,
+            {
+                "use_tool": "use_tool",
+                "end": END
+            }
+        )
+
+        # Add edge from tool back to agent
+        graph.add_edge("use_tool", "agent")
+
+        # Set entry point
+        graph.set_entry_point("agent")
+
+        # Compile the graph
+        self.graph = graph.compile()
+
     def _find_symbol_context(self, symbol: str) -> str:
         """Helper method to find code context for a given symbol."""
         logger.info(f"🔍 Searching for symbol: '{symbol}'")
         try:
             # Try direct symbol search first
-            logger.debug(f"🎯 Attempting direct symbol lookup for: {symbol}")
-            docs = self.retriever.find_by_symbol_name(symbol)
+            logger.debug(f"🎯 Attempting direct syretrievmbol lookup for: {symbol}")
+            # docs = self.retriever.find_by_symbol_name(symbol)
 
-            logger.info(f"🔍 Docs: {docs}")
+            # logger.info(f"🔍 Docs: {docs}")
             
             # If no direct match, try a broader search
-            if not docs:
-                logger.debug(f"🔄 No direct match for '{symbol}', trying semantic search...")
-                docs = self.retriever.retrieve_sync(
-                    symbol, 
-                    user_text="", 
-                    top=3, 
-                    hyde=False
-                )
+            # if not docs:
+            logger.debug(f"🔄 No direct match for '{symbol}', trying semantic search...")
+            docs = self.retriever.retrieve_sync(
+                symbol,
+                user_text="",
+                top=3,
+                hyde=False
+            )
             
             if docs:
                 result = "\n\n".join(d.page_content for d in docs)
@@ -120,33 +147,6 @@ class AnalyzerChain:
         except Exception as e:
             logger.error(f"💥 Error retrieving context for symbol '{symbol}': {str(e)}")
             return f"Error retrieving code for symbol: {symbol} - {str(e)}"
-
-    def _build_graph(self):
-        """Build the LangGraph workflow."""
-        graph = StateGraph(AgentState)
-        
-        # Add nodes
-        graph.add_node("agent", self._agent_node)
-        graph.add_node("use_tool", self._call_tool_node)
-        
-        # Add conditional edges
-        graph.add_conditional_edges(
-            "agent",
-            self._should_use_tool,
-            {
-                "use_tool": "use_tool",
-                "end": END
-            }
-        )
-        
-        # Add edge from tool back to agent
-        graph.add_edge("use_tool", "agent")
-        
-        # Set entry point
-        graph.set_entry_point("agent")
-        
-        # Compile the graph
-        self.graph = graph.compile()
 
     def _agent_node(self, state: AgentState) -> AgentState:
         """Agent reasoning node."""

@@ -22,10 +22,6 @@ async def analyze(
     requirements: UploadFile = File(...),
     testcases: UploadFile = File(...),
 ):
-    """Placeholder implementation.
-
-    Real logic will use HybridRetriever and AnalyzerChain.
-    """
     metadata_path = STORAGE_DIR / "metadata" / f"{project_id}.json"
     if not metadata_path.exists():
         raise HTTPException(status_code=404, detail="Project not found")
