@@ -722,6 +722,10 @@ class AnalyzerChain:
 
     def _verify_response_node(self, state: AgentState) -> AgentState:
         """Verify final LLM response before ending."""
+        if state['iteration_count'] > 4:
+            logger.warning("Max iterations reached, ending workflow to prevent infinite loop.")
+            return state
+
         response = state["final_response"] or ""
         prompt = f"""
             You are a verification assistant. A REST API endpoint has been analyzed.
@@ -750,6 +754,7 @@ class AnalyzerChain:
             """
 
         try:
+            logger.info(f"🔍 Verifier prompt: {prompt}")
             result = self.llm.invoke(prompt)
             logger.info(f"🕵️‍♀️ Verification result: {result}")
             parsed = self._parse_json_response(result)

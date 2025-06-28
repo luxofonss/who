@@ -1,6 +1,6 @@
 Project: demo
-Timestamp: 2025-06-28T20:45:19.362907
-Type: agent_iteration_4
+Timestamp: 2025-06-28T21:44:46.449779
+Type: agent_iteration_2
 ================================================================================
 
 You are an expert software architect analyzing the REST endpoint: /api/v1/pub/pronunciations/accuracy
@@ -863,6 +863,64 @@ public class OneStudyApplication {
 
 public abstract byte[] downloadFile(String fileName);
 
+Context for 'GetSampleRequestDto':
+# Summary: 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class GetSampleRequestDto {
+    @NotNull
+    private PronunciationLevel level;
+    private String customText;
+}
+
+public abstract String getFileUrl(String fileName);
+
+@SpringBootApplication
+@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
+@ComponentScan("com.edu")
+@EnableCaching
+@EnableAspectJAutoProxy
+@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
+public class OneStudyApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(OneStudyApplication.class, args);
+
+Context for 'GetPronunciationSampleResponseDto':
+# Summary: 
+@Override
+    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
+        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
+        req.setCategory(request.getLevel().getValue());
+        req.setLanguage("en");
+        GetSampleResponse response = pronunciationFeignClient.getSample(req);
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
+        }
+        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
+    }
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class GetPronunciationSampleResponseDto {
+    private String ipaTranscript;
+    private String realTranscript;
+    private String transcriptTranslation;
+
+@Service
+public class PronunciationServiceImpl implements PronunciationService {
+    private final PronunciationFeignClient pronunciationFeignClient;
+    private final PronunciationMapper pronunciationMapper;
+    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
+        this.pronunciationFeignClient = pronunciationFeignClient;
+        this.pronunciationMapper = pronunciationMapper;
+    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
+        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
+        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
+        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
+
 Context for 'GetSampleRequest':
 # Summary: 
 @Override
@@ -913,334 +971,20 @@ public class GetSampleResponse {
 
 public abstract String getFileUrl(String fileName);
 
-Context for 'GetPronunciationSampleResponseDto':
+Context for 'ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR':
 # Summary: 
-@Override
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        req.setLanguage("en");
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        }
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-    }
-
 @Data
-@NoArgsConstructor
+@Accessors(chain = true)
 @AllArgsConstructor
-public class GetPronunciationSampleResponseDto {
-    private String ipaTranscript;
-    private String realTranscript;
-    private String transcriptTranslation;
-
-@Service
-public class PronunciationServiceImpl implements PronunciationService {
-    private final PronunciationFeignClient pronunciationFeignClient;
-    private final PronunciationMapper pronunciationMapper;
-    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
-        this.pronunciationFeignClient = pronunciationFeignClient;
-        this.pronunciationMapper = pronunciationMapper;
-    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
-        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
-        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
-        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
-
-Context for 'GetSampleRequestDto':
-# Summary: 
-@Data
 @NoArgsConstructor
-@AllArgsConstructor
-public class GetSampleRequestDto {
-    @NotNull
-    private PronunciationLevel level;
-    private String customText;
-}
-
-public abstract String getFileUrl(String fileName);
-
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-
-Context for 'BusinessException':
-# Summary: 
-
-@ExceptionHandler(BusinessException.class)
-    @LogsActivityAnnotation
-    public ResponseEntity<BaseResponse<?>> handleBusinessException(BusinessException exception) {
-        exception.getError().setMessage(getMessage(exception.getError()));
-        Object dataException = exception.getError().getData();
-        BaseResponse<?> data = ofFailed(exception);
-        if(!ObjectUtils.isEmpty(dataException) && dataException instanceof String) {
-            data.getMeta().setErrors(Collections.singletonList(
-                ErrorViolation.builder().description((String) dataException).build()));
-        }
-        return new ResponseEntity<>(data, exception.getError().getHttpStatus() == null
-                ? HttpStatus.OK : exception.getError().getHttpStatus());
-    }
-
-Context for 'ErrorConstant':
-# Summary: 
-public class ErrorConstant {
-    private ErrorConstant() {}
-    /**
-     * Write the error code prefixed with 200 below
-     * 200
-     */
-    public static final int SUCCESS = 200000;
-    public static final int SUCCESS_200 = 200;
-    /**
-     * Write the error code prefixed with 400 below
-     * 400
-     */
-    public static final int INVALID_PARAMETERS = 4000001;
-    public static final int SYSTEM_CONFIGURATION_NOT_FOUND = 4004208;
-    public static final int TRANSACTION_NOT_FOUND = 4001210;
-    public static final int TRANSACTION_NOT_EXIST = 4001218;
-    public static final int TRANSACTION_MUST_NOT_REFUND = 4001212;
-    public static final int TRANSACTION_NOT_SUCCESS = 4001213;
-    public static final int TRANSACTION_NOT_ENOUGH_AMOUNT = 4001214;
-    public static final int HTTP_CONNECTION_ERROR  = 4009000;
-    public static final int NULL_META_DATA_RESPONSE  = 4009001;
-    /**
-     * Write the error code prefixed with 401 below
-     * 401
-     */
-    public static final int UNAUTHORIZED = 4010001;
-    public static final int USERNAME_PASSWORD_WRONG = 4010002;
-    /**
-     * Write the error code prefixed with 403 below
-     * 403
-     */
-    public static final int FORBIDDEN_ERROR = 4030001;
-    /**
-     *  Write the error code prefixed with 404 below
-     * 404
-     */
-    public static final int NOT_FOUND = 4040001;
-    public static final int QUIZ_NOT_FOUND = 4040002;
-    public static final int QUIZ_ATTEMPT_NOT_FOUND = 4040003;
-    public static final int QUIZ_ATTEMPT_SUBMITTED = 4040004;
-    public static final int QUESTION_DOES_NOT_BELONG_TO_QUIZ = 4040005;
-    public static final int QUESTION_NOT_FOUND = 4040006;
-    public static final int QUIZ_ATTEMPT_NOT_BELONG_TO_USER = 4040007;
-    public static final int QUIZ_TIME_LIMIT_EXCEEDED = 4040008;
-    public static final int QUIZ_NOT_SAVED = 4040009;
-    public static final int GET_PRONUNCIATION_SAMPLE_ERROR = 4040010;
-    public static final int GET_PRONUNCIATION_ACCURACY_ERROR = 4040011;
-    /** @Get_VA_number_information*/
-    public static final int INVALID_VA_NUMBER = 40010525;
-    /**
-     * Write the error code prefixed with 500 below
-     * 500
-     */
-    public static final int INTERNAL_SERVER_ERROR = 5001001;
-}
-
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-
-public abstract String deleteFile(String fileName);
-
-Context for 'RequestKeyConstant':
-# Summary: 
-public class RequestKeyConstant {
-    private RequestKeyConstant() {}
-    public static final String REQUEST_ID = "request_id";
-    public static final String THREAD_REQUEST_ID = "requestId";
-    public static final String REQUEST_PARAMETERS = "request_parameters";
-    public static final String REQUEST_BODY = "request_body";
-    public static final String URI = "uri";
-    public static final String X_REQUEST_ID = "X-Request-ID";
-    public static final String CONTENT_TYPE = "Content-Type";
-    public static final String USER_AGENT = "User-Agent";
-    public static final String X_API_KEY = "x-api-key";
-    public static final String X_API_SECRET = "x-api-secret";
-    public static final String API_KEY = "api_key";
-    public static final String API_SECRET = "api_secret";
-    public static final String AUTHORIZATION = "Authorization";
-}
-
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-
-public abstract String getFileUrl(String fileName);
-
-Context for 'BaseResponse.ofSucceeded()':
-# Summary: 
-@GetMapping("/me")
-    public BaseResponse<AuthProfileResponse> whoAmI(@CurrentUser UserPrincipal requester) {
-        return baseService.ofSucceeded(authService.getAuthProfile(requester.getId().toString()));
-    }
-
-public <T> BaseResponse<T> ofSucceeded(T data) {
-        return BaseResponse.ofSucceeded(getRequestId(), data);
-
-public static <T> BaseResponse<T> ofSucceeded(String requestId) {
-        BaseResponse<T> response = ofSucceeded();
-        response.meta.setRequestId(requestId);
-        return response;
-
-public String getRequestId() {
-        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();
-
-public <T> T getRequestValue(String key, Class<T> clazz) {
-        return clazz.cast(httpServletRequest.getAttribute(key));
-
-@GetMapping("/attempts")
-    @LogsActivityAnnotation
-    BaseResponse<List<Quiz>> getQuizAttempts(@CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getMyQuizAttempts(currentUser.getId().toString()));
-
-@GetMapping("/my")
-    BaseResponse<List<Quiz>> getMyQuizzes(@CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getMyQuizzes(currentUser.getId()));
-
-Context for 'PronunciationAccuracyResponseDto':
-# Summary: 
-@Override
-    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
-        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
-        req.setLanguage("en");
-        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
-        }
-        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
-    }
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class PronunciationAccuracyResponseDto {
-    private String startTime;
-    private String endTime;
-    private String ipaScript;
-    private String isLetterCorrectAllWords;
-    private String matchedTranscripts;
-    private String matchedTranscriptsIpa;
-    private String pairAccuracyCategory;
-    private Integer pronunciationAccuracy;
-    private String realTranscript;
-    private String realTranscripts;
-    private String realTranscriptsIpa;
-
-@Service
-public class PronunciationServiceImpl implements PronunciationService {
-    private final PronunciationFeignClient pronunciationFeignClient;
-    private final PronunciationMapper pronunciationMapper;
-    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
-        this.pronunciationFeignClient = pronunciationFeignClient;
-        this.pronunciationMapper = pronunciationMapper;
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-
-Context for 'PronunciationAccuracyRequest':
-# Summary: 
-@Override
-    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
-        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
-        req.setLanguage("en");
-        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
-        }
-        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
-    }
-
-@Data
-public class PronunciationAccuracyRequest {
-    private String base64Audio;
-    private String language;
-    @JsonProperty("title")
-    private String text;
-
-@Service
-public class PronunciationServiceImpl implements PronunciationService {
-    private final PronunciationFeignClient pronunciationFeignClient;
-    private final PronunciationMapper pronunciationMapper;
-    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
-        this.pronunciationFeignClient = pronunciationFeignClient;
-        this.pronunciationMapper = pronunciationMapper;
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-
-Context for 'PronunciationAccuracyResponse':
-# Summary: 
-@Override
-    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
-        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
-        req.setLanguage("en");
-        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
-        }
-        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
-    }
-
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-@Data
-public class PronunciationAccuracyResponse {
-    private String startTime;
-    private String endTime;
-    private String ipaScript;
-    private String isLetterCorrectAllWords;
-    private String matchedTranscripts;
-    private String matchedTranscriptsIpa;
-    private String pairAccuracyCategory;
-    private Integer pronunciationAccuracy;
-    private String realTranscript;
-    private String realTranscripts;
-    private String realTranscriptsIpa;
-
-@Service
-public class PronunciationServiceImpl implements PronunciationService {
-    private final PronunciationFeignClient pronunciationFeignClient;
-    private final PronunciationMapper pronunciationMapper;
-    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
-        this.pronunciationFeignClient = pronunciationFeignClient;
-        this.pronunciationMapper = pronunciationMapper;
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-
-Context for 'pronunciationMapper':
-# Summary: 
-public abstract String getProviderName();
+@SuperBuilder
+public class ErrorViolation {
+    private String field;
+    private String code;
+    private String description;
+}
 
 @SpringBootApplication
 @PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
@@ -1251,12 +995,12 @@ public abstract String getProviderName();
 public class OneStudyApplication {
     public static void main(String[] args) {
         SpringApplication.run(OneStudyApplication.class, args);
-    }
-}
 
-public abstract String getFileUrl(String fileName);
+@Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
 
-Context for 'pronunciationFeignClient':
+Context for 'ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR':
 # Summary: 
 @SpringBootApplication
 @PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
@@ -1270,115 +1014,28 @@ public class OneStudyApplication {
     }
 }
 
-public abstract byte[] downloadFile(String fileName);
+@GetMapping("/attempts")
+    @LogsActivityAnnotation
+    BaseResponse<List<Quiz>> getQuizAttempts(@CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getMyQuizAttempts(currentUser.getId().toString()));
 
-Context for 'GetPronunciationSampleResponseDto':
-# Summary: 
-@Override
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        req.setLanguage("en");
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        }
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-    }
+public <T> BaseResponse<T> ofSucceeded(T data) {
+        return BaseResponse.ofSucceeded(getRequestId(), data);
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class GetPronunciationSampleResponseDto {
-    private String ipaTranscript;
-    private String realTranscript;
-    private String transcriptTranslation;
+public static <T> BaseResponse<T> ofSucceeded(String requestId) {
+        BaseResponse<T> response = ofSucceeded();
+        response.meta.setRequestId(requestId);
+        return response;
 
-@Service
-public class PronunciationServiceImpl implements PronunciationService {
-    private final PronunciationFeignClient pronunciationFeignClient;
-    private final PronunciationMapper pronunciationMapper;
-    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
-        this.pronunciationFeignClient = pronunciationFeignClient;
-        this.pronunciationMapper = pronunciationMapper;
-    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
-        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
-        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
-        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
+public String getRequestId() {
+        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();
 
-Context for 'GetSampleRequestDto':
-# Summary: 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class GetSampleRequestDto {
-    @NotNull
-    private PronunciationLevel level;
-    private String customText;
-}
+public <T> T getRequestValue(String key, Class<T> clazz) {
+        return clazz.cast(httpServletRequest.getAttribute(key));
 
-public abstract String getFileUrl(String fileName);
-
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-
-Context for 'GetSampleRequest':
-# Summary: 
-@Override
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        req.setLanguage("en");
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        }
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-    }
-
-@Data
-public class GetSampleRequest {
-    private String category;
-    private String language;
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    private String transcript;
-
-public abstract String getFileUrl(String fileName);
-
-Context for 'GetSampleResponse':
-# Summary: 
-@Override
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        req.setLanguage("en");
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        }
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-    }
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class GetSampleResponse {
-    @JsonProperty("ipa_transcript")
-    private String ipaTranscript;
-    @JsonProperty("real_transcript")
-    private String realTranscript;
-    @JsonProperty("transcript_translation")
-    private String transcriptTranslation;
-
-public abstract String getFileUrl(String fileName);
+@GetMapping("/my")
+    BaseResponse<List<Quiz>> getMyQuizzes(@CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getMyQuizzes(currentUser.getId()));
 
 Context for 'BusinessException':
 # Summary: 
@@ -1397,138 +1054,50 @@ Context for 'BusinessException':
                 ? HttpStatus.OK : exception.getError().getHttpStatus());
     }
 
-Context for 'ErrorConstant':
+Context for 'BaseResponse':
 # Summary: 
-public class ErrorConstant {
-    private ErrorConstant() {}
-    /**
-     * Write the error code prefixed with 200 below
-     * 200
-     */
-    public static final int SUCCESS = 200000;
-    public static final int SUCCESS_200 = 200;
-    /**
-     * Write the error code prefixed with 400 below
-     * 400
-     */
-    public static final int INVALID_PARAMETERS = 4000001;
-    public static final int SYSTEM_CONFIGURATION_NOT_FOUND = 4004208;
-    public static final int TRANSACTION_NOT_FOUND = 4001210;
-    public static final int TRANSACTION_NOT_EXIST = 4001218;
-    public static final int TRANSACTION_MUST_NOT_REFUND = 4001212;
-    public static final int TRANSACTION_NOT_SUCCESS = 4001213;
-    public static final int TRANSACTION_NOT_ENOUGH_AMOUNT = 4001214;
-    public static final int HTTP_CONNECTION_ERROR  = 4009000;
-    public static final int NULL_META_DATA_RESPONSE  = 4009001;
-    /**
-     * Write the error code prefixed with 401 below
-     * 401
-     */
-    public static final int UNAUTHORIZED = 4010001;
-    public static final int USERNAME_PASSWORD_WRONG = 4010002;
-    /**
-     * Write the error code prefixed with 403 below
-     * 403
-     */
-    public static final int FORBIDDEN_ERROR = 4030001;
-    /**
-     *  Write the error code prefixed with 404 below
-     * 404
-     */
-    public static final int NOT_FOUND = 4040001;
-    public static final int QUIZ_NOT_FOUND = 4040002;
-    public static final int QUIZ_ATTEMPT_NOT_FOUND = 4040003;
-    public static final int QUIZ_ATTEMPT_SUBMITTED = 4040004;
-    public static final int QUESTION_DOES_NOT_BELONG_TO_QUIZ = 4040005;
-    public static final int QUESTION_NOT_FOUND = 4040006;
-    public static final int QUIZ_ATTEMPT_NOT_BELONG_TO_USER = 4040007;
-    public static final int QUIZ_TIME_LIMIT_EXCEEDED = 4040008;
-    public static final int QUIZ_NOT_SAVED = 4040009;
-    public static final int GET_PRONUNCIATION_SAMPLE_ERROR = 4040010;
-    public static final int GET_PRONUNCIATION_ACCURACY_ERROR = 4040011;
-    /** @Get_VA_number_information*/
-    public static final int INVALID_VA_NUMBER = 40010525;
-    /**
-     * Write the error code prefixed with 500 below
-     * 500
-     */
-    public static final int INTERNAL_SERVER_ERROR = 5001001;
-}
 
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
+public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {
+        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {
+            return;
+        }
 
-public abstract String deleteFile(String fileName);
-
-Context for 'RequestKeyConstant':
-# Summary: 
-public class RequestKeyConstant {
-    private RequestKeyConstant() {}
-    public static final String REQUEST_ID = "request_id";
-    public static final String THREAD_REQUEST_ID = "requestId";
-    public static final String REQUEST_PARAMETERS = "request_parameters";
-    public static final String REQUEST_BODY = "request_body";
-    public static final String URI = "uri";
-    public static final String X_REQUEST_ID = "X-Request-ID";
-    public static final String CONTENT_TYPE = "Content-Type";
-    public static final String USER_AGENT = "User-Agent";
-    public static final String X_API_KEY = "x-api-key";
-    public static final String X_API_SECRET = "x-api-secret";
-    public static final String API_KEY = "api_key";
-    public static final String API_SECRET = "api_secret";
-    public static final String AUTHORIZATION = "Authorization";
-}
-
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-
-public abstract String getFileUrl(String fileName);
-
-Context for 'BaseResponse.ofSucceeded()':
-# Summary: 
-@GetMapping("/me")
-    public BaseResponse<AuthProfileResponse> whoAmI(@CurrentUser UserPrincipal requester) {
-        return baseService.ofSucceeded(authService.getAuthProfile(requester.getId().toString()));
+        Meta meta = baseResponse.meta;
+        if (status != meta.getCode()) {
+            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);
+        }
     }
 
-public <T> BaseResponse<T> ofSucceeded(T data) {
-        return BaseResponse.ofSucceeded(getRequestId(), data);
+# Summary: 
 
 public static <T> BaseResponse<T> ofSucceeded(String requestId) {
         BaseResponse<T> response = ofSucceeded();
         response.meta.setRequestId(requestId);
         return response;
+    }
 
-public String getRequestId() {
-        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();
+# Summary: 
 
-public <T> T getRequestValue(String key, Class<T> clazz) {
-        return clazz.cast(httpServletRequest.getAttribute(key));
+public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {
+        BaseResponse<T> response = ofFailed(exception, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
 
-@GetMapping("/attempts")
-    @LogsActivityAnnotation
-    BaseResponse<List<Quiz>> getQuizAttempts(@CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getMyQuizAttempts(currentUser.getId().toString()));
+# Summary: 
 
-@GetMapping("/my")
-    BaseResponse<List<Quiz>> getMyQuizzes(@CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getMyQuizzes(currentUser.getId()));
+public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(requestList.getRequestId());
+        response.meta.setPageSize(requestList.getPageSize());
+        response.meta.setPageIndex(requestList.getPageIndex());
+        response.meta.setTotalItems(requestList.getTotalItems());
+        response.data = data;
+        return response;
+    }
 
-Context for 'httpServletRequest':
+Context for 'RequestKeyConstant.REQUEST_ID':
 # Summary: 
 @Aspect
 @Component
@@ -1620,24 +1189,10 @@ public class LogsActivityAOPHandler extends BaseService {
     }
 }
 
-public abstract String uploadFile(MultipartFile file);
-
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-
-Context for 'PronunciationService.getAccuracy(request)':
-# Summary: 
-@PostMapping("/accuracy")
-    public BaseResponse<Object> getAccuracy(@RequestBody PronunciationAccuracyRequestDto request) {
-        return baseService.ofSucceeded(pronunciationService.getAccuracy(request));
-    }
+@PostMapping("/{id}/attempts")
+    @LogsActivityAnnotation
+    BaseResponse<?> attemptQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.startQuiz(id, currentUser.getId()));
 
 public <T> BaseResponse<T> ofSucceeded(T data) {
         return BaseResponse.ofSucceeded(getRequestId(), data);
@@ -1653,14 +1208,255 @@ public String getRequestId() {
 public <T> T getRequestValue(String key, Class<T> clazz) {
         return clazz.cast(httpServletRequest.getAttribute(key));
 
-@GetMapping("/samples")
-    public BaseResponse<Object> getSamplePronunciations(GetSampleRequestDto request) {
-        return baseService.ofSucceeded(pronunciationService.getSample(request));
+@GetMapping("/attempts")
+    BaseResponse<List<Quiz>> getQuizAttempts(@CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getMyQuizAttempts(currentUser.getId().toString()));
+
+Context for 'BaseService':
+# Summary: 
+
+public String getMessage(BusinessError error) {
+        return ObjectUtils.isEmpty(error.getMessage()) ? getMessage(error.getCode()) : error.getMessage();
+    }
+
+# Summary: 
+
+public <T> T getRequestValue(String key, Class<T> clazz) {
+        return clazz.cast(httpServletRequest.getAttribute(key));
+    }
+
+# Summary: 
+
+public String getRequestStringValue(String key) {
+        return getRequestValue(key, String.class);
+    }
+
+# Summary: 
+
+public String getRequestId() {
+        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();
+    }
+
+# Summary: 
+
+public Object getRequestBody() {
+        return getRequestValue(RequestKeyConstant.REQUEST_BODY);
+    }
+
+# Summary: 
+
+public <T> BaseResponse<T> ofSucceeded(T data) {
+        return BaseResponse.ofSucceeded(getRequestId(), data);
+    }
+
+# Summary: 
+
+public <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        return BaseResponse.ofGetListSucceeded(data, requestList);
+    }
+
+# Summary: 
+
+public <T> BaseResponse<T> ofFailed(int errorCode, T data) {
+        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode), data);
+    }
+
+# Summary: 
+
+public BusinessError getBusinessError(int errorCode) {
+        return BusinessError.builder()
+                .code(errorCode)
+                .message(getMessage(errorCode))
+                .build();
+    }
+
+# Summary: 
+
+public HttpHeaders getHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        Enumeration<String> headerNames = httpServletRequest.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String headerValue = httpServletRequest.getHeader(headerName);
+            headers.add(headerName, headerValue);
+        }
+        return headers;
+    }
+
+# Summary: 
+
+public int getErrorCode(String errorCode, int errorCodeDefault) {
+        try {
+            return Integer.parseInt(errorCode);
+        } catch (NumberFormatException e) {
+            return errorCodeDefault;
+        }
+    }
+
+Context for 'HttpServletRequest':
+# Summary: 
+@Override
+    public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain) throws IOException, ServletException {
+        HttpServletResponse response = (HttpServletResponse) res;
+        HttpServletRequest request = (HttpServletRequest) req;
+        // Skip health check URL
+        if (request.getRequestURI().contains(HEALTH_CHECK_URL)) {
+            chain.doFilter(req, res);
+            return;
+        }
+        // Initialize requestId here to ensure it's always set
+        String requestId = UUID.randomUUID().toString(); // Default if not found in header
+        ThreadContext.put(THREAD_REQUEST_ID, requestId); // Always put in ThreadContext early
+        try {
+            // Check if it's a multipart request (e.g., file upload)
+            boolean isMultipart = multipartResolver.isMultipart(request); // Use Spring's resolver directly
+            if (isMultipart) {
+                // Resolve the multipart request
+                MultipartHttpServletRequest multipartRequest = multipartResolver.resolveMultipart(request);
+                // Get or generate X-Request-ID
+                String headerRequestId = multipartRequest.getHeader(X_REQUEST_ID);
+                if (!ObjectUtils.isEmpty(headerRequestId)) {
+                    requestId = headerRequestId;
+                    ThreadContext.put(THREAD_REQUEST_ID, requestId); // Update if found in header
+                }
+                // Attach multipart request body to attribute
+                multipartRequest.setAttribute(REQUEST_BODY, multipartRequest);
+                multipartRequest.setAttribute(REQUEST_ID, requestId);
+                chain.doFilter(multipartRequest, response);
+            } else {
+                // For non-multipart requests, wrap the request to re-read the body
+                ApiKeyVerifyRequestWrapper requestWrapper = new ApiKeyVerifyRequestWrapper(request);
+                // Get or generate X-Request-ID from the wrapped request
+                String headerRequestId = requestWrapper.getHeader(X_REQUEST_ID);
+                if (!ObjectUtils.isEmpty(headerRequestId)) {
+                    requestId = headerRequestId;
+                    ThreadContext.put(THREAD_REQUEST_ID, requestId); // Update if found in header
+                }
+                // Parse JSON body if available
+                JSONObject dataRequest = new JSONObject();
+                String requestBodyString = requestWrapper.getBody();
+                if (!ObjectUtils.isEmpty(requestBodyString)) {
+                    try {
+                        JSONParser parser = new JSONParser();
+                        dataRequest = (JSONObject) parser.parse(requestBodyString);
+                    } catch (ParseException e) {
+                        log.warn("Failed to parse request body as JSON for URI: {}. Body: {}", request.getRequestURI(), requestBodyString, e);
+                        // Decide how to handle non-JSON bodies. For now, dataRequest remains empty.
+                        // You might want to return 400 Bad Request here if JSON is strictly required.
+                    }
+                }
+                // Add request metadata to JSON object and request attributes
+                dataRequest.put(REQUEST_ID, requestId);
+                request.setAttribute(REQUEST_ID, requestId); // Use original request for attributes if chain expects it
+                dataRequest.put(API_KEY, requestWrapper.getHeader(API_KEY));
+                request.setAttribute(API_KEY, requestWrapper.getHeader(API_KEY));
+                dataRequest.put(API_SECRET, requestWrapper.getHeader(API_SECRET));
+                request.setAttribute(API_SECRET, requestWrapper.getHeader(API_SECRET));
+                // Note: request.getRequestURI() is already available from the original request
+                // requestWrapper.getHeader(RequestKeyConstant.URI) doesn't make sense as URI is not a header.
+                // Assuming URI is needed in dataRequest for logging/processing.
+                dataRequest.put(URI, request.getRequestURI());
+                request.setAttribute(URI, request.getRequestURI()); // Set actual URI
+                request.setAttribute(REQUEST_PARAMETERS, request.getParameterMap()); // Parameters from original request
+                request.setAttribute(REQUEST_BODY, dataRequest); // The parsed JSON body
+                // The requestWrapper's body is immutable (final), so setting it here won't change
+                // the stream that ApiKeyVerifyRequestWrapper provides.
+                // If you intend to *modify* the body and have the modified body flow downstream,
+                // you would need a more sophisticated wrapper that allows body modification
+                // before constructing its InputStream/Reader.
+                // For now, `requestWrapper.setBody(dataRequest.toString());` is removed
+                // as `setBody` was removed in the previous step and it was modifying the internal state
+                // of the wrapper, not the original request input stream for subsequent filters/servlets.
+                // The `requestWrapper` already holds the *original* request body.
+                chain.doFilter(requestWrapper, response);
+            }
+        } catch (IOException | ServletException e) {
+            log.error("Filter processing error for URI: {}", request.getRequestURI(), e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR); // Or SC_BAD_REQUEST depending on error type
+        } catch (Throwable e) { // Catch all other unhandled throwables
+            log.error("An unexpected error occurred in filter for URI: {}", request.getRequestURI(), e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        } finally {
+            // Always clear ThreadContext regardless of success or failure
+            ThreadContext.clearAll();
+        }
+    }
+
+@Service
+@Slf4j
+public class BaseService {
+    @Autowired
+    protected Environment env;
+    @Value("${spring.application.name}")
+    protected String appName;
+    @Autowired
+    protected ObjectMapper objectMapper;
+    @Autowired
+    protected HttpServletRequest httpServletRequest;
+    @Autowired
+    protected HttpServletResponse httpServletResponse;
+    public String getMessage(String key) {
+            String result = env.getProperty(key);
+            return ObjectUtils.isEmpty(result) ? key : result;
+        } catch (Exception e) {
+            return key;
+    public String getMessage(int code) {
+        return getMessage(String.valueOf(code));
+    public String getMessage(BusinessError error) {
+        return ObjectUtils.isEmpty(error.getMessage()) ? getMessage(error.getCode()) : error.getMessage();
+    public Object getRequestValue(String key) {
+        return getRequestValue(key, Object.class);
+    public <T> T getRequestValue(String key, Class<T> clazz) {
+        return clazz.cast(httpServletRequest.getAttribute(key));
+    public String getRequestStringValue(String key) {
+        return getRequestValue(key, String.class);
+    public String getRequestId() {
+        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();
+    public Object getRequestBody() {
+        return getRequestValue(RequestKeyConstant.REQUEST_BODY);
+    public <T> BaseResponse<T> ofSucceeded(T data) {
+        return BaseResponse.ofSucceeded(getRequestId(), data);
+    public <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        return BaseResponse.ofGetListSucceeded(data, requestList);
+    public <T> BaseResponse<T> ofFailed(BusinessException exception, T data) {
+        return BaseResponse.ofFailed(getRequestId(), exception, data);
+    public <T> BaseResponse<T> ofFailed(BusinessError error, String message, T data) {
+        return BaseResponse.ofFailed(getRequestId(), error, message, data);
+    public <T> BaseResponse<T> ofFailed(BusinessError error, String message, List<ErrorViolation> errors, T data) {
+        return BaseResponse.ofFailed(getRequestId(), error, message, errors, data);
+    public BaseResponse ofFailed(BusinessException exception) {
+        return BaseResponse.ofFailed(getRequestId(), exception);
+    public BaseResponse ofFailed(BusinessError error, String message) {
+        return BaseResponse.ofFailed(getRequestId(), error, message);
+    public BaseResponse ofFailed(BusinessError error) {
+        return BaseResponse.ofFailed(getRequestId(), error, getMessage(error));
+    public BaseResponse ofFailed(BusinessError error, String message, List<ErrorViolation> errors) {
+        return BaseResponse.ofFailed(getRequestId(), error, message, errors);
+    public BaseResponse ofFailed(int errorCode) {
+        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode));
+    public <T> BaseResponse<T> ofFailed(int errorCode, T data) {
+        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode), data);
+    public BusinessError getBusinessError(int errorCode) {
+        return BusinessError.builder()
+                .code(errorCode)
+                .message(getMessage(errorCode))
+                .build();
+    public HttpHeaders getHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        Enumeration<String> headerNames = httpServletRequest.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String headerValue = httpServletRequest.getHeader(headerName);
+            headers.add(headerName, headerValue);
+        return headers;
+    public int getErrorCode(String errorCode, int errorCodeDefault) {
+            return Integer.parseInt(errorCode);
+        } catch (NumberFormatException e) {
+            return errorCodeDefault;
 
 @Aspect
 @Component
 @Order(value = 1)
-@Slf4j
 public class LogsActivityAOPHandler extends BaseService {
     private final HttpServletRequest httpServletRequest;
     public static final String service_name = "service_name";
@@ -1712,443 +1508,24 @@ public class LogsActivityAOPHandler extends BaseService {
             Exception e = (Exception) messageObject;
             if (e instanceof MethodArgumentNotValidException) {
                 log.info(Utils.redact(objectMapper.writeValueAsString(getRequestBody())), entries(mapCustomizeLog));
-                return;
             } else if (e instanceof BusinessException) {
                 BusinessException businessException = (BusinessException) e;
                 if (!ObjectUtils.isEmpty(businessException.getError())) {
                     if (!ObjectUtils.isEmpty(businessException.getError().getMessage())) {
                         log.info(Utils.redact(e.getMessage()), entries(mapCustomizeLog));
-                        return;
                     } else if (!ObjectUtils.isEmpty(businessException.getError().getData())) {
                         log.info(Utils.redact(objectMapper.writeValueAsString(businessException.getError().getData())),
                                 entries(mapCustomizeLog));
-                        return;
             } else if (!ObjectUtils.isEmpty(e.getMessage())) {
                 log.info(Utils.redact(e.getMessage()), entries(mapCustomizeLog));
             if (mapCustomizeLog.get(LogsActivityAOPHandler.message_type).toString().equals(LogsActivityAOPHandler.request)) {
                 log.error("Request_id: {}, Exception: ", getRequestId(), e);
-        } else {
             if (mapCustomizeLog.get(LogsActivityAOPHandler.message_type).toString().equals(LogsActivityAOPHandler.response)) {
                 if (messageObject instanceof ResponseEntity) {
                     ResponseEntity responseEntity = (ResponseEntity) messageObject;
                     BaseResponse baseResponse = JsonUtils.getGenericObject(responseEntity.getBody(), BaseResponse.class);
                     log.info(Utils.redact(objectMapper.writeValueAsString(baseResponse)), entries(mapCustomizeLog));
-                    return;
             log.info(Utils.redact(objectMapper.writeValueAsString(messageObject)), entries(mapCustomizeLog));
-
-Context for 'PronunciationAccuracyResponseDto':
-# Summary: 
-@Override
-    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
-        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
-        req.setLanguage("en");
-        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
-        }
-        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
-    }
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class PronunciationAccuracyResponseDto {
-    private String startTime;
-    private String endTime;
-    private String ipaScript;
-    private String isLetterCorrectAllWords;
-    private String matchedTranscripts;
-    private String matchedTranscriptsIpa;
-    private String pairAccuracyCategory;
-    private Integer pronunciationAccuracy;
-    private String realTranscript;
-    private String realTranscripts;
-    private String realTranscriptsIpa;
-
-@Service
-public class PronunciationServiceImpl implements PronunciationService {
-    private final PronunciationFeignClient pronunciationFeignClient;
-    private final PronunciationMapper pronunciationMapper;
-    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
-        this.pronunciationFeignClient = pronunciationFeignClient;
-        this.pronunciationMapper = pronunciationMapper;
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-
-Context for 'PronunciationAccuracyRequest':
-# Summary: 
-@Override
-    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
-        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
-        req.setLanguage("en");
-        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
-        }
-        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
-    }
-
-@Data
-public class PronunciationAccuracyRequest {
-    private String base64Audio;
-    private String language;
-    @JsonProperty("title")
-    private String text;
-
-@Service
-public class PronunciationServiceImpl implements PronunciationService {
-    private final PronunciationFeignClient pronunciationFeignClient;
-    private final PronunciationMapper pronunciationMapper;
-    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
-        this.pronunciationFeignClient = pronunciationFeignClient;
-        this.pronunciationMapper = pronunciationMapper;
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-
-Context for 'PronunciationAccuracyResponse':
-# Summary: 
-@Override
-    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
-        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
-        req.setLanguage("en");
-        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
-        }
-        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
-    }
-
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-@Data
-public class PronunciationAccuracyResponse {
-    private String startTime;
-    private String endTime;
-    private String ipaScript;
-    private String isLetterCorrectAllWords;
-    private String matchedTranscripts;
-    private String matchedTranscriptsIpa;
-    private String pairAccuracyCategory;
-    private Integer pronunciationAccuracy;
-    private String realTranscript;
-    private String realTranscripts;
-    private String realTranscriptsIpa;
-
-@Service
-public class PronunciationServiceImpl implements PronunciationService {
-    private final PronunciationFeignClient pronunciationFeignClient;
-    private final PronunciationMapper pronunciationMapper;
-    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
-        this.pronunciationFeignClient = pronunciationFeignClient;
-        this.pronunciationMapper = pronunciationMapper;
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-
-Context for 'pronunciationFeignClient':
-# Summary: 
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-    }
-}
-
-public abstract byte[] downloadFile(String fileName);
-
-Context for 'pronunciationMapper':
-# Summary: 
-public abstract String getProviderName();
-
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-    }
-}
-
-public abstract String getFileUrl(String fileName);
-
-Context for 'GetPronunciationSampleResponseDto':
-# Summary: 
-@Override
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        req.setLanguage("en");
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        }
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-    }
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class GetPronunciationSampleResponseDto {
-    private String ipaTranscript;
-    private String realTranscript;
-    private String transcriptTranslation;
-
-@Service
-public class PronunciationServiceImpl implements PronunciationService {
-    private final PronunciationFeignClient pronunciationFeignClient;
-    private final PronunciationMapper pronunciationMapper;
-    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
-        this.pronunciationFeignClient = pronunciationFeignClient;
-        this.pronunciationMapper = pronunciationMapper;
-    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
-        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
-        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
-        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
-
-Context for 'GetSampleRequestDto':
-# Summary: 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class GetSampleRequestDto {
-    @NotNull
-    private PronunciationLevel level;
-    private String customText;
-}
-
-public abstract String getFileUrl(String fileName);
-
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-
-Context for 'GetSampleRequest':
-# Summary: 
-@Override
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        req.setLanguage("en");
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        }
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-    }
-
-@Data
-public class GetSampleRequest {
-    private String category;
-    private String language;
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    private String transcript;
-
-public abstract String getFileUrl(String fileName);
-
-Context for 'GetSampleResponse':
-# Summary: 
-@Override
-    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
-        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
-        req.setCategory(request.getLevel().getValue());
-        req.setLanguage("en");
-        GetSampleResponse response = pronunciationFeignClient.getSample(req);
-        if (response == null) {
-            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
-        }
-        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
-    }
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class GetSampleResponse {
-    @JsonProperty("ipa_transcript")
-    private String ipaTranscript;
-    @JsonProperty("real_transcript")
-    private String realTranscript;
-    @JsonProperty("transcript_translation")
-    private String transcriptTranslation;
-
-public abstract String getFileUrl(String fileName);
-
-Context for 'BusinessException':
-# Summary: 
-
-@ExceptionHandler(BusinessException.class)
-    @LogsActivityAnnotation
-    public ResponseEntity<BaseResponse<?>> handleBusinessException(BusinessException exception) {
-        exception.getError().setMessage(getMessage(exception.getError()));
-        Object dataException = exception.getError().getData();
-        BaseResponse<?> data = ofFailed(exception);
-        if(!ObjectUtils.isEmpty(dataException) && dataException instanceof String) {
-            data.getMeta().setErrors(Collections.singletonList(
-                ErrorViolation.builder().description((String) dataException).build()));
-        }
-        return new ResponseEntity<>(data, exception.getError().getHttpStatus() == null
-                ? HttpStatus.OK : exception.getError().getHttpStatus());
-    }
-
-Context for 'ErrorConstant':
-# Summary: 
-public class ErrorConstant {
-    private ErrorConstant() {}
-    /**
-     * Write the error code prefixed with 200 below
-     * 200
-     */
-    public static final int SUCCESS = 200000;
-    public static final int SUCCESS_200 = 200;
-    /**
-     * Write the error code prefixed with 400 below
-     * 400
-     */
-    public static final int INVALID_PARAMETERS = 4000001;
-    public static final int SYSTEM_CONFIGURATION_NOT_FOUND = 4004208;
-    public static final int TRANSACTION_NOT_FOUND = 4001210;
-    public static final int TRANSACTION_NOT_EXIST = 4001218;
-    public static final int TRANSACTION_MUST_NOT_REFUND = 4001212;
-    public static final int TRANSACTION_NOT_SUCCESS = 4001213;
-    public static final int TRANSACTION_NOT_ENOUGH_AMOUNT = 4001214;
-    public static final int HTTP_CONNECTION_ERROR  = 4009000;
-    public static final int NULL_META_DATA_RESPONSE  = 4009001;
-    /**
-     * Write the error code prefixed with 401 below
-     * 401
-     */
-    public static final int UNAUTHORIZED = 4010001;
-    public static final int USERNAME_PASSWORD_WRONG = 4010002;
-    /**
-     * Write the error code prefixed with 403 below
-     * 403
-     */
-    public static final int FORBIDDEN_ERROR = 4030001;
-    /**
-     *  Write the error code prefixed with 404 below
-     * 404
-     */
-    public static final int NOT_FOUND = 4040001;
-    public static final int QUIZ_NOT_FOUND = 4040002;
-    public static final int QUIZ_ATTEMPT_NOT_FOUND = 4040003;
-    public static final int QUIZ_ATTEMPT_SUBMITTED = 4040004;
-    public static final int QUESTION_DOES_NOT_BELONG_TO_QUIZ = 4040005;
-    public static final int QUESTION_NOT_FOUND = 4040006;
-    public static final int QUIZ_ATTEMPT_NOT_BELONG_TO_USER = 4040007;
-    public static final int QUIZ_TIME_LIMIT_EXCEEDED = 4040008;
-    public static final int QUIZ_NOT_SAVED = 4040009;
-    public static final int GET_PRONUNCIATION_SAMPLE_ERROR = 4040010;
-    public static final int GET_PRONUNCIATION_ACCURACY_ERROR = 4040011;
-    /** @Get_VA_number_information*/
-    public static final int INVALID_VA_NUMBER = 40010525;
-    /**
-     * Write the error code prefixed with 500 below
-     * 500
-     */
-    public static final int INTERNAL_SERVER_ERROR = 5001001;
-}
-
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-
-public abstract String deleteFile(String fileName);
-
-Context for 'RequestKeyConstant':
-# Summary: 
-public class RequestKeyConstant {
-    private RequestKeyConstant() {}
-    public static final String REQUEST_ID = "request_id";
-    public static final String THREAD_REQUEST_ID = "requestId";
-    public static final String REQUEST_PARAMETERS = "request_parameters";
-    public static final String REQUEST_BODY = "request_body";
-    public static final String URI = "uri";
-    public static final String X_REQUEST_ID = "X-Request-ID";
-    public static final String CONTENT_TYPE = "Content-Type";
-    public static final String USER_AGENT = "User-Agent";
-    public static final String X_API_KEY = "x-api-key";
-    public static final String X_API_SECRET = "x-api-secret";
-    public static final String API_KEY = "api_key";
-    public static final String API_SECRET = "api_secret";
-    public static final String AUTHORIZATION = "Authorization";
-}
-
-@SpringBootApplication
-@PropertySource(value = "classpath:errors.properties", encoding = "UTF-8")
-@ComponentScan("com.edu")
-@EnableCaching
-@EnableAspectJAutoProxy
-@EnableFeignClients(basePackages = "com.edu.onestudy.thirdparty")
-public class OneStudyApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(OneStudyApplication.class, args);
-
-public abstract String getFileUrl(String fileName);
-
-Context for 'PronunciationService.getAccuracy':
-# Summary: 
-@GetMapping("/attempts")
-    @LogsActivityAnnotation
-    BaseResponse<List<Quiz>> getQuizAttempts(@CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getMyQuizAttempts(currentUser.getId().toString()));
-    }
-
-public <T> BaseResponse<T> ofSucceeded(T data) {
-        return BaseResponse.ofSucceeded(getRequestId(), data);
-
-public static <T> BaseResponse<T> ofSucceeded(String requestId) {
-        BaseResponse<T> response = ofSucceeded();
-        response.meta.setRequestId(requestId);
-        return response;
-
-public String getRequestId() {
-        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();
-
-public <T> T getRequestValue(String key, Class<T> clazz) {
-        return clazz.cast(httpServletRequest.getAttribute(key));
-
-@GetMapping("/my")
-    BaseResponse<List<Quiz>> getMyQuizzes(@CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getMyQuizzes(currentUser.getId()));
-
-public abstract String getFileUrl(String fileName);
-
-Context for 'BaseService.ofSucceeded':
-# Summary: 
-
-public <T> BaseResponse<T> ofSucceeded(T data) {
-        return BaseResponse.ofSucceeded(getRequestId(), data);
-    }
 
             REQUIREMENTS TO ANALYZE:
             Sprint Planning for Pronunciation Accuracy: A Business Perspective
