@@ -60,7 +60,7 @@ class Gemini:  # pylint: disable=too-few-public-methods
                 generation_config=self._generation_cfg,
             )
             text: str = response.text or ""
-            logger.debug(f"Gemini raw response: {text[:10000]}")
+            # logger.debug(f"Gemini raw response: {text[:10000]}")
             return text
         except Exception as exc:  # noqa: BLE001
             logger.error(f"Gemini API call failed: {exc}")

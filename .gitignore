@@ -1,2 +1,17 @@
 .venv/*
 src/models/*
+
+# Environment variables (contains API keys)
+.env
+.env.local
+.env.*.local
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Analysis logs and debug files
+logs/prompts/
+logs/responses/

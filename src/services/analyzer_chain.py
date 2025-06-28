@@ -5,6 +5,8 @@ import asyncio
 import re
 from typing import Dict, List, Optional, Any, TypedDict
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 
 from loguru import logger
 from langchain_core.tools import Tool
@@ -89,6 +91,58 @@ class AnalyzerChain:
         self._build_graph()
         logger.info("✅ LangGraph setup complete")
 
+    def _write_prompt_to_file(self, prompt: str, prefix: str = "prompt") -> str:
+        """Write prompt to a file for debugging/review purposes."""
+        try:
+            # Create prompts directory if it doesn't exist
+            prompts_dir = Path("logs/prompts")
+            prompts_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{prefix}_{self.project_id}_{timestamp}.txt"
+            filepath = prompts_dir / filename
+            
+            # Write prompt to file
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(f"Project: {self.project_id}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write(f"Type: {prefix}\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(prompt)
+            
+            logger.info(f"📁 Prompt saved to: {filepath}")
+            return str(filepath)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save prompt to file: {e}")
+            return ""
+
+    def _write_response_to_file(self, response: str, iteration: int) -> str:
+        """Write agent response to a file for debugging/review purposes."""
+        try:
+            # Create responses directory if it doesn't exist
+            responses_dir = Path("logs/responses")
+            responses_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"response_iteration_{iteration}_{self.project_id}_{timestamp}.txt"
+            filepath = responses_dir / filename
+            
+            # Write response to file
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(f"Project: {self.project_id}\n")
+                f.write(f"Iteration: {iteration}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(response)
+            
+            logger.info(f"📁 Response saved to: {filepath}")
+            return str(filepath)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save response to file: {e}")
+            return ""
+
     def _build_graph(self):
         """Build the LangGraph workflow."""
         graph = StateGraph(AgentState)
@@ -121,20 +175,18 @@ class AnalyzerChain:
         logger.info(f"🔍 Searching for symbol: '{symbol}'")
         try:
             # Try direct symbol search first
-            logger.debug(f"🎯 Attempting direct syretrievmbol lookup for: {symbol}")
-            # docs = self.retriever.find_by_symbol_name(symbol)
-
-            # logger.info(f"🔍 Docs: {docs}")
+            logger.debug(f"🎯 Attempting direct symbol lookup for: {symbol}")
+            docs = self.retriever.find_by_symbol_name(symbol)
             
             # If no direct match, try a broader search
-            # if not docs:
-            logger.debug(f"🔄 No direct match for '{symbol}', trying semantic search...")
-            docs = self.retriever.retrieve_sync(
-                symbol,
-                user_text="",
-                top=3,
-                hyde=False
-            )
+            if not docs:
+                logger.debug(f"🔄 No direct match for '{symbol}', trying semantic search...")
+                docs = self.retriever.retrieve_sync(
+                    symbol,
+                    user_text="",
+                    top=3,
+                    hyde=False
+                )
             
             if docs:
                 result = "\n\n".join(d.page_content for d in docs)
@@ -156,23 +208,13 @@ class AnalyzerChain:
         
         # Build the analysis prompt
         prompt = f"""You are an expert software architect analyzing the REST endpoint: {state['endpoint']}
-
-            CURRENT CONTEXT:
-            {state['context']}
-
-            REQUIREMENTS TO ANALYZE:
-            {state['requirements']}
-
-            TEST CASES TO VERIFY:
-            {state['testcases']}
-
-            ADDITIONAL INSTRUCTIONS:
-            {state['user_text']}
-
-            ANALYSIS STRATEGY:
+            Your first job is to apply the strategy above
+             ANALYSIS STRATEGY:
             1. Review the current context for the endpoint implementation
-            2. If you see references to classes, services, DTOs, or methods that are not fully shown, request more context using the tool
-            3. When you have sufficient implementation details, provide your final analysis as JSON
+            2. Get all classes, services, repositories, DTOs, methods and check if they are fully implemented
+            3. If you see references to any classes, services, DTOs, or methods that are not fully shown, request more context using the tool
+            4. When there are no classes, services, DTOs, or methods that are not fully shown, you have sufficient implementation details, provide your final analysis as JSON. 
+            5. Do not assume that you have enough context, always check the code and use get_project_code_context if any part of the code is not fully implemented.
 
             WHEN TO USE get_project_code_context TOOL:
             - When you see class/interface names without their implementation
@@ -187,6 +229,20 @@ class AnalyzerChain:
             - "I need to get context for ValidationException"
             - "I need to get context for OrderDto"
 
+            CURRENT CONTEXT:
+            {state['context']}
+
+            REQUIREMENTS TO ANALYZE:
+            {state['requirements']}
+
+            TEST CASES TO VERIFY:
+            {state['testcases']}
+
+            ADDITIONAL INSTRUCTIONS:
+            {state['user_text']}
+
+           
+            If you dont have enough context, call the get_project_code_context tool to get more context, don't assume.
             If you have enough context, provide your final analysis as valid JSON with this structure:
             {{
                 "document": "detailed explanation of what the endpoint does",
@@ -213,13 +269,22 @@ class AnalyzerChain:
                 ]
             }}
 
+            Do not assume any code logic, always check the code and use get_project_code_context if any part of the code is not fully implemented.
             Your response:"""
         
         try:
             logger.debug("🔄 Calling LLM for agent reasoning...")
+            
+            # Save prompt to file for review
+            prompt_file = self._write_prompt_to_file(prompt, f"agent_iteration_{state['iteration_count']}")
+            logger.info(f"💾 Prompt saved to file: {prompt_file}")
+            
             response = self.langchain_llm._call(prompt)
             logger.info(f"✅ Agent response received (length: {len(response)} chars)")
-            logger.debug(f"📝 Agent response preview: {response[:300]}...")
+            
+            # Save response to file for review
+            response_file = self._write_response_to_file(response, state['iteration_count'])
+            logger.info(f"💾 Response saved to file: {response_file}")
             
             return {
                 **state,
@@ -241,6 +306,7 @@ class AnalyzerChain:
         iteration = state["iteration_count"]
         
         logger.debug(f"🤔 Decision time - iteration {iteration}, response length: {len(response)}")
+        logger.info(f"🔍 Response: {response}")
         
         # Check if agent is requesting tool usage
         if "I need to get context for" in response or "get_project_code_context" in response:
@@ -260,7 +326,7 @@ class AnalyzerChain:
             return "end"
         
         # If agent seems to be describing what it sees but not asking for tools, encourage tool usage
-        if iteration < 3 and any(keyword in response.lower() for keyword in 
+        if iteration < 5 and any(keyword in response.lower() for keyword in 
                                 ["service", "class", "method", "dto", "controller", "repository"]):
             logger.info("🔧 Detected class/service references, encouraging tool usage")
             return "use_tool"
@@ -290,9 +356,18 @@ class AnalyzerChain:
         
         for pattern in explicit_patterns:
             matches = re.findall(pattern, response, re.IGNORECASE)
-            symbols.extend(matches)
+            # Ensure matches are always strings, not tuples
             if matches:
-                logger.info(f"🎯 Found explicit symbol requests: {matches}")
+                # If regex has single group, matches will be list of strings
+                # If regex has multiple groups, matches will be list of tuples
+                flattened_matches = []
+                for match in matches:
+                    if isinstance(match, tuple):
+                        flattened_matches.extend([m for m in match if m])  # Add non-empty strings from tuple
+                    else:
+                        flattened_matches.append(match)  # Add string directly
+                symbols.extend(flattened_matches)
+                logger.info(f"🎯 Found explicit symbol requests: {flattened_matches}")
         
         # 2. If no explicit requests, intelligently extract from current context
         if not symbols:
@@ -307,7 +382,6 @@ class AnalyzerChain:
         # Log what we found
         if symbols:
             logger.info(f"📋 Found {len(symbols)} symbols to investigate: {symbols}")
-            logger.info(f"symbols: {symbols}")
         else:
             logger.warning("⚠️ No symbols identified - ending tool usage")
             return {
@@ -315,11 +389,12 @@ class AnalyzerChain:
                 "final_response": None  # Reset for next agent iteration
             }
         
-        # Get context for symbols (limit to 2 per iteration for performance)
         new_context_parts = []
         new_retrieved = []
         
-        for symbol in symbols[:2]:
+
+        # TODO: check this 50
+        for symbol in symbols[:50]:
             if symbol not in already_retrieved:
                 logger.info(f"🔍 Fetching context for: {symbol}")
                 context = self._find_symbol_context(symbol)
@@ -367,8 +442,10 @@ class AnalyzerChain:
         for pattern in patterns:
             matches = re.findall(pattern, context)
             for match in matches:
-                if match not in already_retrieved and len(match) > 3:  # Filter out too short names
-                    symbols.append(match)
+                # Handle both string and tuple matches
+                symbol = match if isinstance(match, str) else (match[0] if match else "")
+                if symbol and symbol not in already_retrieved and len(symbol) > 3:  # Filter out too short names
+                    symbols.append(symbol)
         
         # Remove duplicates while preserving order
         unique_symbols = list(dict.fromkeys(symbols))
@@ -487,8 +564,9 @@ class AnalyzerChain:
         try:
             # Step 1: Initial retrieval to get starting context
             logger.info("🔍 Step 1: Retrieving initial context from vector database...")
-            docs = await self.retriever.retrieve(endpoint, user_text, top=6, hyde=False)
+            docs = await self.retriever.retrieve(endpoint, user_text, top=1, hyde=False)
             initial_context = "\n\n".join(doc.page_content for doc in docs)
+            logger.info(f"🔍 Initial context")
             
             logger.info(f"✅ Retrieved {len(docs)} initial documents ({len(initial_context)} chars total)")
             logger.debug(f"📄 Initial context preview: {initial_context[:200]}...")
@@ -571,7 +649,15 @@ class AnalyzerChain:
                 user_text=user_text,
             )
             
+            # Save fallback prompt to file
+            fallback_prompt_file = self._write_prompt_to_file(prompt, "fallback_analysis")
+            logger.info(f"💾 Fallback prompt saved to: {fallback_prompt_file}")
+            
             resp = await asyncio.to_thread(self.llm.invoke, prompt)
+            
+            # Save fallback response to file
+            fallback_response_file = self._write_response_to_file(resp, 0)  # iteration 0 for fallback
+            logger.info(f"💾 Fallback response saved to: {fallback_response_file}")
             
             try:
                 result_dict = json.loads(resp)
