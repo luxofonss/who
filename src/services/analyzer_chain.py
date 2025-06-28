@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import asyncio
 import re
-from typing import Dict, List, Optional, Any, TypedDict
+from typing import Dict, List, Optional, Any, TypedDict, Tuple
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -150,19 +150,30 @@ class AnalyzerChain:
         # Add nodes
         graph.add_node("agent", self._agent_node)
         graph.add_node("use_tool", self._call_tool_node)
+        graph.add_node("verify", self._verify_response_node)
 
-        # Add conditional edges
+        # Agent: decide whether to use tool or go verify
         graph.add_conditional_edges(
             "agent",
             self._should_use_tool,
             {
                 "use_tool": "use_tool",
-                "end": END
+                "end": "verify"
             }
         )
 
-        # Add edge from tool back to agent
+        # Tool: after tool call, go back to agent
         graph.add_edge("use_tool", "agent")
+
+        # Verifier: if result incomplete, re-run agent; else end
+        graph.add_conditional_edges(
+            "verify",
+            lambda s: "agent" if s["final_response"] is None else "end",
+            {
+                "agent": "agent",
+                "end": END
+            }
+        )
 
         # Set entry point
         graph.set_entry_point("agent")
@@ -306,7 +317,7 @@ class AnalyzerChain:
         iteration = state["iteration_count"]
         
         logger.debug(f"🤔 Decision time - iteration {iteration}, response length: {len(response)}")
-        logger.info(f"🔍 Response: {response}")
+        # logger.info(f"🔍 Response: {response}")
         
         # Check if agent is requesting tool usage
         if "I need to get context for" in response or "get_project_code_context" in response:
@@ -334,67 +345,12 @@ class AnalyzerChain:
         # Default to end if we can't determine clearly
         logger.info("🏁 Uncertain response, defaulting to end workflow")
         return "end"
-
-    def _call_tool_node(self, state: AgentState) -> AgentState:
-        """Tool calling node - intelligently extract symbols from context and agent response."""
-        logger.info("🔧 Tool node activated - extracting symbols to fetch")
         
-        response = state["final_response"] or ""
-        current_context = state["context"]
-        already_retrieved = state["retrieved_symbols"]
-        
-        # Extract symbol names from the response
-        symbols = []
-        
-        # 1. Look for explicit tool requests from agent
-        import re
-        explicit_patterns = [
-            r"I need to get context for ([A-Za-z][A-Za-z0-9_]*)",
-            r"get_project_code_context\([\"']([^\"']+)[\"']\)",
-            r"(?:context for|details about|information on) ([A-Za-z][A-Za-z0-9_]*)",
-        ]
-        
-        for pattern in explicit_patterns:
-            matches = re.findall(pattern, response, re.IGNORECASE)
-            # Ensure matches are always strings, not tuples
-            if matches:
-                # If regex has single group, matches will be list of strings
-                # If regex has multiple groups, matches will be list of tuples
-                flattened_matches = []
-                for match in matches:
-                    if isinstance(match, tuple):
-                        flattened_matches.extend([m for m in match if m])  # Add non-empty strings from tuple
-                    else:
-                        flattened_matches.append(match)  # Add string directly
-                symbols.extend(flattened_matches)
-                logger.info(f"🎯 Found explicit symbol requests: {flattened_matches}")
-        
-        # 2. If no explicit requests, intelligently extract from current context
-        if not symbols:
-            logger.info("🔍 No explicit requests - analyzing context for missing implementations...")
-            symbols = self._extract_missing_symbols(current_context, already_retrieved)
-        
-        # 3. If still no symbols, try to find any referenced classes/services
-        if not symbols:
-            logger.info("🔎 Scanning for any class/service references...")
-            symbols = self._find_any_symbols(current_context, already_retrieved)
-        
-        # Log what we found
-        if symbols:
-            logger.info(f"📋 Found {len(symbols)} symbols to investigate: {symbols}")
-        else:
-            logger.warning("⚠️ No symbols identified - ending tool usage")
-            return {
-                **state,
-                "final_response": None  # Reset for next agent iteration
-            }
-        
+    def _get_context_for_symbols(self, symbols: List[str], already_retrieved: List[str]) -> Tuple[str, List[str]]:
+        """Fetch and return new context and list of actually retrieved symbols."""
         new_context_parts = []
         new_retrieved = []
-        
-
-        # TODO: check this 50
-        for symbol in symbols[:50]:
+        for symbol in symbols:
             if symbol not in already_retrieved:
                 logger.info(f"🔍 Fetching context for: {symbol}")
                 context = self._find_symbol_context(symbol)
@@ -406,13 +362,79 @@ class AnalyzerChain:
                     logger.warning(f"❌ No context found for: {symbol}")
             else:
                 logger.debug(f"⏭️ Skipping already retrieved symbol: {symbol}")
-        
-        # Update state
+        return "\n\n".join(new_context_parts), new_retrieved
+
+    def _call_tool_node(self, state: AgentState) -> AgentState:
+        """Tool calling node - intelligently extract symbols from context and agent response."""
+        logger.info("🔧 Tool node activated - extracting symbols to fetch")
+        response = state["final_response"] or ""
+        current_context = state["context"]
+        already_retrieved = state["retrieved_symbols"]
+        symbols = []
+        # If missing_symbols is set (from verification), prioritize fetching those
+        if state.get('missing_symbols'):
+            symbols = [s for s in state['missing_symbols'] if s not in already_retrieved]
+            logger.info(f"🔍 Fetching context for missing symbols from verification: {symbols}")
+        else:
+            # ... existing symbol extraction logic ...
+            import re
+            explicit_patterns = [
+                r"I need to get context for ([A-Za-z][A-Za-z0-9_]*)",
+                r"get_project_code_context\([\"']([^\"']+)[\"']\)",
+                r"(?:context for|details about|information on) ([A-Za-z][A-Za-z0-9_]*)",
+            ]
+            for pattern in explicit_patterns:
+                matches = re.findall(pattern, response, re.IGNORECASE)
+                if matches:
+                    flattened_matches = []
+                    for match in matches:
+                        if isinstance(match, tuple):
+                            flattened_matches.extend([m for m in match if m])
+                        else:
+                            flattened_matches.append(match)
+                    symbols.extend(flattened_matches)
+                    logger.info(f"🎯 Found explicit symbol requests: {flattened_matches}")
+
+            symbols = [s for s in symbols if s not in already_retrieved]
+            if not symbols:
+                logger.info("🔍 Looking for symbols mentioned in 'need more context' statements...")
+                inspection_patterns = [
+                    r"(?:need to inspect|we need to inspect|inspect)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                    r"(?:need to examine|we need to examine|examine)\s+`([A-Za-z][A-Za-z0-9_]*)`", 
+                    r"(?:implementation of|depends on the implementation of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                    r"(?:structure of|details of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                    r"(?:need to check|we need to check|check)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                    r"(?:need to see|we need to see|see)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                    r"(?:requires inspection of|inspection of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                    r"(?:need to inspect|we need to inspect|inspect)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
+                    r"(?:implementation of|depends on the implementation of)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
+                    r"(?:structure of|details of)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
+                ]
+                for pattern in inspection_patterns:
+                    matches = re.findall(pattern, response, re.IGNORECASE)
+                    if matches:
+                        symbols.extend(matches)
+                        logger.info(f"🎯 Found symbols in inspection context: {matches}")
+            if not symbols:
+                logger.info("🔍 No explicit requests - analyzing context for missing implementations...")
+                symbols = self._extract_missing_symbols(current_context, already_retrieved)
+            if not symbols:
+                logger.info("🔎 Scanning for any class/service references...")
+                symbols = self._find_any_symbols(current_context, already_retrieved)
+        if symbols:
+            symbols = [s for s in symbols if s not in already_retrieved]
+            logger.info(f"📋 Found {len(symbols)} symbols to investigate: {symbols}")
+        else:
+            logger.warning("⚠️ No symbols identified - ending tool usage")
+            return {
+                **state,
+                "final_response": None  # Reset for next agent iteration
+            }
+        new_context, new_retrieved = self._get_context_for_symbols(symbols[:50], already_retrieved)
         updated_context = state["context"]
-        if new_context_parts:
-            updated_context += "\n\n" + "\n\n".join(new_context_parts)
-            logger.info(f"📝 Added {len(new_context_parts)} new context sections")
-        
+        if new_context:
+            updated_context += "\n\n" + new_context
+            logger.info(f"📝 Added {len(new_retrieved)} new context sections")
         return {
             **state,
             "context": updated_context,
@@ -487,6 +509,23 @@ class AnalyzerChain:
             if not isinstance(param_value, str):
                 raise ValueError(f"{param_name} must be a string")
 
+    def _parse_json_response(self, response_text: str) -> str:
+        import re
+        # Try to extract JSON from markdown code blocks using regex
+        match = re.search(r"```json\s*([\s\S]+?)\s*```", response_text)
+        if match:
+            return match.group(1).strip()
+        match = re.search(r"```\s*([\s\S]+?)\s*```", response_text)
+        if match:
+            return match.group(1).strip()
+        # Fallback: extract first {...} block
+        match = re.search(r"\{[\s\S]+\}", response_text)
+        if match:
+            return match.group(0).strip()
+        # Otherwise, return the original text
+        return response_text.strip()
+
+
     def _parse_graph_response(self, graph_response: str, endpoint: str) -> AnalysisResult:
         """Parse LangGraph response and create structured result."""
         response_text = graph_response.strip()
@@ -494,20 +533,7 @@ class AnalyzerChain:
         logger.info(f"🔍 Graph response: {response_text[:200]}...")
         
         # Try to extract JSON from markdown code blocks if present
-        if response_text.startswith("````json") and response_text.endswith("````"):
-            response_text = response_text[8:-4].strip()
-        elif response_text.startswith("```json") and response_text.endswith("```"):
-            response_text = response_text[7:-3].strip()
-        elif response_text.startswith("````") and response_text.endswith("````"):
-            # Handle generic 4-backtick code blocks
-            lines = response_text.split('\n')
-            if len(lines) > 2:
-                response_text = '\n'.join(lines[1:-1]).strip()
-        elif response_text.startswith("```") and response_text.endswith("```"):
-            # Handle generic 3-backtick code blocks
-            lines = response_text.split('\n')
-            if len(lines) > 2:
-                response_text = '\n'.join(lines[1:-1]).strip()
+        response_text = self._parse_json_response(response_text)
         
         # Find JSON within the response if it's mixed with other text
         json_match = re.search(r'\{.*?"document".*?\}', response_text, re.DOTALL)
@@ -693,3 +719,58 @@ class AnalyzerChain:
     def clear_cache(self) -> None:
         """Clear any cached resources (LangGraph doesn't require caching)."""
         logger.info("🧹 LangGraph resources cleared (no caching needed)")
+
+    def _verify_response_node(self, state: AgentState) -> AgentState:
+        """Verify final LLM response before ending."""
+        response = state["final_response"] or ""
+        prompt = f"""
+            You are a verification assistant. A REST API endpoint has been analyzed.
+
+            Your job is to:
+            1. Review the response and determine if it fully covers the user requirements and test cases.
+            2. List any classes, DTOs, methods, configs, or components that are referenced in the requirements/test cases but are missing in the context or response.
+            3. If complete, return: {{"status": "complete"}}
+            4. If incomplete, return: 
+            {{
+                "status": "incomplete",
+                "missing_symbols": ["ClassA", "SomeDto", "MyService.methodX"]
+            }}
+
+            RESPONSE:
+            {response[-3000:]}
+
+            REQUIREMENTS:
+            {state['requirements']}
+
+            TEST CASES:
+            {state['testcases']}
+
+            CONTEXT:
+            {state['context'][:4000]}
+            """
+
+        try:
+            result = self.llm.invoke(prompt)
+            logger.info(f"🕵️‍♀️ Verification result: {result}")
+            parsed = self._parse_json_response(result)
+            parsed = json.loads(parsed)
+
+            if parsed.get("status") == "complete":
+                logger.info("✅ Verifier accepted final response — ending workflow")
+                return state  # Done
+
+            else:
+                symbols = parsed.get("missing_symbols", [])
+                logger.info(f"🔁 Verifier found missing symbols: {symbols}")
+                context_add = "\n\n".join([self._find_symbol_context(s) for s in symbols])
+
+                return {
+                    **state,
+                    "context": state["context"] + "\n\n" + context_add,
+                    "retrieved_symbols": state["retrieved_symbols"] + symbols,
+                    "final_response": None  # Force agent to re-run
+                }
+
+        except Exception as e:
+            logger.warning(f"⚠️ Verifier failed to parse or reason: {e}")
+            return state

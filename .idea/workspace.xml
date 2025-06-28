@@ -5,77 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6464961b-b689-48f8-a7d2-1add8e90b52f" name="Changes" comment="use agent">
-      <change afterPath="$PROJECT_DIR$/src/services/tools.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy11_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy13_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy15_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy20_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy27_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy2_@method=GET @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy2_@method=POST @endpoint=_api_v1_private_asg_aweg_gaw_eg.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy2_@method=POST @endpoint=_api_v1_pub_pronunciations_accuracy.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy2_@method=POST @endpoint=_api_v1_pub_pronunciations_sample.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/analyze/test-onestudy2_@method=POST @endpoint=_api_v1_resources.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy11.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy11_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy12.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy12_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy13.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy13_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy14.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy14_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy15.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy15_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy16.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy16_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy2.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy20.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy20_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy21.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy21_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy22.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy22_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy23.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy23_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy24.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy24_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy25.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy25_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy26.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy26_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy27.faiss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy27_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/indexes/test-onestudy2_metadata.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy11.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy12.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy13.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy14.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy15.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy16.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy2.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy20.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy21.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy22.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy23.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy24.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy25.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy26.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/merkle/test-onestudy27.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy11.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy12.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy13.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy14.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy15.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy16.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy2.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy20.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy21.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy22.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy23.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy24.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy25.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy26.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/storage/metadata/test-onestudy27.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/logs/prompts/agent_iteration_0_demo_20250628_153022.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/logs/prompts/agent_iteration_1_demo_20250628_153034.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/logs/responses/response_iteration_0_demo_20250628_153025.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/logs/responses/response_iteration_1_demo_20250628_153046.txt" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -103,27 +36,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.go.formatter.settings.were.checked": "true",
-    "RunOnceActivity.go.migrated.go.modules.settings": "true",
-    "git-widget-placeholder": "agent",
-    "go.import.settings.migrated": "true",
-    "last_opened_file_path": "F:/_side_projects/ai-tcbs5",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "project.structure.last.edited": "Project",
-    "project.structure.proportion": "0.0",
-    "project.structure.side.proportion": "0.0",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.migrated.go.modules.settings&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;agent&quot;,
+    &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/_side_projects/ai-tcbs5&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="6464961b-b689-48f8-a7d2-1add8e90b52f" name="Changes" comment="" />
@@ -185,5 +118,9 @@
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/ai_tcbs5$ai_tbcs.coverage" NAME="ai-tbcs Coverage Results" MODIFIED="1751082435336" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/ai_tcbs5$main.coverage" NAME="main Coverage Results" MODIFIED="1751081553876" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
   </component>
 </project>

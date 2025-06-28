@@ -125,7 +125,9 @@ class LangChainRetriever:
         # Extract chunks from FAISS results tuple (distances, chunks)
         faiss_results = faiss_results_tuple[1]  # Just chunks
         logger.debug(f"BM25 search returned {len(bm25_results)} chunks")
+        logger.info(f"BM25 search returned {bm25_results}")
         logger.debug(f"FAISS search returned {len(faiss_results)} chunks")
+        logger.info(f"FAISS search returned {faiss_results}")
 
         # 4. Deduplicate and combine results
         combined_results = bm25_results + faiss_results
