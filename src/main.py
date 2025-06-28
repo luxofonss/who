@@ -3,6 +3,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # Ensure the src directory (this file's parent) is on sys.path so that
 # `import utils.*` works regardless of PYTHONPATH environment variable.
 _SRC_DIR = Path(__file__).resolve().parent

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from langchain.tools import tool
+from langchain_core.tools import tool
 from services.retriever import LangChainRetriever
 
 

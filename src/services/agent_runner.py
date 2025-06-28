@@ -4,10 +4,10 @@ from functools import lru_cache
 from typing import List
 
 from langchain.agents import initialize_agent, AgentType
-from langchain.chat_models import Gemini  # or your adapter
 from langchain.memory import ConversationBufferMemory
-from langchain.schema import SystemMessage
+from langchain_core.messages import SystemMessage
 
+from adapters.gemini import LangChainGemini
 from services.retriever import LangChainRetriever
 from services.tools import get_code_context
 
@@ -25,7 +25,7 @@ def _agent_for_project(project_id: str):
         "but feel free to call the tool for missing pieces.\n\n" + context_text
     )
 
-    llm = Gemini(temperature=0)
+    llm = LangChainGemini(temperature=0)
 
     tools = [get_code_context]
 

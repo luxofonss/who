@@ -5,7 +5,7 @@ import asyncio
 from pathlib import Path
 from typing import List, Dict, Set
 
-from langchain.schema import Document
+from langchain_core.documents import Document
 from loguru import logger
 
 from services.indexer import Indexer
@@ -118,6 +118,8 @@ class LangChainRetriever:
     def find_by_symbol_name(self, symbol: str) -> List[Document]:
         """Optional external call: retrieve chunk(s) from method/class name"""
         found = []
+        logger.info(f"🔍 Finding by symbol name: {symbol}")
+        logger.info(f"🔍 Chunk lookup: {self._chunk_lookup}")
         for key, chunk in self._chunk_lookup.items():
             if symbol.lower() in key.lower():
                 full_text = f"# Summary: {chunk.get('summary', '')}\n\n{chunk['content']}"
