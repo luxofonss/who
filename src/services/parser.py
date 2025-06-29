@@ -388,15 +388,19 @@ def _build_chunk(
     calls: List[str],
     endpoints: List[Dict[str, str]],
 ) -> CodeChunk:
+    line_start = start_point[0] + 1
+    line_end = end_point[0] + 1
+    chunk_id = f"{file_path}::{class_name}::{method_name or ''}::{line_start}::{line_end}"
     chunk = {
+        "id": chunk_id,
         "file_path": str(file_path),
         "class_name": class_name,
         "method_name": method_name,
         "chunk_type": chunk_type,
         "calls": calls,
         "called_by": [],
-        "line_start": start_point[0] + 1,
-        "line_end": end_point[0] + 1,
+        "line_start": line_start,
+        "line_end": line_end,
         "content": content,
         "endpoints": endpoints,
     }

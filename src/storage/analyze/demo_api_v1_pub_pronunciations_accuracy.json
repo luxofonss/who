@@ -1,124 +1,119 @@
 {
-  "document": "The endpoint `/api/v1/pub/pronunciations/accuracy` receives a base64 encoded audio and text via a POST request. It uses the `PronunciationService` to assess pronunciation accuracy. The service uses a `PronunciationFeignClient` (presumably a Feign client for a third-party pronunciation API) to perform the actual analysis.  The response is wrapped in a `BaseResponse` object, including a request ID for traceability.  Error handling is implemented using `BusinessException`, which provides error codes and messages. The `LogsActivityAOPHandler` aspect logs both requests and responses, including request IDs and headers.",
+  "document": "The REST endpoint `/api/v1/pub/pronunciations/accuracy` accepts a POST request with a `PronunciationAccuracyRequestDto` in the body. This request object contains a Base64 encoded audio string (`base64Audio`) and the corresponding text (`text`). The endpoint delegates the pronunciation accuracy assessment to the `PronunciationService`.  The service uses a `PronunciationFeignClient` to send the request to an external service. The response from the external service is then mapped to a `PronunciationAccuracyResponseDto` and returned wrapped in a `BaseResponse` object.  The `BaseResponse` includes a request ID for tracing and error handling. Error handling is implemented using `BusinessException` which is caught by a global exception handler.",
   "requirement_coverage": [
     {
       "requirement": "As a Language Learner, I want to submit my spoken audio and text so that I can receive a detailed assessment of my pronunciation accuracy.",
       "coverage_score": 100,
-      "explain": "The endpoint accepts `base64Audio` and `text` in the request body.  `PronunciationService` processes this data and returns a `PronunciationAccuracyResponseDto` containing detailed accuracy information."
-    },
-    {
-      "requirement": "When I submit this audio and text to the system, Then the system should process my submission to determine pronunciation accuracy.",
-      "coverage_score": 100,
-      "explain": "The `PronunciationService.getAccuracy` method handles the submission and uses a Feign client to get the accuracy from a third-party service."
+      "explain": "The endpoint accepts audio (Base64 encoded) and text as input and returns a detailed pronunciation accuracy report (PronunciationAccuracyResponseDto) which includes start and end times, IPA transcription, correctness of individual sounds, matched words and their phonetic forms, accuracy category, numerical score, and the original text and its IPA transcription."
     },
     {
       "requirement": "When my pronunciation started and ended within the audio.",
       "coverage_score": 100,
-      "explain": "The `PronunciationAccuracyResponse` and subsequently the `PronunciationAccuracyResponseDto`  contains `startTime` and `endTime` fields."
+      "explain": "The `PronunciationAccuracyResponseDto` includes `startTime` and `endTime` fields."
     },
     {
       "requirement": "The phonetic representation (IPA script) of what I said.",
       "coverage_score": 100,
-      "explain": "The `PronunciationAccuracyResponse` and subsequently the `PronunciationAccuracyResponseDto` contains `ipaScript` field."
+      "explain": "The `PronunciationAccuracyResponseDto` includes the `ipaScript` field."
     },
     {
       "requirement": "An indication of whether all individual sounds were correctly pronounced.",
       "coverage_score": 100,
-      "explain": "The `PronunciationAccuracyResponse` and subsequently the `PronunciationAccuracyResponseDto` contains `isLetterCorrectAllWords` field."
+      "explain": "The `PronunciationAccuracyResponseDto` includes the `isLetterCorrectAllWords` field."
     },
     {
       "requirement": "The words and their phonetic forms that the system matched to my speech.",
       "coverage_score": 100,
-      "explain": "The `PronunciationAccuracyResponse` and subsequently the `PronunciationAccuracyResponseDto` contains `matchedTranscripts` and `matchedTranscriptsIpa` fields."
+      "explain": "The `PronunciationAccuracyResponseDto` includes `matchedTranscripts` and `matchedTranscriptsIpa` fields."
     },
     {
       "requirement": "A categorization of my overall pronunciation accuracy (e.g., \"Excellent,\" \"Good,\" \"Needs Improvement\").",
       "coverage_score": 100,
-      "explain": "The `PronunciationAccuracyResponse` and subsequently the `PronunciationAccuracyResponseDto` contains `pairAccuracyCategory` field."
+      "explain": "The `PronunciationAccuracyResponseDto` includes the `pairAccuracyCategory` field."
     },
     {
       "requirement": "A numerical score representing my pronunciation accuracy.",
       "coverage_score": 100,
-      "explain": "The `PronunciationAccuracyResponse` and subsequently the `PronunciationAccuracyResponseDto` contains `pronunciationAccuracy` field."
+      "explain": "The `PronunciationAccuracyResponseDto` includes the `pronunciationAccuracy` field."
     },
     {
       "requirement": "The exact original text and its phonetic representation that I was supposed to say.",
       "coverage_score": 100,
-      "explain": "The request includes the `text` field. The response includes the `realTranscript` and `realTranscriptsIpa` fields (though it's unclear if `realTranscriptsIpa` is always populated)."
+      "explain": "The `PronunciationAccuracyResponseDto` includes `realTranscript` and `realTranscriptsIpa` fields.  The original text is also sent in the request."
     },
     {
       "requirement": "And if for any reason the pronunciation analysis cannot be completed (e.g., the external service we rely on is unavailable), I should receive a clear message indicating that the accuracy assessment failed.",
       "coverage_score": 100,
-      "explain": "The `PronunciationService` handles null responses from `pronunciationFeignClient` by throwing a `BusinessException` with `ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR`. The exception handling mechanism will translate this into a proper error response."
+      "explain": "The `PronunciationService` handles null responses from `pronunciationFeignClient` by throwing a `BusinessException` with `ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR`. A global exception handler converts this into a structured error response."
     }
   ],
   "test_cases": [
     {
       "test_case": "TC-PA-001: Verify that the API correctly processes a high-quality audio submission with perfectly pronounced text.",
       "coverage_score": 100,
-      "explain": "Covered.  The implementation processes the request and returns a response.  Testing requires verifying the accuracy of the response based on the input."
+      "explain": "Covered.  The implementation processes the request and returns a response.  Testing requires providing a high-quality audio file and verifying the response."
     },
     {
       "test_case": "TC-PA-002: Verify that the API correctly processes audio with minor deviations or a noticeable accent, providing a non-perfect but reasonable score.",
       "coverage_score": 100,
-      "explain": "Covered. The implementation processes the request and returns a response. Testing requires providing audio with variations and verifying the reasonableness of the score."
+      "explain": "Covered. The implementation processes the request and returns a response. Testing requires providing audio with imperfections and verifying the score is reasonable."
     },
     {
       "test_case": "TC-PA-003: Verify that the API gracefully handles the scenario where the external pronunciation service is down or unresponsive.",
       "coverage_score": 100,
-      "explain": "Covered. The `PronunciationService` explicitly checks for a null response from the Feign client and throws a `BusinessException`."
+      "explain": "Covered. The `PronunciationService` explicitly checks for a null response from the external service and throws a `BusinessException`."
     },
     {
       "test_case": "TC-PA-004: Verify that the API handles an invalid or corrupted Base64 audio string.",
       "coverage_score": 50,
-      "explain": "Partially covered. The code doesn't explicitly handle invalid Base64.  The external service might throw an error, which is caught, but specific handling for malformed Base64 is missing.  Requires additional error handling."
+      "explain": "Partially covered. The code doesn't explicitly handle invalid Base64.  The external service might throw an error, which is handled, but input validation is missing."
     },
     {
       "test_case": "TC-PA-005: Verify that the API handles an empty Base64 audio string.",
       "coverage_score": 50,
-      "explain": "Partially covered. Similar to TC-PA-004, the external service's behavior with empty input needs to be considered and handled appropriately.  Requires additional error handling."
+      "explain": "Partially covered. Similar to TC-PA-004, the external service will likely fail, but explicit handling of an empty string is missing."
     },
     {
       "test_case": "TC-PA-006: Verify that the API handles an empty text field.",
       "coverage_score": 50,
-      "explain": "Partially covered.  The code doesn't explicitly handle empty text. The external service's behavior with empty text needs to be considered and handled appropriately. Requires additional error handling."
+      "explain": "Partially covered.  The external service's behavior with empty text needs to be verified.  No explicit handling in the current code."
     },
     {
       "test_case": "TC-PA-007: Verify that the API processes audio and text that do not match, returning a low accuracy score.",
       "coverage_score": 100,
-      "explain": "Covered. The implementation processes the request and returns a response. Testing requires providing mismatched audio and text and verifying a low accuracy score."
+      "explain": "Covered. The implementation processes the request and returns a response. Testing requires providing mismatched audio and text and verifying a low score."
     },
     {
       "test_case": "TC-PA-008: Test the API's behavior with an audio file that approaches or exceeds expected size limits.",
       "coverage_score": 0,
-      "explain": "Not covered. There's no size validation in the code."
+      "explain": "Not covered. There's no size limit validation in the code."
     },
     {
       "test_case": "TC-PA-009: Test the API's behavior with a very long text input.",
       "coverage_score": 0,
-      "explain": "Not covered. There's no length validation in the code."
+      "explain": "Not covered. There's no length validation for the text input."
     }
   ],
   "improvements": [
     {
-      "type": "Error Handling",
-      "reason": "The API lacks explicit handling for invalid Base64 audio, empty audio, and empty text inputs.  The current implementation relies on the external service to handle these cases, which might not be robust.",
-      "solution": "Add input validation to `PronunciationAccuracyRequestDto` to check for null or empty values and invalid Base64 encoding.  Handle these cases gracefully, returning appropriate error responses."
-    },
-    {
       "type": "Input Validation",
-      "reason": "The API lacks validation for audio and text size limits.",
-      "solution": "Add validation to `PronunciationAccuracyRequestDto` to enforce size limits for `base64Audio` and `text` fields.  Return appropriate error responses if limits are exceeded."
+      "reason": "The endpoint lacks input validation for Base64 audio string (format, emptiness) and text length. This can lead to unexpected errors or vulnerabilities.",
+      "solution": "Add validation to `PronunciationAccuracyRequestDto` using annotations like `@NotBlank`, `@Size`, and potentially a custom validator to check Base64 format. Handle validation errors gracefully, returning appropriate HTTP status codes and error messages."
     },
     {
-      "type": "Resilience",
-      "reason": "The reliance on an external service introduces a single point of failure.  If the external service is unavailable, the entire feature fails.",
-      "solution": "Implement retry mechanisms and circuit breakers around the `pronunciationFeignClient` calls to improve resilience.  Consider caching successful pronunciation analysis results to reduce the load on the external service."
+      "type": "Error Handling",
+      "reason": "While the endpoint handles null responses from the external service, it could provide more informative error messages to the user.",
+      "solution": "Improve error messages in `BusinessException` to provide more context about the failure (e.g., \"Pronunciation analysis failed due to an error from the external service.\"). Consider using different error codes for different failure scenarios."
     },
     {
-      "type": "Documentation",
-      "reason": "The documentation should clearly specify the expected format and constraints of the input data (Base64 audio and text).",
-      "solution": "Add comprehensive documentation to the API specification (e.g., Swagger) detailing the input format, size limits, and error responses."
+      "type": "Size Limits",
+      "reason": "The endpoint doesn't handle potential size limits for audio and text inputs.",
+      "solution": "Add size limits to the request DTO and implement validation to reject oversized inputs. Return appropriate error messages indicating the size limits."
+    },
+    {
+      "type": "Logging",
+      "reason": "More detailed logging is needed to track errors and performance issues.",
+      "solution": "Add logging statements to track request processing time, external service response times, and any errors encountered during processing.  Log relevant information such as request parameters and response data (redacted if necessary)."
     }
   ],
   "endpoint": "/api/v1/pub/pronunciations/accuracy",

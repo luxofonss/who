@@ -4,7 +4,7 @@ import json
 import asyncio
 import re
 from typing import Dict, List, Optional, Any, TypedDict, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -18,6 +18,7 @@ from services.retriever import LangChainRetriever
 from services.prompt_builder import PromptBuilder
 
 
+@dataclass
 class AgentState(TypedDict):
     """State schema for LangGraph agent."""
     question: str
@@ -30,6 +31,10 @@ class AgentState(TypedDict):
     retrieved_symbols: List[str]
     final_response: Optional[str]
     iteration_count: int
+    seen_context: List[str]
+    last_tool_call_symbols: List[str]
+    new_retrieved_symbols: List[str]
+    node_call_count: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -94,23 +99,17 @@ class AnalyzerChain:
     def _write_prompt_to_file(self, prompt: str, prefix: str = "prompt") -> str:
         """Write prompt to a file for debugging/review purposes."""
         try:
-            # Create prompts directory if it doesn't exist
             prompts_dir = Path("logs/prompts")
             prompts_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Generate filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"{prefix}_{self.project_id}_{timestamp}.txt"
             filepath = prompts_dir / filename
-            
-            # Write prompt to file
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(f"Project: {self.project_id}\n")
                 f.write(f"Timestamp: {datetime.now().isoformat()}\n")
                 f.write(f"Type: {prefix}\n")
                 f.write("=" * 80 + "\n\n")
                 f.write(prompt)
-            
             logger.info(f"📁 Prompt saved to: {filepath}")
             return str(filepath)
         except Exception as e:
@@ -120,23 +119,17 @@ class AnalyzerChain:
     def _write_response_to_file(self, response: str, iteration: int) -> str:
         """Write agent response to a file for debugging/review purposes."""
         try:
-            # Create responses directory if it doesn't exist
             responses_dir = Path("logs/responses")
             responses_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Generate filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"response_iteration_{iteration}_{self.project_id}_{timestamp}.txt"
             filepath = responses_dir / filename
-            
-            # Write response to file
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(f"Project: {self.project_id}\n")
                 f.write(f"Iteration: {iteration}\n")
                 f.write(f"Timestamp: {datetime.now().isoformat()}\n")
                 f.write("=" * 80 + "\n\n")
                 f.write(response)
-            
             logger.info(f"📁 Response saved to: {filepath}")
             return str(filepath)
         except Exception as e:
@@ -165,10 +158,43 @@ class AnalyzerChain:
         # Tool: after tool call, go back to agent
         graph.add_edge("use_tool", "agent")
 
-        # Verifier: if result incomplete, re-run agent; else end
+        # Verifier: decide whether to loop back or end
+        def _verify_condition(state: AgentState) -> str:
+            """Determine if verification should loop back to agent or end."""
+            logger.debug(f"🔍 Verifying state: iteration {state['iteration_count']}, final_response: {state['final_response'][:100] if state['final_response'] else 'None'}...")
+            
+            # Check iteration limit
+            if state["iteration_count"] >= 5:
+                logger.warning("⚠️ Max iterations reached in verify node, forcing end")
+                return "end"
+
+            # Check if no new symbols or chunks were retrieved in the last tool call
+            if state.get("last_tool_call_symbols") and not state.get("new_retrieved_symbols") and not state.get("new_retrieved_chunks"):
+                logger.info("🏁 No new context or symbols retrieved in last tool call, ending workflow")
+                return "end"
+
+            # Check if response is valid JSON
+            response = state["final_response"] or ""
+            if response.strip().startswith("{") and response.strip().endswith("}"):
+                try:
+                    json.loads(response)
+                    logger.info("✅ Valid JSON response in verify node, proceeding to end")
+                    return "end"
+                except json.JSONDecodeError:
+                    logger.warning("⚠️ Response looks like JSON but is invalid")
+
+            # If final_response is None or verification marked it incomplete, loop back
+            if state["final_response"] is None:
+                logger.info("🔁 Verification incomplete, looping back to agent")
+                return "agent"
+
+            # Default to end if no clear reason to loop
+            logger.info("🏁 No conditions for looping, ending workflow")
+            return "end"
+
         graph.add_conditional_edges(
             "verify",
-            lambda s: "agent" if s["final_response"] is None else "end",
+            _verify_condition,
             {
                 "agent": "agent",
                 "end": END
@@ -180,9 +206,10 @@ class AnalyzerChain:
 
         # Compile the graph
         self.graph = graph.compile()
+        logger.info("✅ LangGraph workflow compiled with enhanced verification")
 
-    def _find_symbol_context(self, symbol: str) -> str:
-        """Helper method to find code context for a given symbol."""
+    def _find_symbol_context(self, symbol: str, seen_chunks: List[str]) -> Tuple[str, List[str]]:
+        """Helper method to find code context for a given symbol, excluding seen chunks."""
         logger.info(f"🔍 Searching for symbol: '{symbol}'")
         try:
             # Try direct symbol search first
@@ -200,31 +227,47 @@ class AnalyzerChain:
                 )
             
             if docs:
-                result = "\n\n".join(d.page_content for d in docs)
-                logger.info(f"✅ Found {len(docs)} documents for '{symbol}' ({len(result)} chars)")
-                logger.debug(f"📄 Context preview for '{symbol}': {result[:150]}...")
-                return f"Context for '{symbol}':\n{result}"
+                new_chunks = []
+                new_chunk_ids = []
+                for doc in docs:
+                    chunk_id = doc.metadata.get("id", str(hash(doc.page_content)))  # Fallback to hash if no chunk_id
+                    if chunk_id not in seen_chunks:
+                        new_chunks.append(doc.page_content)
+                        new_chunk_ids.append(chunk_id)
+                        logger.debug(f"✅ Added chunk {chunk_id} for symbol '{symbol}'")
+                    else:
+                        logger.debug(f"⏭️ Skipped already seen chunk {chunk_id} for symbol '{symbol}'")
+                
+                if new_chunks:
+                    result = "\n\n".join(new_chunks)
+                    logger.info(f"✅ Found {len(new_chunks)} new documents for '{symbol}' ({len(result)} chars)")
+                    logger.debug(f"📄 Context preview for '{symbol}': {result[:150]}...")
+                    return f"'{symbol}':\n{result}", new_chunk_ids
+                else:
+                    logger.warning(f"❌ No new chunks found for symbol: '{symbol}'")
+                    return f"No new code found for symbol: {symbol}.", []
             else:
                 logger.warning(f"❌ No code found for symbol: '{symbol}'")
-                return f"No code found for symbol: {symbol}. Try a different class or method name."
+                return f"No code found for symbol: {symbol}. Try a different class or method name.", []
         except Exception as e:
             logger.error(f"💥 Error retrieving context for symbol '{symbol}': {str(e)}")
-            return f"Error retrieving code for symbol: {symbol} - {str(e)}"
+            return f"Error retrieving code for symbol: {symbol} - {str(e)}", []
 
     def _agent_node(self, state: AgentState) -> AgentState:
         """Agent reasoning node."""
+        node_name = "agent"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
         logger.info(f"🤖 Agent iteration {state['iteration_count']} - analyzing endpoint: {state['endpoint']}")
         logger.debug(f"📊 Current context length: {len(state['context'])} chars")
         logger.debug(f"🔍 Retrieved symbols so far: {state['retrieved_symbols']}")
         
         # Build the analysis prompt
         prompt = f"""You are an expert software architect analyzing the REST endpoint: {state['endpoint']}
-            Your first job is to apply the strategy above
-             ANALYSIS STRATEGY:
+            ANALYSIS STRATEGY:
             1. Review the current context for the endpoint implementation
             2. Get all classes, services, repositories, DTOs, methods and check if they are fully implemented
             3. If you see references to any classes, services, DTOs, or methods that are not fully shown, request more context using the tool
-            4. When there are no classes, services, DTOs, or methods that are not fully shown, you have sufficient implementation details, provide your final analysis as JSON. 
+            4. When there are no classes, services, DTOs, or methods that are not fully shown, you have sufficient implementation details, provide your final analysis as JSON
             5. Do not assume that you have enough context, always check the code and use get_project_code_context if any part of the code is not fully implemented.
 
             WHEN TO USE get_project_code_context TOOL:
@@ -252,8 +295,7 @@ class AnalyzerChain:
             ADDITIONAL INSTRUCTIONS:
             {state['user_text']}
 
-           
-            If you dont have enough context, call the get_project_code_context tool to get more context, don't assume.
+            If you don't have enough context, call the get_project_code_context tool to get more context, don't assume.
             If you have enough context, provide your final analysis as valid JSON with this structure:
             {{
                 "document": "detailed explanation of what the endpoint does",
@@ -285,15 +327,10 @@ class AnalyzerChain:
         
         try:
             logger.debug("🔄 Calling LLM for agent reasoning...")
-            
-            # Save prompt to file for review
             prompt_file = self._write_prompt_to_file(prompt, f"agent_iteration_{state['iteration_count']}")
             logger.info(f"💾 Prompt saved to file: {prompt_file}")
-            
             response = self.langchain_llm._call(prompt)
             logger.info(f"✅ Agent response received (length: {len(response)} chars)")
-            
-            # Save response to file for review
             response_file = self._write_response_to_file(response, state['iteration_count'])
             logger.info(f"💾 Response saved to file: {response_file}")
             
@@ -301,68 +338,82 @@ class AnalyzerChain:
                 **state,
                 "final_response": response,
                 "history": state["history"] + [response],
-                "iteration_count": state["iteration_count"] + 1
+                "iteration_count": state["iteration_count"] + 1,
+                "node_call_count": state["node_call_count"]
             }
         except Exception as e:
             logger.error(f"❌ Agent node error: {str(e)}")
             return {
                 **state,
                 "final_response": f"Error in agent reasoning: {str(e)}",
-                "iteration_count": state["iteration_count"] + 1
+                "iteration_count": state["iteration_count"] + 1,
+                "node_call_count": state["node_call_count"]
             }
 
     def _should_use_tool(self, state: AgentState) -> str:
         """Determine if the agent needs to use a tool."""
         response = state["final_response"] or ""
         iteration = state["iteration_count"]
-        
         logger.debug(f"🤔 Decision time - iteration {iteration}, response length: {len(response)}")
-        # logger.info(f"🔍 Response: {response}")
         
-        # Check if agent is requesting tool usage
+        # Check if response is valid JSON (final answer)
+        response_clean = response.strip()
+        if response_clean.startswith("{") and response_clean.endswith("}"):
+            try:
+                json.loads(response_clean)
+                logger.info("✅ Valid JSON response - ending workflow")
+                return "end"
+            except json.JSONDecodeError:
+                logger.warning("⚠️ Response looks like JSON but is invalid")
+
+        # Check for explicit tool request
         if "I need to get context for" in response or "get_project_code_context" in response:
             logger.info("🔧 Agent explicitly requested tool usage")
             return "use_tool"
-        
-        # Check if response looks like JSON (final answer)
-        response_clean = response.strip()
-        if (response_clean.startswith("{") and response_clean.endswith("}")) or \
-           ("document" in response and "requirement_coverage" in response):
-            logger.info("✅ Agent provided final JSON response - workflow complete")
-            return "end"
-        
-        # If too many iterations, force end
+
+        # Stop if max iterations reached
         if iteration >= 5:
             logger.warning(f"⚠️ Max iterations ({iteration}) reached, forcing end")
             return "end"
-        
-        # If agent seems to be describing what it sees but not asking for tools, encourage tool usage
-        if iteration < 5 and any(keyword in response.lower() for keyword in 
-                                ["service", "class", "method", "dto", "controller", "repository"]):
-            logger.info("🔧 Detected class/service references, encouraging tool usage")
-            return "use_tool"
-        
-        # Default to end if we can't determine clearly
-        logger.info("🏁 Uncertain response, defaulting to end workflow")
+
+        # Check if no new symbols or chunks were retrieved in the last tool call
+        if state.get("last_tool_call_symbols") and not state.get("new_retrieved_symbols") and not state.get("new_retrieved_chunks"):
+            logger.info("🏁 No new context retrieved in last tool call - ending workflow")
+            return "end"
+
+        # Narrow down keyword-based tool triggering
+        specific_patterns = [
+            r"\b(?:need to inspect|examine|check|see)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Entity|Exception))\b",
+            r"\bimplementation of\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Entity|Exception))\b",
+        ]
+        for pattern in specific_patterns:
+            matches = re.findall(pattern, response, re.IGNORECASE)
+            if matches:
+                logger.info(f"🔧 Found specific symbol references: {matches}")
+                return "use_tool"
+
+        logger.info("🏁 No clear need for tool - proceeding to verification")
         return "end"
-        
-    def _get_context_for_symbols(self, symbols: List[str], already_retrieved: List[str]) -> Tuple[str, List[str]]:
-        """Fetch and return new context and list of actually retrieved symbols."""
+
+    def _get_context_for_symbols(self, symbols: List[str], already_retrieved: List[str], seen_chunks: List[str]) -> Tuple[str, List[str], List[str]]:
+        """Fetch and return new context, retrieved symbols, and new chunk IDs."""
         new_context_parts = []
         new_retrieved = []
+        new_chunk_ids = []
         for symbol in symbols:
             if symbol not in already_retrieved:
                 logger.info(f"🔍 Fetching context for: {symbol}")
-                context = self._find_symbol_context(symbol)
-                if "No code found" not in context:
+                context, chunk_ids = self._find_symbol_context(symbol, seen_chunks)
+                if "No code found" not in context and "Error retrieving code" not in context:
                     new_context_parts.append(context)
                     new_retrieved.append(symbol)
-                    logger.info(f"✅ Successfully retrieved context for: {symbol}")
+                    new_chunk_ids.extend(chunk_ids)
+                    logger.info(f"✅ Successfully retrieved context for: {symbol} (chunks: {chunk_ids})")
                 else:
                     logger.warning(f"❌ No context found for: {symbol}")
             else:
                 logger.debug(f"⏭️ Skipping already retrieved symbol: {symbol}")
-        return "\n\n".join(new_context_parts), new_retrieved
+        return "\n\n".join(new_context_parts), new_retrieved, new_chunk_ids
 
     def _call_tool_node(self, state: AgentState) -> AgentState:
         """Tool calling node - intelligently extract symbols from context and agent response."""
@@ -370,14 +421,14 @@ class AnalyzerChain:
         response = state["final_response"] or ""
         current_context = state["context"]
         already_retrieved = state["retrieved_symbols"]
+        seen_chunks = state.get("seen_context", [])
         symbols = []
-        # If missing_symbols is set (from verification), prioritize fetching those
-        if state.get('missing_symbols'):
-            symbols = [s for s in state['missing_symbols'] if s not in already_retrieved]
+
+        # If missing_symbols from verification, prioritize those
+        if state.get("missing_symbols"):
+            symbols = [s for s in state["missing_symbols"] if s not in already_retrieved]
             logger.info(f"🔍 Fetching context for missing symbols from verification: {symbols}")
         else:
-            # ... existing symbol extraction logic ...
-            import re
             explicit_patterns = [
                 r"I need to get context for ([A-Za-z][A-Za-z0-9_]*)",
                 r"get_project_code_context\([\"']([^\"']+)[\"']\)",
@@ -421,77 +472,68 @@ class AnalyzerChain:
             if not symbols:
                 logger.info("🔎 Scanning for any class/service references...")
                 symbols = self._find_any_symbols(current_context, already_retrieved)
-        if symbols:
-            symbols = [s for s in symbols if s not in already_retrieved]
-            logger.info(f"📋 Found {len(symbols)} symbols to investigate: {symbols}")
-        else:
+
+        if not symbols:
             logger.warning("⚠️ No symbols identified - ending tool usage")
             return {
                 **state,
-                "final_response": None  # Reset for next agent iteration
+                "final_response": None,
+                "last_tool_call_symbols": [],
+                "new_retrieved_symbols": [],
+                "new_retrieved_chunks": []
             }
-        new_context, new_retrieved = self._get_context_for_symbols(symbols[:50], already_retrieved)
+
+        symbols = [s for s in symbols if s not in already_retrieved][:10]
+        logger.info(f"📋 Found {len(symbols)} symbols to investigate: {symbols}")
+        new_context, new_retrieved, new_chunk_ids = self._get_context_for_symbols(symbols, already_retrieved, seen_chunks)
         updated_context = state["context"]
         if new_context:
             updated_context += "\n\n" + new_context
-            logger.info(f"📝 Added {len(new_retrieved)} new context sections")
+            logger.info(f"📝 Added {len(new_retrieved)} new context sections, {len(new_chunk_ids)} new chunks")
+        
         return {
             **state,
             "context": updated_context,
             "retrieved_symbols": state["retrieved_symbols"] + new_retrieved,
-            "final_response": None  # Reset for next agent iteration
+            "seen_context": state["seen_context"] + new_chunk_ids,
+            "final_response": None,
+            "last_tool_call_symbols": symbols,
+            "new_retrieved_symbols": new_retrieved,
+            "new_retrieved_chunks": new_chunk_ids
         }
 
     def _extract_missing_symbols(self, context: str, already_retrieved: List[str]) -> List[str]:
         """Extract symbols that are referenced but not fully implemented in context."""
         import re
         symbols = []
-        
-        # Look for class instantiations and method calls that might need more context
         patterns = [
-            r"(\w+Service)(?:\s+\w+\s*=|\.\w+|\()",  # Services
-            r"(\w+Repository)(?:\s+\w+\s*=|\.\w+|\()",  # Repositories  
-            r"(\w+Controller)(?:\s+\w+\s*=|\.\w+|\()",  # Controllers
-            r"(\w+Exception)(?:\s+\w+\s*=|\(|\s+\w+)",  # Exceptions
-            r"(\w+Dto)(?:\s+\w+\s*=|\(|\s+\w+)",  # DTOs
-            r"(\w+Entity)(?:\s+\w+\s*=|\.\w+|\()",  # Entities
-            r"(\w+Config)(?:\s+\w+\s*=|\.\w+|\()",  # Config classes
-            r"(\w+Utils?)(?:\s+\w+\s*=|\.\w+|\()",  # Utility classes
-            r"(\w+Response)(?:\s+\w+\s*=|\<|\()",  # Response classes
-            r"(\w+Request)(?:\s+\w+\s*=|\<|\()",  # Request classes
+            r"(\w+(?:Service|Repository|Controller|Dto|Entity|Exception))\b(?!\s*\{)",
+            r"new\s+(\w+(?:Service|Repository|Controller|Dto|Entity|Exception))\b",
+            r"\b(\w+(?:Service|Repository|Controller|Dto|Entity|Exception))\.\w+\b",
         ]
-        
         for pattern in patterns:
             matches = re.findall(pattern, context)
             for match in matches:
-                # Handle both string and tuple matches
-                symbol = match if isinstance(match, str) else (match[0] if match else "")
-                if symbol and symbol not in already_retrieved and len(symbol) > 3:  # Filter out too short names
+                symbol = match if isinstance(match, str) else match[0]
+                if (symbol and symbol not in already_retrieved and len(symbol) > 3 and
+                    symbol not in ['String', 'List', 'Map', 'Set', 'Boolean', 'Integer', 'Long', 'Date', 'Time']):
                     symbols.append(symbol)
-        
-        # Remove duplicates while preserving order
-        unique_symbols = list(dict.fromkeys(symbols))
+        unique_symbols = list(dict.fromkeys(symbols))[:3]
         logger.debug(f"🔍 Extracted potential symbols: {unique_symbols}")
-        return unique_symbols[:5]  # Limit to 5 most relevant
-    
+        return unique_symbols
+
     def _find_any_symbols(self, context: str, already_retrieved: List[str]) -> List[str]:
         """Find any class names that might be worth investigating."""
         import re
         symbols = []
-        
-        # Look for any capitalized words that look like class names
-        class_pattern = r'\b([A-Z][a-z]+(?:[A-Z][a-z]*)*)\b'
-        matches = re.findall(class_pattern, context)
-        
+        class_pattern = r'\b([A-Z][A-Za-z0-9]*(?:Service|Repository|Controller|Dto|Entity|Exception))\b(?!\s*\{)'
+        matches = re.findall(class_pattern, context, re.IGNORECASE)
         for match in matches:
-            # Filter for likely class names (avoid common words)
-            if (len(match) > 4 and 
+            if (len(match) > 4 and
                 match not in already_retrieved and
                 match not in ['String', 'Object', 'List', 'Map', 'Set', 'Boolean', 'Integer', 'Long', 'Date', 'Time']):
                 symbols.append(match)
-        
-        # Remove duplicates and limit
-        unique_symbols = list(dict.fromkeys(symbols))[:3]
+        unique_symbols = list(dict.fromkeys(symbols))[:2]
         logger.debug(f"🔎 Found general class references: {unique_symbols}")
         return unique_symbols
 
@@ -499,8 +541,6 @@ class AnalyzerChain:
         """Validate input parameters."""
         if not endpoint or not isinstance(endpoint, str):
             raise ValueError("endpoint must be a non-empty string")
-        
-        # Other parameters can be empty strings, but should be strings
         for param_name, param_value in [
             ("requirements_txt", requirements_txt),
             ("testcases_txt", testcases_txt), 
@@ -511,31 +551,22 @@ class AnalyzerChain:
 
     def _parse_json_response(self, response_text: str) -> str:
         import re
-        # Try to extract JSON from markdown code blocks using regex
         match = re.search(r"```json\s*([\s\S]+?)\s*```", response_text)
         if match:
             return match.group(1).strip()
         match = re.search(r"```\s*([\s\S]+?)\s*```", response_text)
         if match:
             return match.group(1).strip()
-        # Fallback: extract first {...} block
         match = re.search(r"\{[\s\S]+\}", response_text)
         if match:
             return match.group(0).strip()
-        # Otherwise, return the original text
         return response_text.strip()
-
 
     def _parse_graph_response(self, graph_response: str, endpoint: str) -> AnalysisResult:
         """Parse LangGraph response and create structured result."""
         response_text = graph_response.strip()
-        
         logger.info(f"🔍 Graph response: {response_text[:200]}...")
-        
-        # Try to extract JSON from markdown code blocks if present
         response_text = self._parse_json_response(response_text)
-        
-        # Find JSON within the response if it's mixed with other text
         json_match = re.search(r'\{.*?"document".*?\}', response_text, re.DOTALL)
         if json_match and not response_text.strip().startswith('{'):
             response_text = json_match.group(0)
@@ -543,7 +574,6 @@ class AnalyzerChain:
         try:
             result_dict = json.loads(response_text)
             logger.info("✅ LangGraph returned valid JSON analysis")
-            
             return AnalysisResult(
                 document=result_dict.get("document", ""),
                 requirement_coverage=result_dict.get("requirement_coverage", []),
@@ -574,8 +604,6 @@ class AnalyzerChain:
             user_text: str,
     ) -> Dict[str, Any]:
         """Run the LangGraph analysis chain and return structured results."""
-        
-        # Validate inputs
         try:
             self._validate_inputs(endpoint, requirements_txt, testcases_txt, user_text)
         except ValueError as e:
@@ -588,16 +616,13 @@ class AnalyzerChain:
         logger.info(f"💬 User instructions: {len(user_text)} chars")
         
         try:
-            # Step 1: Initial retrieval to get starting context
             logger.info("🔍 Step 1: Retrieving initial context from vector database...")
-            docs = await self.retriever.retrieve(endpoint, user_text, top=1, hyde=False)
+            docs = await self.retriever.retrieve(endpoint, user_text, top=3, hyde=False)
             initial_context = "\n\n".join(doc.page_content for doc in docs)
-            logger.info(f"🔍 Initial context")
-            
+            initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
             logger.info(f"✅ Retrieved {len(docs)} initial documents ({len(initial_context)} chars total)")
-            logger.debug(f"📄 Initial context preview: {initial_context[:200]}...")
+            logger.debug(f"� Ascociated chunk IDs: {initial_chunk_ids}")
             
-            # Step 2: Create initial state for LangGraph
             logger.info("🏗️ Step 2: Creating initial state for LangGraph workflow...")
             initial_state: AgentState = {
                 "question": f"Analyze the REST endpoint '{endpoint}' according to the requirements and test cases.",
@@ -608,25 +633,27 @@ class AnalyzerChain:
                 "user_text": user_text,
                 "history": [],
                 "retrieved_symbols": [],
+                "seen_context": initial_chunk_ids,
                 "final_response": None,
-                "iteration_count": 0
+                "iteration_count": 0,
+                "last_tool_call_symbols": [],
+                "new_retrieved_symbols": [],
+                "new_retrieved_chunks": [],
+                "node_call_count": {}
             }
             logger.debug("✅ Initial state created successfully")
             
-            # Step 3: Run LangGraph workflow
             logger.info("🚀 Step 3: Starting LangGraph analysis workflow...")
             final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
             
             iterations = final_state['iteration_count']
             retrieved_symbols = final_state['retrieved_symbols']
             final_response_length = len(final_state.get("final_response", ""))
-            
             logger.info(f"🎉 LangGraph workflow completed successfully!")
             logger.info(f"📊 Statistics: {iterations} iterations, {len(retrieved_symbols)} symbols retrieved")
             logger.info(f"🔍 Retrieved context for symbols: {retrieved_symbols}")
             logger.info(f"📝 Final response length: {final_response_length} chars")
             
-            # Step 4: Parse and structure the response
             logger.info("🔧 Step 4: Parsing and structuring final response...")
             final_response = final_state.get("final_response", "")
             result = self._parse_graph_response(final_response, endpoint)
@@ -634,13 +661,9 @@ class AnalyzerChain:
             return result.__dict__
             
         except AnalysisError:
-            # Re-raise AnalysisError as-is
             raise
         except Exception as e:
             logger.error(f"❌ LangGraph analysis failed: {str(e)}")
-            
-            # Fallback to original approach if LangGraph fails
-            logger.info("🔄 Falling back to original analysis approach")
             try:
                 return await self._fallback_analysis(
                     endpoint=endpoint,
@@ -664,9 +687,7 @@ class AnalyzerChain:
     ) -> Dict[str, Any]:
         """Fallback to original analysis approach if agent fails."""
         logger.info("🔄 Using fallback analysis method")
-        
         try:
-            # Use the original prompt-based approach
             prompt = PromptBuilder.build_analysis_prompt(
                 endpoint=endpoint,
                 context=initial_context,
@@ -674,34 +695,25 @@ class AnalyzerChain:
                 testcases=testcases_txt,
                 user_text=user_text,
             )
-            
-            # Save fallback prompt to file
             fallback_prompt_file = self._write_prompt_to_file(prompt, "fallback_analysis")
             logger.info(f"💾 Fallback prompt saved to: {fallback_prompt_file}")
-            
             resp = await asyncio.to_thread(self.llm.invoke, prompt)
-            
-            # Save fallback response to file
-            fallback_response_file = self._write_response_to_file(resp, 0)  # iteration 0 for fallback
+            fallback_response_file = self._write_response_to_file(resp, 0)
             logger.info(f"💾 Fallback response saved to: {fallback_response_file}")
-            
             try:
                 result_dict = json.loads(resp)
                 logger.info("✅ Fallback analysis returned valid JSON")
-                
-                result = AnalysisResult(
+                return AnalysisResult(
                     document=result_dict.get("document", ""),
                     requirement_coverage=result_dict.get("requirement_coverage", []),
                     test_cases=result_dict.get("test_cases", []),
                     improvements=result_dict.get("improvements", []),
                     endpoint=endpoint,
                     analysis_method="fallback"
-                )
-                return result.__dict__
-                
+                ).__dict__
             except json.JSONDecodeError:
-                logger.warning("⚠️ Fallback analysis also failed to return JSON")
-                result = AnalysisResult(
+                logger.warning("⚠️ Fallback analysis failed to return JSON")
+                return AnalysisResult(
                     document="Fallback analysis completed but not in JSON format",
                     requirement_coverage=[],
                     test_cases=[],
@@ -709,30 +721,25 @@ class AnalyzerChain:
                     endpoint=endpoint,
                     raw_response=resp,
                     analysis_method="fallback"
-                )
-                return result.__dict__
-                
+                ).__dict__
         except Exception as e:
             logger.error(f"❌ Fallback analysis execution failed: {str(e)}")
             raise AnalysisError(f"Fallback analysis failed: {str(e)}")
 
-    def clear_cache(self) -> None:
-        """Clear any cached resources (LangGraph doesn't require caching)."""
-        logger.info("🧹 LangGraph resources cleared (no caching needed)")
-
     def _verify_response_node(self, state: AgentState) -> AgentState:
         """Verify final LLM response before ending."""
-        if state['iteration_count'] > 4:
+        node_name = "verify"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        if state["node_call_count"][node_name] > 3:
             logger.warning("Max iterations reached, ending workflow to prevent infinite loop.")
             return state
 
         response = state["final_response"] or ""
         prompt = f"""
             You are a verification assistant. A REST API endpoint has been analyzed.
-
             Your job is to:
             1. Review the response and determine if it fully covers the user requirements and test cases.
-            2. List any classes, DTOs, methods, configs, or components that are referenced in the requirements/test cases but are missing in the context or response.
+            2. List any classes, DTOs, methods, configs, or components in business logic that are referenced in the requirements/test cases but are missing in the context or response.
             3. If complete, return: {{"status": "complete"}}
             4. If incomplete, return: 
             {{
@@ -741,7 +748,7 @@ class AnalyzerChain:
             }}
 
             RESPONSE:
-            {response[-3000:]}
+            {response}
 
             REQUIREMENTS:
             {state['requirements']}
@@ -750,7 +757,13 @@ class AnalyzerChain:
             {state['testcases']}
 
             CONTEXT:
-            {state['context'][:4000]}
+            {state['context']}
+
+            ALREADY RETRIEVED SYMBOLS:
+            {state['retrieved_symbols']}
+
+            ALREADY SEEN CHUNK IDS:
+            {state['seen_context']}
             """
 
         try:
@@ -762,20 +775,32 @@ class AnalyzerChain:
 
             if parsed.get("status") == "complete":
                 logger.info("✅ Verifier accepted final response — ending workflow")
-                return state  # Done
+                return state
 
-            else:
-                symbols = parsed.get("missing_symbols", [])
-                logger.info(f"🔁 Verifier found missing symbols: {symbols}")
-                context_add = "\n\n".join([self._find_symbol_context(s) for s in symbols])
+            missing_symbols = parsed.get("missing_symbols", [])
+            missing_symbols = [s for s in missing_symbols if s not in state["retrieved_symbols"]]
+            if not missing_symbols:
+                logger.info("✅ No new missing symbols — ending workflow")
+                return state
 
-                return {
-                    **state,
-                    "context": state["context"] + "\n\n" + context_add,
-                    "retrieved_symbols": state["retrieved_symbols"] + symbols,
-                    "final_response": None  # Force agent to re-run
-                }
+            logger.info(f"🔁 Verifier found missing symbols: {missing_symbols}")
+            context_add = "\n\n".join([self._find_symbol_context(s, state["seen_context"])[0] for s in missing_symbols])
+            new_chunk_ids = []
+            for s in missing_symbols:
+                _, chunk_ids = self._find_symbol_context(s, state["seen_context"])
+                new_chunk_ids.extend(chunk_ids)
 
+            return {
+                **state,
+                "context": state["context"] + "\n\n" + context_add,
+                "retrieved_symbols": state["retrieved_symbols"] + missing_symbols,
+                "seen_context": state["seen_context"] + new_chunk_ids,
+                "final_response": None,
+            }
         except Exception as e:
             logger.warning(f"⚠️ Verifier failed to parse or reason: {e}")
             return state
+
+    def clear_cache(self) -> None:
+        """Clear any cached resources (LangGraph doesn't require caching)."""
+        logger.info("🧹 LangGraph resources cleared (no caching needed)")
