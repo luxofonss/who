@@ -19,7 +19,6 @@ from services.prompt_builder import PromptBuilder
 
 
 class AgentState(TypedDict):
-    """State schema for LangGraph agent."""
     question: str
     context: str
     endpoint: str
@@ -38,7 +37,6 @@ class AgentState(TypedDict):
 
 @dataclass
 class AnalysisResult:
-    """Structured result for endpoint analysis matching PromptBuilder schema."""
     document: str
     requirement_coverage: List[Dict[str, Any]]
     test_cases: List[Dict[str, Any]]
@@ -49,12 +47,10 @@ class AnalysisResult:
 
 
 class AnalysisError(Exception):
-    """Custom exception for analysis failures."""
     pass
 
 
 class AnalyzerChain:
-    """High-level orchestrator for endpoint analysis using LangGraph with multi-hop retrieval."""
 
     def __init__(self, project_id: str):
         if not project_id or not isinstance(project_id, str):
@@ -71,7 +67,6 @@ class AnalyzerChain:
         logger.info(f"🚀 AnalyzerChain initialized with LangGraph for project: {project_id}")
 
     def _setup_langgraph(self):
-        """Initialize LangGraph components."""
         logger.info("🔧 Setting up LangGraph components...")
         
         # Create the tool
@@ -92,7 +87,6 @@ class AnalyzerChain:
         logger.info("✅ LangGraph setup complete")
 
     def _build_graph(self):
-        """Build the LangGraph workflow."""
         graph = StateGraph(AgentState)
 
         # Add nodes
@@ -116,10 +110,10 @@ class AnalyzerChain:
         # Verifier: decide whether to loop back or end
         def _verify_condition(state: AgentState) -> str:
             # Check iteration limit
-            if state["iteration_count"] >= 5:
+            if state["iteration_count"] > 5:
                 logger.warning("⚠️ Max iterations reached in verify node, forcing end")
                 return "end"
-    
+
             # Check if no new symbols or chunks were retrieved in the last tool call
             if state.get("last_tool_call_symbols") and not state.get("new_retrieved_symbols") and not state.get("new_retrieved_chunks"):
                 logger.info("🏁 No new context or symbols retrieved in last tool call, ending workflow")
@@ -130,14 +124,12 @@ class AnalyzerChain:
             if response.strip().startswith("{") and response.strip().endswith("}"):
                 try:
                     json.loads(response)
-                    logger.info("✅ Valid JSON response in verify node, proceeding to end")
                     return "end"
                 except json.JSONDecodeError:
                     logger.warning("⚠️ Response looks like JSON but is invalid")
 
             # If final_response is None or verification marked it incomplete, loop back
             if state["final_response"] is None:
-                logger.info("🔁 Verification incomplete, looping back to agent")
                 return "agent"
 
             # Default to end if no clear reason to loop
@@ -161,7 +153,6 @@ class AnalyzerChain:
         logger.info("✅ LangGraph workflow compiled with enhanced verification")
 
     def _find_symbol_context(self, symbol: str, seen_chunks: List[str]) -> Tuple[str, List[str]]:
-        """Helper method to find code context for a given symbol, excluding seen chunks."""
         logger.info(f"🔍 Searching for symbol: '{symbol}'")
         try:
             # Try direct symbol search first
@@ -206,13 +197,9 @@ class AnalyzerChain:
             return f"Error retrieving code for symbol: {symbol} - {str(e)}", []
 
     def _agent_node(self, state: AgentState) -> AgentState:
-        """Agent reasoning node."""
         node_name = "agent"
         state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
-        logger.info(f"🤖 Agent iteration {state['iteration_count']} - analyzing endpoint: {state['endpoint']}")
-        logger.debug(f"📊 Current context length: {len(state['context'])} chars")
-        logger.debug(f"🔍 Retrieved symbols so far: {state['retrieved_symbols']}")
-        
+
         # Build the analysis prompt
         prompt = f"""You are an expert software architect analyzing the REST endpoint: {state['endpoint']}
             ANALYSIS STRATEGY:
@@ -303,7 +290,6 @@ class AnalyzerChain:
             }
 
     def _should_use_tool(self, state: AgentState) -> str:
-        """Determine if the agent needs to use a tool."""
         response = state["final_response"] or ""
         iteration = state["iteration_count"]
         logger.debug(f"🤔 Decision time - iteration {iteration}, response length: {len(response)}")
@@ -447,6 +433,251 @@ class AnalyzerChain:
             "new_retrieved_symbols": new_retrieved
         }
 
+    async def run(
+            self,
+            *,
+            endpoint: str,
+            requirements_txt: str,
+            testcases_txt: str,
+            user_text: str,
+    ) -> Dict[str, Any]:
+        """Run the LangGraph analysis chain and return structured results."""
+        try:
+            self._validate_inputs(endpoint, requirements_txt, testcases_txt, user_text)
+        except ValueError as e:
+            logger.error(f"❌ Input validation failed: {str(e)}")
+            raise AnalysisError(f"Invalid input: {str(e)}")
+        
+        logger.info(f"🚀 Starting LangGraph AnalyzerChain for endpoint: {endpoint}")
+        logger.info(f"📋 Requirements: {len(requirements_txt)} chars")
+        logger.info(f"🧪 Test cases: {len(testcases_txt)} chars")
+        logger.info(f"💬 User instructions: {len(user_text)} chars")
+        
+        try:
+            logger.info("🔍 Step 1: Retrieving initial context from vector database...")
+            docs = await self.retriever.retrieve(endpoint, user_text, top=3, hyde=False)
+            initial_context = "\n\n".join(doc.page_content for doc in docs)
+            initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
+            logger.info(f"✅ Retrieved {len(docs)} initial documents ({len(initial_context)} chars total)")
+            logger.debug(f"� Ascociated chunk IDs: {initial_chunk_ids}")
+            
+            logger.info("🏗️ Step 2: Creating initial state for LangGraph workflow...")
+            initial_state: AgentState = {
+                "question": f"Analyze the REST endpoint '{endpoint}' according to the requirements and test cases.",
+                "context": initial_context,
+                "endpoint": endpoint,
+                "requirements": requirements_txt,
+                "testcases": testcases_txt,
+                "user_text": user_text,
+                "history": [],
+                "retrieved_symbols": [],
+                "seen_context": initial_chunk_ids,
+                "final_response": None,
+                "iteration_count": 0,
+                "last_tool_call_symbols": [],
+                "new_retrieved_symbols": [],
+                "node_call_count": {}
+            }
+            logger.debug("✅ Initial state created successfully")
+            
+            logger.info("🚀 Step 3: Starting LangGraph analysis workflow...")
+            final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
+            
+            iterations = final_state['iteration_count']
+            retrieved_symbols = final_state['retrieved_symbols']
+            final_response_length = len(final_state.get("final_response", ""))
+            logger.info(f"🎉 LangGraph workflow completed successfully!")
+            logger.info(f"📊 Statistics: {iterations} iterations, {len(retrieved_symbols)} symbols retrieved")
+            logger.info(f"🔍 Retrieved context for symbols: {retrieved_symbols}")
+            logger.info(f"📝 Final response length: {final_response_length} chars")
+            
+            logger.info("🔧 Step 4: Parsing and structuring final response...")
+            final_response = final_state.get("final_response", "")
+            result = self._parse_graph_response(final_response, endpoint)
+            logger.info(f"✅ Analysis complete - method: {result.analysis_method}")
+            return result.__dict__
+            
+        except AnalysisError:
+            raise
+        except Exception as e:
+            logger.error(f"❌ LangGraph analysis failed: {str(e)}")
+            try:
+                return await self._fallback_analysis(
+                    endpoint=endpoint,
+                    requirements_txt=requirements_txt,
+                    testcases_txt=testcases_txt,
+                    user_text=user_text,
+                    initial_context=initial_context if 'initial_context' in locals() else ""
+                )
+            except Exception as fallback_error:
+                logger.error(f"❌ Fallback analysis also failed: {str(fallback_error)}")
+                raise AnalysisError(f"Both LangGraph and fallback analysis failed. LangGraph error: {str(e)}, Fallback error: {str(fallback_error)}")
+
+    def _verify_response_node(self, state: AgentState) -> AgentState:
+        """Verify final LLM response before ending."""
+        node_name = "verify"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        if state["node_call_count"][node_name] > 3:
+            logger.warning("Max iterations reached, ending workflow to prevent infinite loop.")
+            return state
+
+        response = state["final_response"] or ""
+        prompt = f"""
+            You are a verification assistant. A REST API endpoint has been analyzed.
+            Your job is to:
+            1. Review the response and determine if it fully covers the user requirements and test cases.
+            2. List any classes, DTOs, methods, configs, or components in business logic that are referenced in the requirements/test cases but are missing in the context or response.
+            3. If complete, return: {{"status": "complete"}}
+            4. If incomplete, return: 
+            {{
+                "status": "incomplete",
+                "missing_symbols": ["ClassA", "SomeDto", "MyService.methodX"]
+            }}
+
+            RESPONSE:
+            {response}
+
+            REQUIREMENTS:
+            {state['requirements']}
+
+            TEST CASES:
+            {state['testcases']}
+
+            CONTEXT:
+            {state['context']}
+
+            ALREADY RETRIEVED SYMBOLS:
+            {state['retrieved_symbols']}
+
+            ALREADY SEEN CHUNK IDS:
+            {state['seen_context']}
+            """
+
+        try:
+            result = self.llm.invoke(prompt)
+            parsed = self._parse_json_response(result)
+            parsed = json.loads(parsed)
+
+            if parsed.get("status") == "complete":
+                logger.info("✅ Verifier accepted final response — ending workflow")
+                return state
+
+            missing_symbols = parsed.get("missing_symbols", [])
+            missing_symbols = [s for s in missing_symbols if s not in state["retrieved_symbols"]]
+            if not missing_symbols:
+                logger.info("✅ No new missing symbols — ending workflow")
+                return state
+
+            logger.info(f"🔁 Verifier found missing symbols: {missing_symbols}")
+            context_add = "\n\n".join([self._find_symbol_context(s, state["seen_context"])[0] for s in missing_symbols])
+            new_chunk_ids = []
+            for s in missing_symbols:
+                _, chunk_ids = self._find_symbol_context(s, state["seen_context"])
+                new_chunk_ids.extend(chunk_ids)
+
+            return {
+                **state,
+                "context": state["context"] + "\n\n" + context_add,
+                "retrieved_symbols": state["retrieved_symbols"] + missing_symbols,
+                "seen_context": state["seen_context"] + new_chunk_ids,
+                "final_response": None,
+            }
+        except Exception as e:
+            logger.warning(f"⚠️ Verifier failed to parse or reason: {e}")
+            return state
+
+    async def _fallback_analysis(
+            self,
+            *,
+            endpoint: str,
+            requirements_txt: str,
+            testcases_txt: str,
+            user_text: str,
+            initial_context: str
+    ) -> Dict[str, Any]:
+        """Fallback to original analysis approach if agent fails."""
+        logger.info("🔄 Using fallback analysis method")
+        try:
+            prompt = PromptBuilder.build_analysis_prompt(
+                endpoint=endpoint,
+                context=initial_context,
+                requirements=requirements_txt,
+                testcases=testcases_txt,
+                user_text=user_text,
+            )
+            fallback_prompt_file = self._write_prompt_to_file(prompt, "fallback_analysis")
+            logger.info(f"💾 Fallback prompt saved to: {fallback_prompt_file}")
+            resp = await asyncio.to_thread(self.llm.invoke, prompt)
+            fallback_response_file = self._write_response_to_file(resp, 0)
+            logger.info(f"💾 Fallback response saved to: {fallback_response_file}")
+            try:
+                result_dict = json.loads(resp)
+                logger.info("✅ Fallback analysis returned valid JSON")
+                return AnalysisResult(
+                    document=result_dict.get("document", ""),
+                    requirement_coverage=result_dict.get("requirement_coverage", []),
+                    test_cases=result_dict.get("test_cases", []),
+                    improvements=result_dict.get("improvements", []),
+                    endpoint=endpoint,
+                    analysis_method="fallback"
+                ).__dict__
+            except json.JSONDecodeError:
+                logger.warning("⚠️ Fallback analysis failed to return JSON")
+                return AnalysisResult(
+                    document="Fallback analysis completed but not in JSON format",
+                    requirement_coverage=[],
+                    test_cases=[],
+                    improvements=[],
+                    endpoint=endpoint,
+                    raw_response=resp,
+                    analysis_method="fallback"
+                ).__dict__
+        except Exception as e:
+            logger.error(f"❌ Fallback analysis execution failed: {str(e)}")
+            raise AnalysisError(f"Fallback analysis failed: {str(e)}")
+
+    def clear_cache(self) -> None:
+        """Clear any cached resources (LangGraph doesn't require caching)."""
+        logger.info("🧹 LangGraph resources cleared (no caching needed)")
+
+    def _write_prompt_to_file(self, prompt: str, prefix: str = "prompt") -> str:
+        try:
+            prompts_dir = Path("logs/prompts")
+            prompts_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{prefix}_{self.project_id}_{timestamp}.txt"
+            filepath = prompts_dir / filename
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(f"Project: {self.project_id}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write(f"Type: {prefix}\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(prompt)
+            logger.info(f"📁 Prompt saved to: {filepath}")
+            return str(filepath)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save prompt to file: {e}")
+            return ""
+
+    def _write_response_to_file(self, response: str, iteration: int) -> str:
+        try:
+            responses_dir = Path("logs/responses")
+            responses_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"response_iteration_{iteration}_{self.project_id}_{timestamp}.txt"
+            filepath = responses_dir / filename
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(f"Project: {self.project_id}\n")
+                f.write(f"Iteration: {iteration}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(response)
+            logger.info(f"📁 Response saved to: {filepath}")
+            return str(filepath)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save response to file: {e}")
+            return ""
+
     def _extract_missing_symbols(self, context: str, already_retrieved: List[str]) -> List[str]:
         """Extract symbols that are referenced but not fully implemented in context."""
         import re
@@ -537,249 +768,3 @@ class AnalyzerChain:
                 raw_response=graph_response,
                 analysis_method="langgraph"
             )
-
-    async def run(
-            self,
-            *,
-            endpoint: str,
-            requirements_txt: str,
-            testcases_txt: str,
-            user_text: str,
-    ) -> Dict[str, Any]:
-        """Run the LangGraph analysis chain and return structured results."""
-        try:
-            self._validate_inputs(endpoint, requirements_txt, testcases_txt, user_text)
-        except ValueError as e:
-            logger.error(f"❌ Input validation failed: {str(e)}")
-            raise AnalysisError(f"Invalid input: {str(e)}")
-        
-        logger.info(f"🚀 Starting LangGraph AnalyzerChain for endpoint: {endpoint}")
-        logger.info(f"📋 Requirements: {len(requirements_txt)} chars")
-        logger.info(f"🧪 Test cases: {len(testcases_txt)} chars")
-        logger.info(f"💬 User instructions: {len(user_text)} chars")
-        
-        try:
-            logger.info("🔍 Step 1: Retrieving initial context from vector database...")
-            docs = await self.retriever.retrieve(endpoint, user_text, top=3, hyde=False)
-            initial_context = "\n\n".join(doc.page_content for doc in docs)
-            initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
-            logger.info(f"✅ Retrieved {len(docs)} initial documents ({len(initial_context)} chars total)")
-            logger.debug(f"� Ascociated chunk IDs: {initial_chunk_ids}")
-            
-            logger.info("🏗️ Step 2: Creating initial state for LangGraph workflow...")
-            initial_state: AgentState = {
-                "question": f"Analyze the REST endpoint '{endpoint}' according to the requirements and test cases.",
-                "context": initial_context,
-                "endpoint": endpoint,
-                "requirements": requirements_txt,
-                "testcases": testcases_txt,
-                "user_text": user_text,
-                "history": [],
-                "retrieved_symbols": [],
-                "seen_context": initial_chunk_ids,
-                "final_response": None,
-                "iteration_count": 0,
-                "last_tool_call_symbols": [],
-                "new_retrieved_symbols": [],
-                "node_call_count": {}
-            }
-            logger.debug("✅ Initial state created successfully")
-            
-            logger.info("🚀 Step 3: Starting LangGraph analysis workflow...")
-            final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
-            
-            iterations = final_state['iteration_count']
-            retrieved_symbols = final_state['retrieved_symbols']
-            final_response_length = len(final_state.get("final_response", ""))
-            logger.info(f"🎉 LangGraph workflow completed successfully!")
-            logger.info(f"📊 Statistics: {iterations} iterations, {len(retrieved_symbols)} symbols retrieved")
-            logger.info(f"🔍 Retrieved context for symbols: {retrieved_symbols}")
-            logger.info(f"📝 Final response length: {final_response_length} chars")
-            
-            logger.info("🔧 Step 4: Parsing and structuring final response...")
-            final_response = final_state.get("final_response", "")
-            result = self._parse_graph_response(final_response, endpoint)
-            logger.info(f"✅ Analysis complete - method: {result.analysis_method}")
-            return result.__dict__
-            
-        except AnalysisError:
-            raise
-        except Exception as e:
-            logger.error(f"❌ LangGraph analysis failed: {str(e)}")
-            try:
-                return await self._fallback_analysis(
-                    endpoint=endpoint,
-                    requirements_txt=requirements_txt,
-                    testcases_txt=testcases_txt,
-                    user_text=user_text,
-                    initial_context=initial_context if 'initial_context' in locals() else ""
-                )
-            except Exception as fallback_error:
-                logger.error(f"❌ Fallback analysis also failed: {str(fallback_error)}")
-                raise AnalysisError(f"Both LangGraph and fallback analysis failed. LangGraph error: {str(e)}, Fallback error: {str(fallback_error)}")
-
-    async def _fallback_analysis(
-            self,
-            *,
-            endpoint: str,
-            requirements_txt: str,
-            testcases_txt: str,
-            user_text: str,
-            initial_context: str
-    ) -> Dict[str, Any]:
-        """Fallback to original analysis approach if agent fails."""
-        logger.info("🔄 Using fallback analysis method")
-        try:
-            prompt = PromptBuilder.build_analysis_prompt(
-                endpoint=endpoint,
-                context=initial_context,
-                requirements=requirements_txt,
-                testcases=testcases_txt,
-                user_text=user_text,
-            )
-            fallback_prompt_file = self._write_prompt_to_file(prompt, "fallback_analysis")
-            logger.info(f"💾 Fallback prompt saved to: {fallback_prompt_file}")
-            resp = await asyncio.to_thread(self.llm.invoke, prompt)
-            fallback_response_file = self._write_response_to_file(resp, 0)
-            logger.info(f"💾 Fallback response saved to: {fallback_response_file}")
-            try:
-                result_dict = json.loads(resp)
-                logger.info("✅ Fallback analysis returned valid JSON")
-                return AnalysisResult(
-                    document=result_dict.get("document", ""),
-                    requirement_coverage=result_dict.get("requirement_coverage", []),
-                    test_cases=result_dict.get("test_cases", []),
-                    improvements=result_dict.get("improvements", []),
-                    endpoint=endpoint,
-                    analysis_method="fallback"
-                ).__dict__
-            except json.JSONDecodeError:
-                logger.warning("⚠️ Fallback analysis failed to return JSON")
-                return AnalysisResult(
-                    document="Fallback analysis completed but not in JSON format",
-                    requirement_coverage=[],
-                    test_cases=[],
-                    improvements=[],
-                    endpoint=endpoint,
-                    raw_response=resp,
-                    analysis_method="fallback"
-                ).__dict__
-        except Exception as e:
-            logger.error(f"❌ Fallback analysis execution failed: {str(e)}")
-            raise AnalysisError(f"Fallback analysis failed: {str(e)}")
-
-    def _verify_response_node(self, state: AgentState) -> AgentState:
-        """Verify final LLM response before ending."""
-        node_name = "verify"
-        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
-        if state["node_call_count"][node_name] > 3:
-            logger.warning("Max iterations reached, ending workflow to prevent infinite loop.")
-            return state
-
-        response = state["final_response"] or ""
-        prompt = f"""
-            You are a verification assistant. A REST API endpoint has been analyzed.
-            Your job is to:
-            1. Review the response and determine if it fully covers the user requirements and test cases.
-            2. List any classes, DTOs, methods, configs, or components in business logic that are referenced in the requirements/test cases but are missing in the context or response.
-            3. If complete, return: {{"status": "complete"}}
-            4. If incomplete, return: 
-            {{
-                "status": "incomplete",
-                "missing_symbols": ["ClassA", "SomeDto", "MyService.methodX"]
-            }}
-
-            RESPONSE:
-            {response}
-
-            REQUIREMENTS:
-            {state['requirements']}
-
-            TEST CASES:
-            {state['testcases']}
-
-            CONTEXT:
-            {state['context']}
-
-            ALREADY RETRIEVED SYMBOLS:
-            {state['retrieved_symbols']}
-
-            ALREADY SEEN CHUNK IDS:
-            {state['seen_context']}
-            """
-
-        try:
-            result = self.llm.invoke(prompt)
-            parsed = self._parse_json_response(result)
-            parsed = json.loads(parsed)
-
-            if parsed.get("status") == "complete":
-                logger.info("✅ Verifier accepted final response — ending workflow")
-                return state
-
-            missing_symbols = parsed.get("missing_symbols", [])
-            missing_symbols = [s for s in missing_symbols if s not in state["retrieved_symbols"]]
-            if not missing_symbols:
-                logger.info("✅ No new missing symbols — ending workflow")
-                return state
-
-            logger.info(f"🔁 Verifier found missing symbols: {missing_symbols}")
-            context_add = "\n\n".join([self._find_symbol_context(s, state["seen_context"])[0] for s in missing_symbols])
-            new_chunk_ids = []
-            for s in missing_symbols:
-                _, chunk_ids = self._find_symbol_context(s, state["seen_context"])
-                new_chunk_ids.extend(chunk_ids)
-
-            return {
-                **state,
-                "context": state["context"] + "\n\n" + context_add,
-                "retrieved_symbols": state["retrieved_symbols"] + missing_symbols,
-                "seen_context": state["seen_context"] + new_chunk_ids,
-                "final_response": None,
-            }
-        except Exception as e:
-            logger.warning(f"⚠️ Verifier failed to parse or reason: {e}")
-            return state
-
-    def clear_cache(self) -> None:
-        """Clear any cached resources (LangGraph doesn't require caching)."""
-        logger.info("🧹 LangGraph resources cleared (no caching needed)")
-
-
-    def _write_prompt_to_file(self, prompt: str, prefix: str = "prompt") -> str:
-        try:
-            prompts_dir = Path("logs/prompts")
-            prompts_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{prefix}_{self.project_id}_{timestamp}.txt"
-            filepath = prompts_dir / filename
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(f"Project: {self.project_id}\n")
-                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-                f.write(f"Type: {prefix}\n")
-                f.write("=" * 80 + "\n\n")
-                f.write(prompt)
-            logger.info(f"📁 Prompt saved to: {filepath}")
-            return str(filepath)
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to save prompt to file: {e}")
-            return ""
-
-    def _write_response_to_file(self, response: str, iteration: int) -> str:
-        try:
-            responses_dir = Path("logs/responses")
-            responses_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"response_iteration_{iteration}_{self.project_id}_{timestamp}.txt"
-            filepath = responses_dir / filename
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(f"Project: {self.project_id}\n")
-                f.write(f"Iteration: {iteration}\n")
-                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-                f.write("=" * 80 + "\n\n")
-                f.write(response)
-            logger.info(f"📁 Response saved to: {filepath}")
-            return str(filepath)
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to save response to file: {e}")
-            return ""

@@ -195,33 +195,32 @@ class LangChainRetriever:
         return trimmed_docs
 
     def _traverse_call_graph(self, seed: Dict, docs: List[Document], seen: Set[str]):
-        """Recursively traverse transitive calls to include full logic."""
+        """Recursively traverse transitive dependencies including calls, inheritance, and interface relations."""
         stack = [seed]
+        RELATION_TYPES = [
+            "calls", "called_by", 
+            "implements", "implemented_by", 
+            "extends", "extended_by"
+        ]
+
         while stack:
             c = stack.pop()
             key = self._key(c)
-            for callee in self.dep_graph.get(key, {}).get("calls", []):
-                if callee in seen:
-                    continue
-                callee_chunk = self._chunk_lookup.get(callee)
-                if not callee_chunk or "content" not in callee_chunk:
-                    continue
-                full_text = f"# Summary: {callee_chunk.get('summary', '')}\n\n{callee_chunk['content']}"
-                docs.append(Document(page_content=full_text, metadata=callee_chunk))
-                logger.info(f"Added chunk: {callee_chunk.get('id')}")
-                seen.add(callee)
-                stack.append(callee_chunk)
-            for caller in self.dep_graph.get(key, {}).get("called_by", []):
-                if caller in seen:
-                    continue
-                caller_chunk = self._chunk_lookup.get(caller)
-                if not caller_chunk or "content" not in caller_chunk:
-                    continue
-                full_text = f"# Summary: {caller_chunk.get('summary', '')}\n\n{caller_chunk['content']}"
-                docs.append(Document(page_content=full_text, metadata=caller_chunk))
-                logger.info(f"Added chunk: {caller_chunk.get('id')}")
-                seen.add(caller)
-                stack.append(caller_chunk)
+
+            for rel in RELATION_TYPES:
+                related = self.dep_graph.get(key, {}).get(rel, [])
+                for neighbor in related:
+                    if neighbor in seen:
+                        continue
+                    neighbor_chunk = self._chunk_lookup.get(neighbor)
+                    if not neighbor_chunk or "content" not in neighbor_chunk:
+                        continue
+                    full_text = f"# Summary: {neighbor_chunk.get('summary', '')}\n\n{neighbor_chunk['content']}"
+                    docs.append(Document(page_content=full_text, metadata=neighbor_chunk))
+                    logger.info(f"Added chunk via `{rel}`: {neighbor_chunk.get('id')}")
+                    seen.add(neighbor)
+                    stack.append(neighbor_chunk)
+
 
     def _trim_overlaps(self, docs: List[Document]) -> List[Document]:
         """Remove overlapping lines between documents to reduce redundancy."""
@@ -253,7 +252,6 @@ class LangChainRetriever:
         return trimmed
 
     def find_by_symbol_name(self, symbol: str) -> List[Document]:
-        """Optional external call: retrieve chunk(s) from method/class name"""
         # Ensure the index and chunk lookup are loaded
         if not self._loaded:
             logger.debug(f"Loading index for symbol search: {symbol}")

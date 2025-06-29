@@ -6734,7 +6734,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "OneStudyApplication.main": {
       "calls": [
@@ -6746,7 +6748,9 @@
       "calls": [],
       "called_by": [],
       "extends": "BaseService",
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "LogsActivityAOPHandler.logsActivityAnnotation": {
       "calls": [
@@ -6795,7 +6799,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "ValueOfEnumValidator.initialize": {
       "calls": [
@@ -6819,7 +6825,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AppConfig.corsConfigurationSource": {
       "calls": [
@@ -6842,7 +6850,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AwsS3Config.getS3Client": {
       "calls": [
@@ -6860,7 +6870,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "StringListConverter.convertToDatabaseColumn": {
       "calls": [
@@ -6882,37 +6894,49 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "ErrorConstant": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "RequestKeyConstant": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "Symbol": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "UrlConstant": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AuthController": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AuthController.whoAmI": {
       "calls": [
@@ -6927,13 +6951,17 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuizController": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuizController.createQuiz": {
       "calls": [
@@ -7056,7 +7084,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "ResourceController.uploadResource": {
       "calls": [
@@ -7078,7 +7108,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "UserController.uploadResource": {
       "calls": [
@@ -7090,7 +7122,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AuthPubController.login": {
       "calls": [
@@ -7110,7 +7144,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "PronunciationController.getSamplePronunciations": {
       "calls": [
@@ -7130,7 +7166,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuizPubController.getAllQuizzes": {
       "calls": [
@@ -7143,13 +7181,17 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "BaseResponse": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "BaseResponse.verifyMetaResponse": {
       "calls": [
@@ -7201,7 +7243,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "BasicRequest": {
       "calls": [],
@@ -7212,7 +7256,8 @@
       ],
       "extended_by": [
         "BasicRequestList"
-      ]
+      ],
+      "implemented_by": []
     },
     "BasicRequest.isValidByManageMerchants": {
       "calls": [
@@ -7225,121 +7270,161 @@
       "calls": [],
       "called_by": [],
       "extends": "BasicRequest",
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "ErrorViolation": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "Meta": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AuthLoginRequest": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AuthProfileResponse": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AuthRegisterRequest": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AuthRegisterResponse": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "GetPronunciationSampleResponseDto": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "GetSampleRequestDto": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "PronunciationAccuracyRequestDto": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "PronunciationAccuracyResponseDto": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "CreateQuizDto": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "OptionDto": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuestionDto": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "StartQuizResponse": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "SubmitAnswerRequest": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "GetResourceResponse": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "BasicUserDto": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "FillInBlanks": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "LeaderboardEntry": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "LeaderboardEntryId": {
       "calls": [],
@@ -7347,7 +7432,9 @@
       "extends": null,
       "implements": [
         "Serializable"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "LeaderboardEntryId.equals": {
       "calls": [
@@ -7367,55 +7454,73 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuestionOption": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "Quiz": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuizAnswer": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuizAttempt": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "Resource": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "User": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "UserCredential": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "UserSavedQuiz": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "UserSavedQuizId": {
       "calls": [],
@@ -7423,7 +7528,9 @@
       "extends": null,
       "implements": [
         "Serializable"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "UserSavedQuizId.equals": {
       "calls": [
@@ -7445,7 +7552,9 @@
       "extends": null,
       "implements": [
         "Serializable"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "BusinessException": {
       "calls": [],
@@ -7453,13 +7562,17 @@
       "extends": "RuntimeException",
       "implements": [
         "Serializable"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "CommonExceptionHandler": {
       "calls": [],
       "called_by": [],
       "extends": "BaseService",
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "CommonExceptionHandler.handleBusinessException": {
       "calls": [
@@ -7518,7 +7631,9 @@
       "calls": [],
       "called_by": [],
       "extends": "HttpServletRequestWrapper",
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "ApiKeyVerifyRequestWrapper.getInputStream": {
       "calls": [
@@ -7550,7 +7665,9 @@
       "extends": null,
       "implements": [
         "Filter"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AppCorsFilter.doFilter": {
       "calls": [
@@ -7582,7 +7699,9 @@
       "extends": null,
       "implements": [
         "QuestionRepository"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuestionRepositoryImpl.save": {
       "calls": [
@@ -7629,7 +7748,9 @@
       "extends": null,
       "implements": [
         "QuizAnswerRepository"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuizAnswerRepositoryImpl.save": {
       "calls": [
@@ -7669,7 +7790,9 @@
       "extends": null,
       "implements": [
         "QuizAttemptRepository"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuizAttemptRepositoryImpl.save": {
       "calls": [
@@ -7709,7 +7832,9 @@
       "extends": null,
       "implements": [
         "QuizRepository"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuizRepositoryImpl.save": {
       "calls": [
@@ -7757,7 +7882,9 @@
       "extends": null,
       "implements": [
         "ResourceRepository"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "ResourceRepositoryImpl.save": {
       "calls": [
@@ -7779,7 +7906,9 @@
       "extends": null,
       "implements": [
         "SavedQuizRepository"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "SavedQuizRepositoryImpl.saveQuiz": {
       "calls": [
@@ -7832,7 +7961,9 @@
       "extends": null,
       "implements": [
         "UserRepository"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "UserRepositoryImpl.getUserById": {
       "calls": [
@@ -7891,7 +8022,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AuthConfig.securityFilterChain": {
       "calls": [
@@ -7919,7 +8052,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "BeanConfig.userDetailsService": {
       "calls": [],
@@ -7954,7 +8089,9 @@
       "extends": null,
       "implements": [
         "AuthenticationEntryPoint"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "JwtAuthenticationEntryPoint.commence": {
       "calls": [
@@ -7973,7 +8110,9 @@
       "calls": [],
       "called_by": [],
       "extends": "OncePerRequestFilter",
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "JwtFilter.doFilterInternal": {
       "calls": [
@@ -8003,7 +8142,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "JwtProvider.extractUsername": {
       "calls": [
@@ -8136,7 +8277,9 @@
       "extends": null,
       "implements": [
         "UserDetails"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "UserPrincipal.getAuthorities": {
       "calls": [
@@ -8204,7 +8347,9 @@
       "extends": null,
       "implements": [
         "UserDetailsService"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AppUserDetailsService.loadUserByUsername": {
       "calls": [
@@ -8222,7 +8367,8 @@
       "extended_by": [
         "LogsActivityAOPHandler",
         "CommonExceptionHandler"
-      ]
+      ],
+      "implemented_by": []
     },
     "BaseService.getMessage": {
       "calls": [
@@ -8348,7 +8494,9 @@
       "extends": null,
       "implements": [
         "AuthService"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AuthServiceImpl.register": {
       "calls": [
@@ -8396,7 +8544,9 @@
       "extends": null,
       "implements": [
         "QuestionService"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuestionServiceImpl.createQuestion": {
       "calls": [],
@@ -8432,7 +8582,9 @@
       "extends": null,
       "implements": [
         "QuizService"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "QuizServiceImpl.createQuiz": {
       "calls": [
@@ -8794,7 +8946,9 @@
       "extends": null,
       "implements": [
         "ResourceService"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "ResourceServiceImpl.uploadResource": {
       "calls": [
@@ -8855,7 +9009,9 @@
       "extends": null,
       "implements": [
         "PronunciationService"
-      ]
+      ],
+      "extended_by": [],
+      "implemented_by": []
     },
     "PronunciationServiceImpl.getSample": {
       "calls": [
@@ -8884,31 +9040,41 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "PronunciationAccuracyRequest": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "GetSampleResponse": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "PronunciationAccuracyResponse": {
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AwsStorageServiceImpl": {
       "calls": [],
       "called_by": [],
       "extends": "StorageService",
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "AwsStorageServiceImpl.getFileUrl": {
       "calls": [
@@ -8977,7 +9143,9 @@
       "calls": [],
       "called_by": [],
       "extends": "StorageService",
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "GoogleStorageServiceImpl.getFileUrl": {
       "calls": [
@@ -9059,7 +9227,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "StorageFactory.getStorageService": {
       "calls": [
@@ -9080,7 +9250,8 @@
       "extended_by": [
         "AwsStorageServiceImpl",
         "GoogleStorageServiceImpl"
-      ]
+      ],
+      "implemented_by": []
     },
     "StorageService.getFileUrl": {
       "calls": [],
@@ -9126,7 +9297,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "FileUtils.convertToBase64": {
       "calls": [
@@ -9145,7 +9318,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "FunctionHelper.getNullPropertyNames": {
       "calls": [
@@ -9172,7 +9347,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "JsonUtils.getGenericObject": {
       "calls": [
@@ -9231,7 +9408,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "Utils.genAutoId": {
       "calls": [
@@ -9337,7 +9516,9 @@
       "calls": [],
       "called_by": [],
       "extends": null,
-      "implements": []
+      "implements": [],
+      "extended_by": [],
+      "implemented_by": []
     },
     "OnestudyApplicationTests.contextLoads": {
       "calls": [],

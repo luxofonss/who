@@ -424,6 +424,8 @@ def _build_chunk(
         "endpoints": endpoints,
         "extends": extends,
         "implements": implements or [],
+        "extended_by": [],
+        "implemented_by": [],
     }
 
     # TODO: add summary, now i dont have enough model to do this hehe
@@ -460,6 +462,7 @@ def _attach_called_by_to_chunks(chunks: List[CodeChunk], dep_graph: DependencyGr
         chunk["called_by"] = dep_graph.get(key, {}).get("called_by", [])
 
 def _populate_extends_and_implements_by(chunks: List[CodeChunk], dep_graph: DependencyGraph):
+    # First, populate the graph relationships
     for chunk in chunks:
         this_class = str(chunk.get("class_name", ""))
         if not this_class:
@@ -473,6 +476,13 @@ def _populate_extends_and_implements_by(chunks: List[CodeChunk], dep_graph: Depe
         extends = chunk.get("extends")
         if extends:
             dep_graph.setdefault(str(extends), {}).setdefault("extended_by", []).append(this_class)
+    
+    # Then, populate the chunk relationships
+    for chunk in chunks:
+        class_name = str(chunk.get("class_name", ""))
+        if class_name in dep_graph:
+            chunk["extended_by"] = dep_graph[class_name].get("extended_by", [])
+            chunk["implemented_by"] = dep_graph[class_name].get("implemented_by", [])
 
 def _extract_class_hierarchy(class_node, source: str) -> dict:
     extends = None
