@@ -18,7 +18,6 @@ from services.retriever import LangChainRetriever
 from services.prompt_builder import PromptBuilder
 
 
-@dataclass
 class AgentState(TypedDict):
     """State schema for LangGraph agent."""
     question: str
@@ -34,7 +33,7 @@ class AgentState(TypedDict):
     seen_context: List[str]
     last_tool_call_symbols: List[str]
     new_retrieved_symbols: List[str]
-    node_call_count: Dict[str, int] = field(default_factory=dict)
+    node_call_count: Dict[str, int]
 
 
 @dataclass
@@ -89,52 +88,8 @@ class AnalyzerChain:
         
         # Create tool executor
         self.tool_executor = ToolExecutor([self.get_context_tool])
-        logger.info("✅ Created tool executor")
-        
-        # Build the graph
-        logger.info("🏗️ Building LangGraph workflow...")
         self._build_graph()
         logger.info("✅ LangGraph setup complete")
-
-    def _write_prompt_to_file(self, prompt: str, prefix: str = "prompt") -> str:
-        """Write prompt to a file for debugging/review purposes."""
-        try:
-            prompts_dir = Path("logs/prompts")
-            prompts_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{prefix}_{self.project_id}_{timestamp}.txt"
-            filepath = prompts_dir / filename
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(f"Project: {self.project_id}\n")
-                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-                f.write(f"Type: {prefix}\n")
-                f.write("=" * 80 + "\n\n")
-                f.write(prompt)
-            logger.info(f"📁 Prompt saved to: {filepath}")
-            return str(filepath)
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to save prompt to file: {e}")
-            return ""
-
-    def _write_response_to_file(self, response: str, iteration: int) -> str:
-        """Write agent response to a file for debugging/review purposes."""
-        try:
-            responses_dir = Path("logs/responses")
-            responses_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"response_iteration_{iteration}_{self.project_id}_{timestamp}.txt"
-            filepath = responses_dir / filename
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(f"Project: {self.project_id}\n")
-                f.write(f"Iteration: {iteration}\n")
-                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-                f.write("=" * 80 + "\n\n")
-                f.write(response)
-            logger.info(f"📁 Response saved to: {filepath}")
-            return str(filepath)
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to save response to file: {e}")
-            return ""
 
     def _build_graph(self):
         """Build the LangGraph workflow."""
@@ -160,14 +115,11 @@ class AnalyzerChain:
 
         # Verifier: decide whether to loop back or end
         def _verify_condition(state: AgentState) -> str:
-            """Determine if verification should loop back to agent or end."""
-            logger.debug(f"🔍 Verifying state: iteration {state['iteration_count']}, final_response: {state['final_response'][:100] if state['final_response'] else 'None'}...")
-            
             # Check iteration limit
             if state["iteration_count"] >= 5:
                 logger.warning("⚠️ Max iterations reached in verify node, forcing end")
                 return "end"
-
+    
             # Check if no new symbols or chunks were retrieved in the last tool call
             if state.get("last_tool_call_symbols") and not state.get("new_retrieved_symbols") and not state.get("new_retrieved_chunks"):
                 logger.info("🏁 No new context or symbols retrieved in last tool call, ending workflow")
@@ -424,54 +376,49 @@ class AnalyzerChain:
         seen_chunks = state.get("seen_context", [])
         symbols = []
 
-        # If missing_symbols from verification, prioritize those
-        if state.get("missing_symbols"):
-            symbols = [s for s in state["missing_symbols"] if s not in already_retrieved]
-            logger.info(f"🔍 Fetching context for missing symbols from verification: {symbols}")
-        else:
-            explicit_patterns = [
-                r"I need to get context for ([A-Za-z][A-Za-z0-9_]*)",
-                r"get_project_code_context\([\"']([^\"']+)[\"']\)",
-                r"(?:context for|details about|information on) ([A-Za-z][A-Za-z0-9_]*)",
+        explicit_patterns = [
+            r"I need to get context for ([A-Za-z][A-Za-z0-9_]*)",
+            r"get_project_code_context\([\"']([^\"']+)[\"']\)",
+            r"(?:context for|details about|information on) ([A-Za-z][A-Za-z0-9_]*)",
+        ]
+        for pattern in explicit_patterns:
+            matches = re.findall(pattern, response, re.IGNORECASE)
+            if matches:
+                flattened_matches = []
+                for match in matches:
+                    if isinstance(match, tuple):
+                        flattened_matches.extend([m for m in match if m])
+                    else:
+                        flattened_matches.append(match)
+                symbols.extend(flattened_matches)
+                logger.info(f"🎯 Found explicit symbol requests: {flattened_matches}")
+
+        symbols = [s for s in symbols if s not in already_retrieved]
+        if not symbols:
+            logger.info("🔍 Looking for symbols mentioned in 'need more context' statements...")
+            inspection_patterns = [
+                r"(?:need to inspect|we need to inspect|inspect)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                r"(?:need to examine|we need to examine|examine)\s+`([A-Za-z][A-Za-z0-9_]*)`", 
+                r"(?:implementation of|depends on the implementation of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                r"(?:structure of|details of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                r"(?:need to check|we need to check|check)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                r"(?:need to see|we need to see|see)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                r"(?:requires inspection of|inspection of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
+                r"(?:need to inspect|we need to inspect|inspect)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
+                r"(?:implementation of|depends on the implementation of)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
+                r"(?:structure of|details of)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
             ]
-            for pattern in explicit_patterns:
+            for pattern in inspection_patterns:
                 matches = re.findall(pattern, response, re.IGNORECASE)
                 if matches:
-                    flattened_matches = []
-                    for match in matches:
-                        if isinstance(match, tuple):
-                            flattened_matches.extend([m for m in match if m])
-                        else:
-                            flattened_matches.append(match)
-                    symbols.extend(flattened_matches)
-                    logger.info(f"🎯 Found explicit symbol requests: {flattened_matches}")
-
-            symbols = [s for s in symbols if s not in already_retrieved]
-            if not symbols:
-                logger.info("🔍 Looking for symbols mentioned in 'need more context' statements...")
-                inspection_patterns = [
-                    r"(?:need to inspect|we need to inspect|inspect)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                    r"(?:need to examine|we need to examine|examine)\s+`([A-Za-z][A-Za-z0-9_]*)`", 
-                    r"(?:implementation of|depends on the implementation of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                    r"(?:structure of|details of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                    r"(?:need to check|we need to check|check)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                    r"(?:need to see|we need to see|see)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                    r"(?:requires inspection of|inspection of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                    r"(?:need to inspect|we need to inspect|inspect)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
-                    r"(?:implementation of|depends on the implementation of)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
-                    r"(?:structure of|details of)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
-                ]
-                for pattern in inspection_patterns:
-                    matches = re.findall(pattern, response, re.IGNORECASE)
-                    if matches:
-                        symbols.extend(matches)
-                        logger.info(f"🎯 Found symbols in inspection context: {matches}")
-            if not symbols:
-                logger.info("🔍 No explicit requests - analyzing context for missing implementations...")
-                symbols = self._extract_missing_symbols(current_context, already_retrieved)
-            if not symbols:
-                logger.info("🔎 Scanning for any class/service references...")
-                symbols = self._find_any_symbols(current_context, already_retrieved)
+                    symbols.extend(matches)
+                    logger.info(f"🎯 Found symbols in inspection context: {matches}")
+        if not symbols:
+            logger.info("🔍 No explicit requests - analyzing context for missing implementations...")
+            symbols = self._extract_missing_symbols(current_context, already_retrieved)
+        if not symbols:
+            logger.info("🔎 Scanning for any class/service references...")
+            symbols = self._find_any_symbols(current_context, already_retrieved)
 
         if not symbols:
             logger.warning("⚠️ No symbols identified - ending tool usage")
@@ -479,8 +426,7 @@ class AnalyzerChain:
                 **state,
                 "final_response": None,
                 "last_tool_call_symbols": [],
-                "new_retrieved_symbols": [],
-                "new_retrieved_chunks": []
+                "new_retrieved_symbols": []
             }
 
         symbols = [s for s in symbols if s not in already_retrieved][:10]
@@ -498,8 +444,7 @@ class AnalyzerChain:
             "seen_context": state["seen_context"] + new_chunk_ids,
             "final_response": None,
             "last_tool_call_symbols": symbols,
-            "new_retrieved_symbols": new_retrieved,
-            "new_retrieved_chunks": new_chunk_ids
+            "new_retrieved_symbols": new_retrieved
         }
 
     def _extract_missing_symbols(self, context: str, already_retrieved: List[str]) -> List[str]:
@@ -565,7 +510,6 @@ class AnalyzerChain:
     def _parse_graph_response(self, graph_response: str, endpoint: str) -> AnalysisResult:
         """Parse LangGraph response and create structured result."""
         response_text = graph_response.strip()
-        logger.info(f"🔍 Graph response: {response_text[:200]}...")
         response_text = self._parse_json_response(response_text)
         json_match = re.search(r'\{.*?"document".*?\}', response_text, re.DOTALL)
         if json_match and not response_text.strip().startswith('{'):
@@ -584,7 +528,6 @@ class AnalyzerChain:
             )
         except json.JSONDecodeError as e:
             logger.warning(f"⚠️ LangGraph response is not valid JSON: {str(e)[:100]}...")
-            logger.debug(f"Raw graph response: {response_text[:500]}...")
             return AnalysisResult(
                 document="Analysis completed but not in JSON format",
                 requirement_coverage=[],
@@ -638,7 +581,6 @@ class AnalyzerChain:
                 "iteration_count": 0,
                 "last_tool_call_symbols": [],
                 "new_retrieved_symbols": [],
-                "new_retrieved_chunks": [],
                 "node_call_count": {}
             }
             logger.debug("✅ Initial state created successfully")
@@ -767,9 +709,7 @@ class AnalyzerChain:
             """
 
         try:
-            logger.info(f"🔍 Verifier prompt: {prompt}")
             result = self.llm.invoke(prompt)
-            logger.info(f"🕵️‍♀️ Verification result: {result}")
             parsed = self._parse_json_response(result)
             parsed = json.loads(parsed)
 
@@ -804,3 +744,42 @@ class AnalyzerChain:
     def clear_cache(self) -> None:
         """Clear any cached resources (LangGraph doesn't require caching)."""
         logger.info("🧹 LangGraph resources cleared (no caching needed)")
+
+
+    def _write_prompt_to_file(self, prompt: str, prefix: str = "prompt") -> str:
+        try:
+            prompts_dir = Path("logs/prompts")
+            prompts_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{prefix}_{self.project_id}_{timestamp}.txt"
+            filepath = prompts_dir / filename
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(f"Project: {self.project_id}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write(f"Type: {prefix}\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(prompt)
+            logger.info(f"📁 Prompt saved to: {filepath}")
+            return str(filepath)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save prompt to file: {e}")
+            return ""
+
+    def _write_response_to_file(self, response: str, iteration: int) -> str:
+        try:
+            responses_dir = Path("logs/responses")
+            responses_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"response_iteration_{iteration}_{self.project_id}_{timestamp}.txt"
+            filepath = responses_dir / filename
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(f"Project: {self.project_id}\n")
+                f.write(f"Iteration: {iteration}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(response)
+            logger.info(f"📁 Response saved to: {filepath}")
+            return str(filepath)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save response to file: {e}")
+            return ""

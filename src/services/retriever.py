@@ -78,7 +78,7 @@ class LangChainRetriever:
         duplicates_count = 0
         
         for chunk in chunks:
-            chunk_id = self._chunk_id(chunk)
+            chunk_id = chunk.get("id")
             if chunk_id not in seen_ids:
                 seen_ids.add(chunk_id)
                 unique_chunks.append(chunk)
@@ -100,7 +100,7 @@ class LangChainRetriever:
         
         for doc in docs:
             # Use chunk metadata to create document ID
-            chunk_id = self._chunk_id(doc.metadata)
+            chunk_id = doc.metadata.get("id")
             if chunk_id not in seen_ids:
                 seen_ids.add(chunk_id)
                 unique_docs.append(doc)
@@ -117,25 +117,57 @@ class LangChainRetriever:
         # 2. Embedding
         query_emb = embed(query)
 
-        # 3. Hybrid retrieval
-        bm25_task = asyncio.to_thread(bm25_search, query, self.indexer.metadata, top_k=top)
-        faiss_task = asyncio.to_thread(self.indexer.search, query_emb, top)
-        bm25_results, faiss_results_tuple = await asyncio.gather(bm25_task, faiss_task)
+        # 3. Hybrid retrieval (get scores for both)
+        bm25_task = asyncio.to_thread(self._bm25_with_scores, query, self.indexer.metadata)
+        faiss_task = asyncio.to_thread(self.indexer.search, query_emb, self.k)
+        bm25_scored, faiss_results_tuple = await asyncio.gather(bm25_task, faiss_task)
 
-        # Extract chunks from FAISS results tuple (distances, chunks)
-        faiss_results = faiss_results_tuple[1]  # Just chunks
-        logger.debug(f"BM25 search returned {len(bm25_results)} chunks")
-        logger.info(f"BM25 search returned {bm25_results}")
-        logger.debug(f"FAISS search returned {len(faiss_results)} chunks")
-        logger.info(f"FAISS search returned {faiss_results}")
+        faiss_distances, faiss_chunks = faiss_results_tuple
+        # Convert FAISS distances to similarity scores (lower distance = higher score)
+        if len(faiss_distances) > 0:
+            faiss_sim = 1 / (1 + faiss_distances)
+        else:
+            faiss_sim = []
+        faiss_dict = {}
+        for chunk, score in zip(faiss_chunks, faiss_sim):
+            faiss_dict[chunk.get("id")] = score
 
-        # 4. Deduplicate and combine results
-        combined_results = bm25_results + faiss_results
-        logger.debug(f"Combined total: {len(combined_results)} chunks")
-        
-        all_candidates = self._deduplicate_chunks(combined_results)
+        # BM25 scores
+        bm25_dict = {}
+        for chunk, score in bm25_scored:
+            bm25_dict[chunk.get("id")] = score
+
+        # Normalize scores
+        def normalize(scores):
+            if not scores:
+                return {}
+            min_s, max_s = min(scores.values()), max(scores.values())
+            if max_s == min_s:
+                return {k: 1.0 for k in scores}
+            return {k: (v - min_s) / (max_s - min_s) for k, v in scores.items()}
+
+        norm_faiss = normalize(faiss_dict)
+        norm_bm25 = normalize(bm25_dict)
+
+        # Combine all unique chunk_ids
+        all_chunk_ids = set(norm_faiss) | set(norm_bm25)
+        hybrid_scores = {}
+        for cid in all_chunk_ids:
+            s_faiss = norm_faiss.get(cid, 0)
+            s_bm25 = norm_bm25.get(cid, 0)
+            hybrid_scores[cid] = 0.7 * s_faiss + 0.3 * s_bm25
+
+        # Get chunk lookup
+        chunk_lookup = {c.get("id"): c for c in faiss_chunks + [c for c, _ in bm25_scored]}
+        # Sort by hybrid score
+        sorted_chunk_ids = sorted(hybrid_scores, key=lambda cid: -hybrid_scores[cid])[:top]
+        selected_chunks = [chunk_lookup[cid] for cid in sorted_chunk_ids if cid in chunk_lookup]
+
+        logger.debug(f"Hybrid (0.7 FAISS + 0.3 BM25) selected {len(selected_chunks)} chunks")
+
+        all_candidates = self._deduplicate_chunks(selected_chunks)
         logger.debug(f"After deduplication: {len(all_candidates)} unique chunks")
-        
+
         # 5. Rerank deduplicated results
         top_chunks = rerank_chunks(query, all_candidates, top_k=top)
 
@@ -148,22 +180,17 @@ class LangChainRetriever:
             key = self._key(c)
             if key in seen:
                 continue  # Skip if we've already processed this chunk
-                
-            full_text = f"# Summary: {c.get('summary', '')}\n\n{c['content']}"
+            full_text = f"# Summary: {c.get('summary', '')}\n\n{c['content']}\n\n[HybridScore: {hybrid_scores.get(self._chunk_id(c), 0):.3f}]"
             docs.append(Document(page_content=full_text, metadata=c))
             seen.add(key)
-
-            # ✅ Traverse call graph to pull transitive callee dependencies
             self._traverse_call_graph(c, docs, seen)
 
         # Final deduplication and cleanup
         logger.debug(f"Before final deduplication: {len(docs)} documents")
         deduplicated_docs = self._deduplicate_documents(docs)
         logger.debug(f"After document deduplication: {len(deduplicated_docs)} documents")
-        
         trimmed_docs = self._trim_overlaps(deduplicated_docs)
         logger.debug(f"After overlap trimming: {len(trimmed_docs)} documents")
-        
         logger.info(f"✅ Retrieval complete: {len(trimmed_docs)} unique documents (removed duplicates and overlaps)")
         return trimmed_docs
 
@@ -181,8 +208,20 @@ class LangChainRetriever:
                     continue
                 full_text = f"# Summary: {callee_chunk.get('summary', '')}\n\n{callee_chunk['content']}"
                 docs.append(Document(page_content=full_text, metadata=callee_chunk))
+                logger.info(f"Added chunk: {callee_chunk.get('id')}")
                 seen.add(callee)
                 stack.append(callee_chunk)
+            for caller in self.dep_graph.get(key, {}).get("called_by", []):
+                if caller in seen:
+                    continue
+                caller_chunk = self._chunk_lookup.get(caller)
+                if not caller_chunk or "content" not in caller_chunk:
+                    continue
+                full_text = f"# Summary: {caller_chunk.get('summary', '')}\n\n{caller_chunk['content']}"
+                docs.append(Document(page_content=full_text, metadata=caller_chunk))
+                logger.info(f"Added chunk: {caller_chunk.get('id')}")
+                seen.add(caller)
+                stack.append(caller_chunk)
 
     def _trim_overlaps(self, docs: List[Document]) -> List[Document]:
         """Remove overlapping lines between documents to reduce redundancy."""
@@ -258,3 +297,12 @@ class LangChainRetriever:
         except RuntimeError:
             loop = asyncio.get_event_loop()
             return loop.run_until_complete(coro)
+
+    def _bm25_with_scores(self, query: str, metadata: List[Dict], top_k: int = 100):
+        from rank_bm25 import BM25Okapi
+        texts = [f"{c.get('summary','')}\n{c.get('content','')}" for c in metadata]
+        tokenised = [t.split() for t in texts]
+        bm25 = BM25Okapi(tokenised)
+        scores = bm25.get_scores(query.split())
+        ranked = sorted(range(len(scores)), key=lambda i: -scores[i])[:top_k]
+        return [(metadata[i], scores[i]) for i in ranked]

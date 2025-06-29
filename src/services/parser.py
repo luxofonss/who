@@ -17,9 +17,7 @@ CodeChunk = Dict[str, object]
 DependencyGraph = Dict[str, Dict[str, List[str]]]
 
 BLACKLIST_DIR = {
-    "__pycache__", ".pytest_cache", ".venv", ".git", ".idea", "venv", "env",
-    "node_modules", "dist", "build", ".vscode", ".github", ".gitlab", ".angular",
-    "cdk.out", ".aws-sam", ".terraform",
+    ".git", ".idea", "env", ".github", ".gitlab", 
 }
 WHITELIST_EXT = {".java"}
 
@@ -60,6 +58,7 @@ def parse_project(root: Path) -> Tuple[List[CodeChunk], DependencyGraph]:
 
     _populate_called_by(dep_graph)
     _attach_called_by_to_chunks(chunks, dep_graph)
+    _populate_extends_and_implements_by(chunks, dep_graph)
 
     logger.info(f"parse_project: collected {len(chunks)} chunks ({len(dep_graph)} graph nodes)")
     return chunks, dep_graph
@@ -70,12 +69,13 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
     graph: DependencyGraph = {}
 
     root_node = tree.root_node
-    lines = source.splitlines()
+    # lines = source.splitlines()
 
     for class_node in [n for n in root_node.children if n.type == "class_declaration"]:
         class_name = _get_identifier(class_node, source) or file_path.stem
         chunk_type = _infer_chunk_type(class_node, source)
         class_endpoints = _extract_class_level_endpoints(class_node, source)
+        class_hierarchy = _extract_class_hierarchy(class_node, source)
 
         logger.info(f"node:: {class_node}")
         field_map, _ = _extract_field_types_and_imports(class_node, source)
@@ -99,9 +99,18 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
             content=source[class_node.start_byte:class_node.end_byte],
             calls=[],
             endpoints=[{"path": ep, "method": "REQUEST"} for ep in class_endpoints] if chunk_type == "controller" else [],
+            extends=class_hierarchy['extends'],
+            implements=class_hierarchy['implements'],
         )
         chunks.append(chunk)
-        graph[f"{class_name}"] = {"calls": [], "called_by": []}
+        graph[f"{class_name}"] = {
+            "calls": [], 
+            "called_by": [], 
+            "extends": class_hierarchy['extends'], 
+            "implements": class_hierarchy['implements'],
+            "extended_by": [],
+            "implemented_by": []
+        }
 
         for m_node in method_nodes:
             method_name = _get_identifier(m_node, source) or "unknown"
@@ -129,6 +138,8 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
                 content=source[m_node.start_byte:m_node.end_byte],
                 calls=calls,
                 endpoints=endpoints,
+                extends=None,
+                implements=[],
             )
             chunks.append(chunk)
             graph[f"{class_name}.{method_name}"] = {"calls": calls, "called_by": []}
@@ -247,6 +258,12 @@ def _infer_chunk_type(node, source: str) -> str:
         return "entity"
     if "Filter" in ann_text:
         return "filter"
+    if "Configuration" in ann_text:
+        return "configuration"
+    if "Component" in ann_text:
+        return "component"
+    if "Bean" in ann_text:
+        return "bean"
     return "other"
 
 
@@ -387,6 +404,8 @@ def _build_chunk(
     content: str,
     calls: List[str],
     endpoints: List[Dict[str, str]],
+    extends: Optional[str] = None,
+    implements: Optional[List[str]] = None,
 ) -> CodeChunk:
     line_start = start_point[0] + 1
     line_end = end_point[0] + 1
@@ -403,21 +422,27 @@ def _build_chunk(
         "line_end": line_end,
         "content": content,
         "endpoints": endpoints,
+        "extends": extends,
+        "implements": implements or [],
     }
+
+    # TODO: add summary, now i dont have enough model to do this hehe
     chunk["summary"] = _summarise_chunk(chunk)
     return chunk
 
 
 def _summarise_chunk(chunk: CodeChunk) -> str:
-    prompt = (
-        f"Summarise the following Java {chunk.get('chunk_type')} in ONE sentence.\n\n"
-        + chunk["content"][:2000]
-    )
-    try:
-        return ""  # Gemini().invoke(prompt).strip()
-    except Exception as exc:
-        logger.error("Gemini summary failed: %s", exc)
-        return ""
+    # TODO: enable this when we have enough money to call model
+    # prompt = (
+    #     f"Summarise the following Java {chunk.get('chunk_type')} in ONE sentence.\n\n"
+    #     + chunk["content"][:2000]
+    # )
+    # try:
+    #     return Gemini().invoke(prompt).strip()
+    # except Exception as exc:
+    #     logger.error("Gemini summary failed: %s", exc)
+    #     return ""
+    return ""
 
 
 def _populate_called_by(dep_graph: DependencyGraph):
@@ -433,3 +458,56 @@ def _attach_called_by_to_chunks(chunks: List[CodeChunk], dep_graph: DependencyGr
             continue
         key = f"{chunk['class_name']}.{chunk['method_name']}"
         chunk["called_by"] = dep_graph.get(key, {}).get("called_by", [])
+
+def _populate_extends_and_implements_by(chunks: List[CodeChunk], dep_graph: DependencyGraph):
+    for chunk in chunks:
+        this_class = str(chunk.get("class_name", ""))
+        if not this_class:
+            continue
+
+        implements = chunk.get("implements", [])
+        if isinstance(implements, list):
+            for parent in implements:
+                dep_graph.setdefault(str(parent), {}).setdefault("implemented_by", []).append(this_class)
+
+        extends = chunk.get("extends")
+        if extends:
+            dep_graph.setdefault(str(extends), {}).setdefault("extended_by", []).append(this_class)
+
+def _extract_class_hierarchy(class_node, source: str) -> dict:
+    extends = None
+    implements = []
+
+    # --- Extract superclass ---
+    superclass_node = class_node.child_by_field_name("superclass")
+    if superclass_node:
+        logger.info(f"superclass_node: {superclass_node}")
+        # Try field_name first
+        type_id_node = superclass_node.child_by_field_name("type_identifier")
+        if not type_id_node:
+            # Fallback: iterate to find a 'type_identifier' manually
+            type_id_node = next(
+                (child for child in superclass_node.children if child.type == "type_identifier"),
+                None
+            )
+        if type_id_node:
+            extends = source[type_id_node.start_byte:type_id_node.end_byte]
+
+    # --- Extract implemented interfaces ---
+    interfaces_node = class_node.child_by_field_name("interfaces")
+    if interfaces_node:
+        logger.info(f"interfaces_node: {interfaces_node}")
+        # Fallback: no "type_list" field name, so find manually
+        type_list = next(
+            (child for child in interfaces_node.children if child.type == "type_list"),
+            None
+        )
+        if type_list:
+            for child in type_list.children:
+                if child.type == "type_identifier":
+                    implements.append(source[child.start_byte:child.end_byte])
+
+    return {
+        "extends": extends,
+        "implements": implements
+    }

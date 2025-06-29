@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 
+  # type: ignore[import]
 from loguru import logger
 
 _LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
