@@ -1,14 +1,15 @@
 Project: demo5
 Iteration: 0
-Timestamp: 2025-06-30T07:18:19.775588
+Timestamp: 2025-06-30T22:43:30.086729
 ================================================================================
 
 I need to get context for PronunciationAccuracyRequestDto
-I need to get context for PronunciationService
+I need to get context for pronunciationService
 I need to get context for PronunciationAccuracyResponseDto
 I need to get context for BaseResponse
 I need to get context for BaseService
-I need to get context for UserPrincipal
-I need to get context for  pronunciationService.getAccuracy(request)
+I need to get context for pronunciationServiceImpl
+I need to get context for RequestKeyConstant
+I need to get context for HttpServletRequest
 
 

@@ -188,18 +188,20 @@ class LangChainRetriever:
         logger.debug(f"Before final deduplication: {len(docs)} documents")
         deduplicated_docs = self._deduplicate_documents(docs)
         logger.debug(f"After document deduplication: {len(deduplicated_docs)} documents")
-        trimmed_docs = self._trim_overlaps(deduplicated_docs)
-        logger.debug(f"After overlap trimming: {len(trimmed_docs)} documents")
-        logger.info(f"✅ Retrieval complete: {len(trimmed_docs)} unique documents (removed duplicates and overlaps)")
-        return trimmed_docs
+        return deduplicated_docs
 
     def _traverse_call_graph(self, seed: Dict, docs: List[Document], seen: Set[str]):
         """Recursively traverse transitive dependencies including calls, inheritance, and interface relations."""
         stack = [seed]
+        # RELATION_TYPES = [
+        #     "calls", "called_by", 
+        #     "implements", "implemented_by", 
+        #     "extends", "extended_by"
+        # ]
         RELATION_TYPES = [
-            "calls", "called_by", 
-            "implements", "implemented_by", 
-            "extends", "extended_by"
+            "calls", 
+            "implemented_by", 
+            "extended_by"
         ]
 
         while stack:
@@ -216,39 +218,9 @@ class LangChainRetriever:
                         continue
                     full_text = f"# Summary: {neighbor_chunk.get('summary', '')}\n\n{neighbor_chunk['content']}"
                     docs.append(Document(page_content=full_text, metadata=neighbor_chunk))
-                    logger.info(f"Added chunk via `{rel}`: {neighbor_chunk.get('id')}")
                     seen.add(neighbor)
                     stack.append(neighbor_chunk)
 
-
-    def _trim_overlaps(self, docs: List[Document]) -> List[Document]:
-        """Remove overlapping lines between documents to reduce redundancy."""
-        if not docs:
-            return docs
-            
-        seen_lines = set()
-        trimmed = []
-        total_lines_before = 0
-        total_lines_after = 0
-        
-        for doc in docs:
-            lines = doc.page_content.splitlines()
-            total_lines_before += len(lines)
-            
-            # Keep lines that haven't been seen before
-            unique = [l for l in lines if l.strip() and l.strip() not in seen_lines]
-            seen_lines.update(l.strip() for l in unique if l.strip())
-            
-            if unique:
-                doc.page_content = "\n".join(unique)
-                trimmed.append(doc)
-                total_lines_after += len(unique)
-        
-        lines_removed = total_lines_before - total_lines_after
-        if lines_removed > 0:
-            logger.debug(f"🧹 Trimmed {lines_removed} overlapping lines from {len(docs)} documents")
-            
-        return trimmed
 
     def find_by_symbol_name(self, symbol: str) -> List[Document]:
         # Ensure the index and chunk lookup are loaded

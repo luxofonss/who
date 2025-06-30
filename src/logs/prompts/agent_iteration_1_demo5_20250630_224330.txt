@@ -1,5 +1,5 @@
 Project: demo5
-Timestamp: 2025-06-30T07:18:19.938236
+Timestamp: 2025-06-30T22:43:30.207124
 Type: agent_iteration_1
 ================================================================================
 
@@ -26,153 +26,39 @@ You are an expert software architect analyzing the REST endpoint: /api/v1/pub/pr
 
             CURRENT CONTEXT:
             # Summary: 
+
 @PostMapping("/accuracy")
     public BaseResponse<Object> getAccuracy(@RequestBody PronunciationAccuracyRequestDto request) {
         return baseService.ofSucceeded(pronunciationService.getAccuracy(request));
     }
+
 [HybridScore: 0.000]
+
+# Summary: 
 
 public <T> BaseResponse<T> ofSucceeded(T data) {
         return BaseResponse.ofSucceeded(getRequestId(), data);
+    }
+
+# Summary: 
 
 public static <T> BaseResponse<T> ofSucceeded(String requestId) {
         BaseResponse<T> response = ofSucceeded();
         response.meta.setRequestId(requestId);
         return response;
+    }
+
+# Summary: 
 
 public String getRequestId() {
         return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();
+    }
 
-@GetMapping("/me")
-    public BaseResponse<AuthProfileResponse> whoAmI(@CurrentUser UserPrincipal requester) {
-        return baseService.ofSucceeded(authService.getAuthProfile(requester.getId().toString()));
-
-@PostMapping
-    @LogsActivityAnnotation
-    BaseResponse<?> createQuiz(@RequestBody CreateQuizDto request, @CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.createQuiz(request, currentUser.getId()));
-
-@PutMapping
-    BaseResponse<?> updateQuiz(@RequestBody CreateQuizDto request, @CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.updateQuiz(request));
-
-@GetMapping("/{id}")
-    BaseResponse<Quiz> getQuizById(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getById(id));
-
-@GetMapping("/{id}/stats")
-    BaseResponse<Quiz> getQuizStatsById(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getQuizStatsById(id));
-
-@GetMapping("/my")
-    BaseResponse<List<Quiz>> getMyQuizzes(@CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getMyQuizzes(currentUser.getId()));
-
-@DeleteMapping("/{id}")
-    BaseResponse<?> deleteQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
-        quizService.deleteQuiz(id);
-        return baseService.ofSucceeded(null);
-
-@PostMapping("/{id}/save")
-    BaseResponse<?> saveQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
-        quizService.saveQuiz(id, currentUser.getId());
-
-@DeleteMapping("/{id}/save")
-    BaseResponse<?> unsaveQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
-        quizService.unsaveQuiz(id, currentUser.getId());
-
-@GetMapping("/{id}/save")
-    BaseResponse<List<UserSavedQuiz>> getListUserSavedQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getUserSavedQuiz(id, currentUser.getId()));
-
-@GetMapping("/save")
-    BaseResponse<List<Quiz>> getSavedQuizzes(@CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getSavedQuizzes(currentUser.getId()));
-
-@PostMapping("/{id}/attempts")
-    BaseResponse<?> attemptQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.startQuiz(id, currentUser.getId()));
-
-@GetMapping("/attempts")
-    BaseResponse<List<Quiz>> getQuizAttempts(@CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getMyQuizAttempts(currentUser.getId().toString()));
-
-@GetMapping("/attempts/{id}")
-    BaseResponse<QuizAttempt> getQuizAttempt(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.getAttempt(id, currentUser.getId()));
-
-@PostMapping("/attempts/{attempt_id}/submit-question")
-    BaseResponse<?> submitQuizQuestion(@PathVariable String attempt_id, @RequestBody SubmitAnswerRequest request, @CurrentUser UserPrincipal currentUser) {
-        return baseService.ofSucceeded(quizService.submitQuizQuestion(attempt_id, request, currentUser.getId()));
-
-@PostMapping("/attempts/{attempt_id}/complete")
-    BaseResponse<?> submitQuizComplete(@PathVariable String attempt_id, @CurrentUser UserPrincipal currentUser) {
-        quizService.submitQuizComplete(attempt_id, currentUser.getId());
-
-@PostMapping()
-    public BaseResponse<Resource> uploadResource(
-            @CurrentUser UserPrincipal requester,
-            @RequestParam("file") MultipartFile file
-    ) {
-        return baseService.ofSucceeded(resourceService.uploadResource(file, requester.getId()));
-
-    public BaseResponse<GetResourceResponse> getResource(
-            @PathVariable String id
-        return baseService.ofSucceeded(resourceService.getResource(id, requester.getId()));
-
-    public BaseResponse<?> uploadResource(
-            @CurrentUser UserPrincipal requester
-
-@PostMapping("/login")
-    public BaseResponse<AuthLoginResponse> login(@Valid @RequestBody AuthLoginRequest request) {
-        return baseService.ofSucceeded(authService.login(request));
-
-@PostMapping("/register")
-    public BaseResponse<AuthRegisterResponse> register(@Valid @RequestBody AuthRegisterRequest request) {
-        return baseService.ofSucceeded(authService.register(request));
-
-@GetMapping("/samples")
-    public BaseResponse<Object> getSamplePronunciations(GetSampleRequestDto request) {
-        return baseService.ofSucceeded(pronunciationService.getSample(request));
+# Summary: 
 
 public <T> T getRequestValue(String key, Class<T> clazz) {
         return clazz.cast(httpServletRequest.getAttribute(key));
-
-public <T> BaseResponse<T> ofFailed(int errorCode, T data) {
-        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode), data);
-
-public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {
-        BaseResponse<T> response = ofFailed(exception, data);
-        response.data = data;
-
-public BusinessError getBusinessError(int errorCode) {
-        return BusinessError.builder()
-                .code(errorCode)
-                .message(getMessage(errorCode))
-                .build();
-
-public String getMessage(BusinessError error) {
-        return ObjectUtils.isEmpty(error.getMessage()) ? getMessage(error.getCode()) : error.getMessage();
-
-public String getRequestStringValue(String key) {
-        return getRequestValue(key, String.class);
-
-public Object getRequestBody() {
-        return getRequestValue(RequestKeyConstant.REQUEST_BODY);
-
-@GetMapping
-    BaseResponse<List<Quiz>> getAllQuizzes(@CurrentUser UserPrincipal currentUser) {
-        return BaseResponse.ofSucceeded(quizService.getAllPublicQuizzes());
-
-public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
-        BaseResponse<T> response = ofSucceeded(data);
-        response.meta.setRequestId(requestList.getRequestId());
-        response.meta.setPageSize(requestList.getPageSize());
-        response.meta.setPageIndex(requestList.getPageIndex());
-        response.meta.setTotalItems(requestList.getTotalItems());
-
-public <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
-        return BaseResponse.ofGetListSucceeded(data, requestList);
+    }
 
 'PronunciationAccuracyRequestDto':
 # Summary: 
@@ -189,7 +75,7 @@ public class PronunciationAccuracyRequestDto {
 
 }
 
-'PronunciationService':
+'pronunciationService':
 # Summary: 
 
 @Service
@@ -478,6 +364,27 @@ public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus h
         if (status != meta.getCode()) {
             throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);
         }
+    }
+
+# Summary: 
+
+public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {
+        BaseResponse<T> response = ofFailed(exception, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+# Summary: 
+
+public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(requestList.getRequestId());
+        response.meta.setPageSize(requestList.getPageSize());
+        response.meta.setPageIndex(requestList.getPageIndex());
+        response.meta.setTotalItems(requestList.getTotalItems());
+        response.data = data;
+        return response;
     }
 
 'BaseService':
@@ -612,6 +519,45 @@ public class BaseService {
 
 # Summary: 
 
+public String getMessage(BusinessError error) {
+        return ObjectUtils.isEmpty(error.getMessage()) ? getMessage(error.getCode()) : error.getMessage();
+    }
+
+# Summary: 
+
+public String getRequestStringValue(String key) {
+        return getRequestValue(key, String.class);
+    }
+
+# Summary: 
+
+public Object getRequestBody() {
+        return getRequestValue(RequestKeyConstant.REQUEST_BODY);
+    }
+
+# Summary: 
+
+public <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        return BaseResponse.ofGetListSucceeded(data, requestList);
+    }
+
+# Summary: 
+
+public <T> BaseResponse<T> ofFailed(int errorCode, T data) {
+        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode), data);
+    }
+
+# Summary: 
+
+public BusinessError getBusinessError(int errorCode) {
+        return BusinessError.builder()
+                .code(errorCode)
+                .message(getMessage(errorCode))
+                .build();
+    }
+
+# Summary: 
+
 public HttpHeaders getHeaders() {
         HttpHeaders headers = new HttpHeaders();
         Enumeration<String> headerNames = httpServletRequest.getHeaderNames();
@@ -633,155 +579,7 @@ public int getErrorCode(String errorCode, int errorCodeDefault) {
         }
     }
 
-'UserPrincipal':
-# Summary: 
-
-@Getter
-@Builder
-@Slf4j
-@ToString
-public class UserPrincipal implements UserDetails {
-    private UUID id;
-    private String username;
-    private String email;
-    private String password;
-    private List<String> roles;
-
-
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities(){
-        return roles.stream()
-                .map(SimpleGrantedAuthority::new)
-                .toList();
-    }
-    public UserPrincipal(UUID id, String username, String email, String password, List<String> roles) {
-        this.id = id;
-        this.username = username;
-        this.email = email;
-        this.password = password;
-        this.roles = roles;
-    }
-
-    public static UserPrincipal from(User user) {
-        return UserPrincipal.builder()
-                .id(UUID.fromString(user.getId().toString()))
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .password(user.getCredentials().getPasswordHash())
-                .roles(List.of(user.getRole().toString()))
-                .build();
-    }
-
-    @Override
-    public String getPassword() {
-        return password;
-    }
-
-    @Override
-    public String getUsername() {
-        return username;
-    }
-
-    @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
-
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return true;
-    }
-}
-
-# Summary: 
-
-@Override
-    public Collection<? extends GrantedAuthority> getAuthorities(){
-        return roles.stream()
-                .map(SimpleGrantedAuthority::new)
-                .toList();
-    }
-
-# Summary: 
-
-public static UserPrincipal from(User user) {
-        return UserPrincipal.builder()
-                .id(UUID.fromString(user.getId().toString()))
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .password(user.getCredentials().getPasswordHash())
-                .roles(List.of(user.getRole().toString()))
-                .build();
-    }
-
-# Summary: 
-
-@Override
-    public String getPassword() {
-        return password;
-    }
-
-# Summary: 
-
-@Override
-    public String getUsername() {
-        return username;
-    }
-
-# Summary: 
-
-@Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
-
-# Summary: 
-
-@Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
-
-# Summary: 
-
-@Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
-
-# Summary: 
-
-@Override
-    public boolean isEnabled() {
-        return true;
-    }
-
-'PronunciationAccuracyRequestDto':
-# Summary: 
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class PronunciationAccuracyRequestDto {
-
-    private String base64Audio;
-
-    private String text;
-
-}
-
-'PronunciationService':
+'pronunciationServiceImpl':
 # Summary: 
 
 @Service
@@ -855,221 +653,128 @@ public class PronunciationServiceImpl implements PronunciationService {
         return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
     }
 
-'PronunciationAccuracyResponseDto':
+'RequestKeyConstant':
+# Summary: 
+
+public class RequestKeyConstant {
+
+    private RequestKeyConstant() {}
+
+    public static final String REQUEST_ID = "request_id";
+
+    public static final String THREAD_REQUEST_ID = "requestId";
+
+    public static final String REQUEST_PARAMETERS = "request_parameters";
+
+    public static final String REQUEST_BODY = "request_body";
+
+    public static final String URI = "uri";
+
+    public static final String X_REQUEST_ID = "X-Request-ID";
+
+    public static final String CONTENT_TYPE = "Content-Type";
+
+    public static final String USER_AGENT = "User-Agent";
+
+    public static final String X_API_KEY = "x-api-key";
+
+    public static final String X_API_SECRET = "x-api-secret";
+
+    public static final String API_KEY = "api_key";
+
+    public static final String API_SECRET = "api_secret";
+
+    public static final String AUTHORIZATION = "Authorization";
+
+}
+
+'PronunciationAccuracyRequestDto':
 # Summary: 
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class PronunciationAccuracyResponseDto {
+@Builder
+public class PronunciationAccuracyRequestDto {
 
-    private String startTime;
+    private String base64Audio;
 
-    private String endTime;
-
-    private String ipaScript;
-
-    private String isLetterCorrectAllWords;
-
-    private String matchedTranscripts;
-
-    private String matchedTranscriptsIpa;
-
-    private String pairAccuracyCategory;
-
-    private Integer pronunciationAccuracy;
-
-    private String realTranscript;
-
-    private String realTranscripts;
-
-    private String realTranscriptsIpa;
+    private String text;
 
 }
 
-'BaseResponse':
+'pronunciationService':
 # Summary: 
 
-@Data
-@Accessors(chain = true)
-@JsonInclude(JsonInclude.Include.NON_NULL)
-@Slf4j
-@NoArgsConstructor
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-@SuperBuilder
-public class BaseResponse<T> {
+@Service
+public class PronunciationServiceImpl implements PronunciationService {
 
-    private Meta meta = new Meta();
+    private final PronunciationFeignClient pronunciationFeignClient;
 
-    private T data;
+    private final PronunciationMapper pronunciationMapper;
 
-    public BaseResponse(Meta meta, T data) {
-        this.meta = meta;
-        this.data = data;
+    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
+        this.pronunciationFeignClient = pronunciationFeignClient;
+        this.pronunciationMapper = pronunciationMapper;
     }
 
-    public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {
-        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {
-            return;
+    @Override
+    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
+        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
+        req.setCategory(request.getLevel().getValue());
+        req.setLanguage("en");
+        GetSampleResponse response = pronunciationFeignClient.getSample(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
         }
 
-        Meta meta = baseResponse.meta;
-        if (status != meta.getCode()) {
-            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);
+        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
+    }
+
+    @Override
+    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
+        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
+        req.setLanguage("en");
+        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
         }
-    }
 
-    public static <T> BaseResponse<T> ofSucceeded(T data) {
-        BaseResponse<T> response = new BaseResponse<>();
-        response.data = data;
-        response.meta.setCode(ErrorConstant.SUCCESS);
-        response.meta.setMessage("OK");
-        return response;
-    }
-
-    public static <T> BaseResponse<T> ofSucceeded() {
-        BaseResponse<T> response = new BaseResponse<>();
-        response.meta.setCode(ErrorConstant.SUCCESS);
-        return response;
-    }
-
-    public static BaseResponse ofFailed(BusinessError error) {
-        return ofFailed(error, null);
-    }
-
-    public static <T> BaseResponse<T> ofFailed(BusinessError error, T data) {
-        return ofFailed(error, null, data);
-    }
-
-    public static BaseResponse ofFailed(BusinessError error, String message) {
-        return ofFailed(error, message, null);
-    }
-
-    public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, T data) {
-        return ofFailed(error, message, null, data);
-    }
-
-    public static BaseResponse ofFailed(BusinessError error, String message, List<ErrorViolation> errors) {
-        BaseResponse response = new BaseResponse<>();
-        response.meta.setCode(error.getCode());
-        response.meta.setMessage((message != null) ? message : error.getMessage());
-        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);
-        if(errors != null && errors.size() > 0) {
-            response.meta.setMessage(errors.get(0).getDescription());
-        }
-        return response;
-    }
-
-    public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, List<ErrorViolation> errors, T data) {
-        BaseResponse<T> response = new BaseResponse<>();
-        response.meta.setCode(error.getCode());
-        response.meta.setMessage((message != null) ? message : error.getMessage());
-        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);
-        if(errors != null && errors.size() > 0) {
-            response.meta.setMessage(errors.get(0).getDescription());
-        }
-        response.data = data;
-        return response;
-    }
-
-    public static BaseResponse ofFailed(BusinessException exception) {
-        return ofFailed(exception.getError(), exception.getMessage());
-    }
-
-    public static <T> BaseResponse<T> ofFailed(BusinessException exception, T data) {
-        return ofFailed(exception.getError(), exception.getMessage(), data);
-    }
-
-    public static <T> BaseResponse<T> ofSucceeded(String requestId, T data) {
-        BaseResponse<T> response = ofSucceeded(data);
-        response.meta.setRequestId(requestId);
-        return response;
-    }
-    public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
-        BaseResponse<T> response = ofSucceeded(data);
-        response.meta.setRequestId(requestList.getRequestId());
-        response.meta.setPageSize(requestList.getPageSize());
-        response.meta.setPageIndex(requestList.getPageIndex());
-        response.meta.setTotalItems(requestList.getTotalItems());
-        response.data = data;
-        return response;
-    }
-    public static <T> BaseResponse<T> ofSucceeded(BasicRequest request, T data) {
-        BaseResponse<T> response = ofSucceeded(data);
-        response.meta.setRequestId(request.getRequestId());
-        return response;
-    }
-
-    public static <T> BaseResponse<T> ofSucceeded(String requestId) {
-        BaseResponse<T> response = ofSucceeded();
-        response.meta.setRequestId(requestId);
-        return response;
-    }
-
-    public static BaseResponse ofFailed(String requestId, BusinessError error) {
-        BaseResponse response = ofFailed(error);
-        response.meta.setRequestId(requestId);
-        return response;
-    }
-
-    public static BaseResponse ofFailed(String requestId, BusinessError error, String message) {
-        BaseResponse response = ofFailed(error, message);
-        response.meta.setRequestId(requestId);
-        return response;
-    }
-
-    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, T data) {
-        BaseResponse<T> response = ofFailed(error, data);
-        response.meta.setRequestId(requestId);
-        response.data = data;
-        return response;
-    }
-
-    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, T data) {
-        BaseResponse<T> response = ofFailed(error, message, data);
-        response.meta.setRequestId(requestId);
-        response.data = data;
-        return response;
-    }
-
-    public static BaseResponse ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors) {
-        BaseResponse response = ofFailed(error, message, errors);
-        response.meta.setRequestId(requestId);
-        return response;
-    }
-
-    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors, T data) {
-        BaseResponse<T> response = ofFailed(error, message, errors, data);
-        response.meta.setRequestId(requestId);
-        response.data = data;
-        return response;
-    }
-
-    public static BaseResponse ofFailed(String requestId, BusinessException exception) {
-        BaseResponse response = ofFailed(exception);
-        response.meta.setRequestId(requestId);
-        return response;
-    }
-
-    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {
-        BaseResponse<T> response = ofFailed(exception, data);
-        response.meta.setRequestId(requestId);
-        response.data = data;
-        return response;
+        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
     }
 }
 
 # Summary: 
 
-public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {
-        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {
-            return;
+@Override
+    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
+        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
+        req.setCategory(request.getLevel().getValue());
+        req.setLanguage("en");
+        GetSampleResponse response = pronunciationFeignClient.getSample(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
         }
 
-        Meta meta = baseResponse.meta;
-        if (status != meta.getCode()) {
-            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);
+        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
+    }
+
+# Summary: 
+
+@Override
+    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
+        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
+        req.setLanguage("en");
+        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
         }
+
+        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
     }
 
             REQUIREMENTS TO ANALYZE:

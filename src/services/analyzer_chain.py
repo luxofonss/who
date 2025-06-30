@@ -110,7 +110,7 @@ class AnalyzerChain:
         # Verifier: decide whether to loop back or end
         def _verify_condition(state: AgentState) -> str:
             # Check iteration limit
-            if state["iteration_count"] > 5:
+            if state["iteration_count"] > 3:
                 logger.warning("⚠️ Max iterations reached in verify node, forcing end")
                 return "end"
 
@@ -160,14 +160,14 @@ class AnalyzerChain:
             docs = self.retriever.find_by_symbol_name(symbol)
             
             # If no direct match, try a broader search
-            if not docs:
-                logger.debug(f"🔄 No direct match for '{symbol}', trying semantic search...")
-                docs = self.retriever.retrieve_sync(
-                    symbol,
-                    user_text="",
-                    top=3,
-                    hyde=False
-                )
+            # if not docs:
+            #     logger.debug(f"🔄 No direct match for '{symbol}', trying semantic search...")
+            #     docs = self.retriever.retrieve_sync(
+            #         symbol,
+            #         user_text="",
+            #         top=3,
+            #         hyde=False
+            #     )
             
             if docs:
                 new_chunks = []
@@ -177,7 +177,6 @@ class AnalyzerChain:
                     if chunk_id not in seen_chunks:
                         new_chunks.append(doc.page_content)
                         new_chunk_ids.append(chunk_id)
-                        logger.debug(f"✅ Added chunk {chunk_id} for symbol '{symbol}'")
                     else:
                         # logger.debug(f"⏭️ Skipped already seen chunk {chunk_id} for symbol '{symbol}'")
                         pass
@@ -456,7 +455,7 @@ class AnalyzerChain:
         
         try:
             logger.info("🔍 Step 1: Retrieving initial context from vector database...")
-            docs = await self.retriever.retrieve(endpoint, user_text, top=3, hyde=False)
+            docs = await self.retriever.retrieve(endpoint, user_text, top=1, hyde=False)
             initial_context = "\n\n".join(doc.page_content for doc in docs)
             initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
             logger.info(f"✅ Retrieved {len(docs)} initial documents ({len(initial_context)} chars total)")
@@ -483,15 +482,7 @@ class AnalyzerChain:
             
             logger.info("🚀 Step 3: Starting LangGraph analysis workflow...")
             final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
-            
-            iterations = final_state['iteration_count']
-            retrieved_symbols = final_state['retrieved_symbols']
-            final_response_length = len(final_state.get("final_response", ""))
-            logger.info(f"🎉 LangGraph workflow completed successfully!")
-            # logger.info(f"📊 Statistics: {iterations} iterations, {len(retrieved_symbols)} symbols retrieved")
-            # logger.info(f"🔍 Retrieved context for symbols: {retrieved_symbols}")
-            # logger.info(f"📝 Final response length: {final_response_length} chars")
-            
+                    
             logger.info("🔧 Step 4: Parsing and structuring final response...")
             final_response = final_state.get("final_response", "")
             result = self._parse_graph_response(final_response, endpoint)
@@ -517,9 +508,12 @@ class AnalyzerChain:
     def _verify_response_node(self, state: AgentState) -> AgentState:
         """Verify final LLM response before ending."""
         node_name = "verify"
-        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
-        if state["node_call_count"][node_name] > 3:
-            logger.warning("Max iterations reached, ending workflow to prevent infinite loop.")
+        # state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        # if state["node_call_count"][node_name] > 3:
+        #     logger.warning("Max iterations reached, ending workflow to prevent infinite loop.")
+        #     return state
+        if state["iteration_count"] > 3:
+            # logger.warning("Max iterations reached, ending workflow to prevent infinite loop.")
             return state
 
         response = state["final_response"] or ""
@@ -529,11 +523,12 @@ class AnalyzerChain:
             1. Review the response and determine if it fully covers the user requirements and test cases.
             2. List any classes, DTOs, methods, configs, or components in business logic that are referenced in the requirements/test cases but are missing in the context or response.
             3. If complete, return: {{"status": "complete"}}
-            4. If incomplete, return: 
+            4. If incomplete, return symbols priority by method first:
             {{
                 "status": "incomplete",
                 "missing_symbols": ["ClassA", "SomeDto", "MyService.methodX"]
             }}
+            5. Important: Only get symbols that related to API's business logic in api {state['endpoint']}
 
             RESPONSE:
             {response}
@@ -556,6 +551,7 @@ class AnalyzerChain:
 
         try:
             result = self.llm.invoke(prompt)
+            logger.info(f"🔍 Verifier response: {result}")
             parsed = self._parse_json_response(result)
             parsed = json.loads(parsed)
 
@@ -706,7 +702,7 @@ class AnalyzerChain:
         class_pattern = r'\b([A-Z][A-Za-z0-9]*(?:Service|Repository|Controller|Dto|Entity|Exception))\b(?!\s*\{)'
         matches = re.findall(class_pattern, context, re.IGNORECASE)
         for match in matches:
-            if (len(match) > 4 and
+            if (len(match) > 0 and
                 match not in already_retrieved and
                 match not in ['String', 'Object', 'List', 'Map', 'Set', 'Boolean', 'Integer', 'Long', 'Date', 'Time']):
                 symbols.append(match)
