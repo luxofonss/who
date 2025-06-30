@@ -179,7 +179,8 @@ class AnalyzerChain:
                         new_chunk_ids.append(chunk_id)
                         logger.debug(f"✅ Added chunk {chunk_id} for symbol '{symbol}'")
                     else:
-                        logger.debug(f"⏭️ Skipped already seen chunk {chunk_id} for symbol '{symbol}'")
+                        # logger.debug(f"⏭️ Skipped already seen chunk {chunk_id} for symbol '{symbol}'")
+                        pass
                 
                 if new_chunks:
                     result = "\n\n".join(new_chunks)
@@ -187,7 +188,7 @@ class AnalyzerChain:
                     logger.debug(f"📄 Context preview for '{symbol}': {result[:150]}...")
                     return f"'{symbol}':\n{result}", new_chunk_ids
                 else:
-                    logger.warning(f"❌ No new chunks found for symbol: '{symbol}'")
+                    # logger.warning(f"❌ No new chunks found for symbol: '{symbol}'")
                     return f"No new code found for symbol: {symbol}.", []
             else:
                 logger.warning(f"❌ No code found for symbol: '{symbol}'")
