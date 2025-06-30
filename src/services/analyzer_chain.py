@@ -488,9 +488,9 @@ class AnalyzerChain:
             retrieved_symbols = final_state['retrieved_symbols']
             final_response_length = len(final_state.get("final_response", ""))
             logger.info(f"🎉 LangGraph workflow completed successfully!")
-            logger.info(f"📊 Statistics: {iterations} iterations, {len(retrieved_symbols)} symbols retrieved")
-            logger.info(f"🔍 Retrieved context for symbols: {retrieved_symbols}")
-            logger.info(f"📝 Final response length: {final_response_length} chars")
+            # logger.info(f"📊 Statistics: {iterations} iterations, {len(retrieved_symbols)} symbols retrieved")
+            # logger.info(f"🔍 Retrieved context for symbols: {retrieved_symbols}")
+            # logger.info(f"📝 Final response length: {final_response_length} chars")
             
             logger.info("🔧 Step 4: Parsing and structuring final response...")
             final_response = final_state.get("final_response", "")

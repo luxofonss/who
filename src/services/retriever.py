@@ -268,7 +268,7 @@ class LangChainRetriever:
             return []
             
         for key, chunk in self._chunk_lookup.items():
-            logger.info(f"key: {key}")
+            # logger.info(f"key: {key}")
             if symbol.lower() in key.lower():
                 full_text = f"# Summary: {chunk.get('summary', '')}\n\n{chunk['content']}"
                 found.append(Document(page_content=full_text, metadata=chunk))

@@ -1,0 +1,4721 @@
+Project: demo5
+Timestamp: 2025-06-30T07:19:00.768257
+Type: agent_iteration_3
+================================================================================
+
+You are an expert software architect analyzing the REST endpoint: /api/v1/pub/pronunciations/accuracy
+            ANALYSIS STRATEGY:
+            1. Review the current context for the endpoint implementation
+            2. Get all classes, services, repositories, DTOs, methods and check if they are fully implemented
+            3. If you see references to any classes, services, DTOs, or methods that are not fully shown, request more context using the tool
+            4. When there are no classes, services, DTOs, or methods that are not fully shown, you have sufficient implementation details, provide your final analysis as JSON
+            5. Do not assume that you have enough context, always check the code and use get_project_code_context if any part of the code is not fully implemented.
+
+            WHEN TO USE get_project_code_context TOOL:
+            - When you see class/interface names without their implementation
+            - When service methods are referenced but not shown
+            - When DTO/model classes are mentioned but structure is unclear
+            - When exception handling classes are referenced
+            - When you need to understand dependencies or business logic
+
+            To use the tool, respond with: "I need to get context for [exact_class_or_method_name]"
+            Examples:
+            - "I need to get context for UserService"
+            - "I need to get context for ValidationException"
+            - "I need to get context for OrderDto"
+
+            CURRENT CONTEXT:
+            # Summary: 
+@PostMapping("/accuracy")
+    public BaseResponse<Object> getAccuracy(@RequestBody PronunciationAccuracyRequestDto request) {
+        return baseService.ofSucceeded(pronunciationService.getAccuracy(request));
+    }
+[HybridScore: 0.000]
+
+public <T> BaseResponse<T> ofSucceeded(T data) {
+        return BaseResponse.ofSucceeded(getRequestId(), data);
+
+public static <T> BaseResponse<T> ofSucceeded(String requestId) {
+        BaseResponse<T> response = ofSucceeded();
+        response.meta.setRequestId(requestId);
+        return response;
+
+public String getRequestId() {
+        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();
+
+@GetMapping("/me")
+    public BaseResponse<AuthProfileResponse> whoAmI(@CurrentUser UserPrincipal requester) {
+        return baseService.ofSucceeded(authService.getAuthProfile(requester.getId().toString()));
+
+@PostMapping
+    @LogsActivityAnnotation
+    BaseResponse<?> createQuiz(@RequestBody CreateQuizDto request, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.createQuiz(request, currentUser.getId()));
+
+@PutMapping
+    BaseResponse<?> updateQuiz(@RequestBody CreateQuizDto request, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.updateQuiz(request));
+
+@GetMapping("/{id}")
+    BaseResponse<Quiz> getQuizById(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getById(id));
+
+@GetMapping("/{id}/stats")
+    BaseResponse<Quiz> getQuizStatsById(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getQuizStatsById(id));
+
+@GetMapping("/my")
+    BaseResponse<List<Quiz>> getMyQuizzes(@CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getMyQuizzes(currentUser.getId()));
+
+@DeleteMapping("/{id}")
+    BaseResponse<?> deleteQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        quizService.deleteQuiz(id);
+        return baseService.ofSucceeded(null);
+
+@PostMapping("/{id}/save")
+    BaseResponse<?> saveQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        quizService.saveQuiz(id, currentUser.getId());
+
+@DeleteMapping("/{id}/save")
+    BaseResponse<?> unsaveQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        quizService.unsaveQuiz(id, currentUser.getId());
+
+@GetMapping("/{id}/save")
+    BaseResponse<List<UserSavedQuiz>> getListUserSavedQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getUserSavedQuiz(id, currentUser.getId()));
+
+@GetMapping("/save")
+    BaseResponse<List<Quiz>> getSavedQuizzes(@CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getSavedQuizzes(currentUser.getId()));
+
+@PostMapping("/{id}/attempts")
+    BaseResponse<?> attemptQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.startQuiz(id, currentUser.getId()));
+
+@GetMapping("/attempts")
+    BaseResponse<List<Quiz>> getQuizAttempts(@CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getMyQuizAttempts(currentUser.getId().toString()));
+
+@GetMapping("/attempts/{id}")
+    BaseResponse<QuizAttempt> getQuizAttempt(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getAttempt(id, currentUser.getId()));
+
+@PostMapping("/attempts/{attempt_id}/submit-question")
+    BaseResponse<?> submitQuizQuestion(@PathVariable String attempt_id, @RequestBody SubmitAnswerRequest request, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.submitQuizQuestion(attempt_id, request, currentUser.getId()));
+
+@PostMapping("/attempts/{attempt_id}/complete")
+    BaseResponse<?> submitQuizComplete(@PathVariable String attempt_id, @CurrentUser UserPrincipal currentUser) {
+        quizService.submitQuizComplete(attempt_id, currentUser.getId());
+
+@PostMapping()
+    public BaseResponse<Resource> uploadResource(
+            @CurrentUser UserPrincipal requester,
+            @RequestParam("file") MultipartFile file
+    ) {
+        return baseService.ofSucceeded(resourceService.uploadResource(file, requester.getId()));
+
+    public BaseResponse<GetResourceResponse> getResource(
+            @PathVariable String id
+        return baseService.ofSucceeded(resourceService.getResource(id, requester.getId()));
+
+    public BaseResponse<?> uploadResource(
+            @CurrentUser UserPrincipal requester
+
+@PostMapping("/login")
+    public BaseResponse<AuthLoginResponse> login(@Valid @RequestBody AuthLoginRequest request) {
+        return baseService.ofSucceeded(authService.login(request));
+
+@PostMapping("/register")
+    public BaseResponse<AuthRegisterResponse> register(@Valid @RequestBody AuthRegisterRequest request) {
+        return baseService.ofSucceeded(authService.register(request));
+
+@GetMapping("/samples")
+    public BaseResponse<Object> getSamplePronunciations(GetSampleRequestDto request) {
+        return baseService.ofSucceeded(pronunciationService.getSample(request));
+
+public <T> T getRequestValue(String key, Class<T> clazz) {
+        return clazz.cast(httpServletRequest.getAttribute(key));
+
+public <T> BaseResponse<T> ofFailed(int errorCode, T data) {
+        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode), data);
+
+public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {
+        BaseResponse<T> response = ofFailed(exception, data);
+        response.data = data;
+
+public BusinessError getBusinessError(int errorCode) {
+        return BusinessError.builder()
+                .code(errorCode)
+                .message(getMessage(errorCode))
+                .build();
+
+public String getMessage(BusinessError error) {
+        return ObjectUtils.isEmpty(error.getMessage()) ? getMessage(error.getCode()) : error.getMessage();
+
+public String getRequestStringValue(String key) {
+        return getRequestValue(key, String.class);
+
+public Object getRequestBody() {
+        return getRequestValue(RequestKeyConstant.REQUEST_BODY);
+
+@GetMapping
+    BaseResponse<List<Quiz>> getAllQuizzes(@CurrentUser UserPrincipal currentUser) {
+        return BaseResponse.ofSucceeded(quizService.getAllPublicQuizzes());
+
+public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(requestList.getRequestId());
+        response.meta.setPageSize(requestList.getPageSize());
+        response.meta.setPageIndex(requestList.getPageIndex());
+        response.meta.setTotalItems(requestList.getTotalItems());
+
+public <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        return BaseResponse.ofGetListSucceeded(data, requestList);
+
+'PronunciationAccuracyRequestDto':
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PronunciationAccuracyRequestDto {
+
+    private String base64Audio;
+
+    private String text;
+
+}
+
+'PronunciationService':
+# Summary: 
+
+@Service
+public class PronunciationServiceImpl implements PronunciationService {
+
+    private final PronunciationFeignClient pronunciationFeignClient;
+
+    private final PronunciationMapper pronunciationMapper;
+
+    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
+        this.pronunciationFeignClient = pronunciationFeignClient;
+        this.pronunciationMapper = pronunciationMapper;
+    }
+
+    @Override
+    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
+        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
+        req.setCategory(request.getLevel().getValue());
+        req.setLanguage("en");
+        GetSampleResponse response = pronunciationFeignClient.getSample(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
+        }
+
+        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
+    }
+
+    @Override
+    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
+        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
+        req.setLanguage("en");
+        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
+        }
+
+        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
+    }
+}
+
+# Summary: 
+
+@Override
+    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
+        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
+        req.setCategory(request.getLevel().getValue());
+        req.setLanguage("en");
+        GetSampleResponse response = pronunciationFeignClient.getSample(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
+        }
+
+        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
+    }
+
+# Summary: 
+
+@Override
+    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
+        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
+        req.setLanguage("en");
+        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
+        }
+
+        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
+    }
+
+'PronunciationAccuracyResponseDto':
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class PronunciationAccuracyResponseDto {
+
+    private String startTime;
+
+    private String endTime;
+
+    private String ipaScript;
+
+    private String isLetterCorrectAllWords;
+
+    private String matchedTranscripts;
+
+    private String matchedTranscriptsIpa;
+
+    private String pairAccuracyCategory;
+
+    private Integer pronunciationAccuracy;
+
+    private String realTranscript;
+
+    private String realTranscripts;
+
+    private String realTranscriptsIpa;
+
+}
+
+'BaseResponse':
+# Summary: 
+
+@Data
+@Accessors(chain = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Slf4j
+@NoArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+@SuperBuilder
+public class BaseResponse<T> {
+
+    private Meta meta = new Meta();
+
+    private T data;
+
+    public BaseResponse(Meta meta, T data) {
+        this.meta = meta;
+        this.data = data;
+    }
+
+    public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {
+        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {
+            return;
+        }
+
+        Meta meta = baseResponse.meta;
+        if (status != meta.getCode()) {
+            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);
+        }
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded(T data) {
+        BaseResponse<T> response = new BaseResponse<>();
+        response.data = data;
+        response.meta.setCode(ErrorConstant.SUCCESS);
+        response.meta.setMessage("OK");
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded() {
+        BaseResponse<T> response = new BaseResponse<>();
+        response.meta.setCode(ErrorConstant.SUCCESS);
+        return response;
+    }
+
+    public static BaseResponse ofFailed(BusinessError error) {
+        return ofFailed(error, null);
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessError error, T data) {
+        return ofFailed(error, null, data);
+    }
+
+    public static BaseResponse ofFailed(BusinessError error, String message) {
+        return ofFailed(error, message, null);
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, T data) {
+        return ofFailed(error, message, null, data);
+    }
+
+    public static BaseResponse ofFailed(BusinessError error, String message, List<ErrorViolation> errors) {
+        BaseResponse response = new BaseResponse<>();
+        response.meta.setCode(error.getCode());
+        response.meta.setMessage((message != null) ? message : error.getMessage());
+        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);
+        if(errors != null && errors.size() > 0) {
+            response.meta.setMessage(errors.get(0).getDescription());
+        }
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, List<ErrorViolation> errors, T data) {
+        BaseResponse<T> response = new BaseResponse<>();
+        response.meta.setCode(error.getCode());
+        response.meta.setMessage((message != null) ? message : error.getMessage());
+        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);
+        if(errors != null && errors.size() > 0) {
+            response.meta.setMessage(errors.get(0).getDescription());
+        }
+        response.data = data;
+        return response;
+    }
+
+    public static BaseResponse ofFailed(BusinessException exception) {
+        return ofFailed(exception.getError(), exception.getMessage());
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessException exception, T data) {
+        return ofFailed(exception.getError(), exception.getMessage(), data);
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded(String requestId, T data) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+    public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(requestList.getRequestId());
+        response.meta.setPageSize(requestList.getPageSize());
+        response.meta.setPageIndex(requestList.getPageIndex());
+        response.meta.setTotalItems(requestList.getTotalItems());
+        response.data = data;
+        return response;
+    }
+    public static <T> BaseResponse<T> ofSucceeded(BasicRequest request, T data) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(request.getRequestId());
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded(String requestId) {
+        BaseResponse<T> response = ofSucceeded();
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessError error) {
+        BaseResponse response = ofFailed(error);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessError error, String message) {
+        BaseResponse response = ofFailed(error, message);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, T data) {
+        BaseResponse<T> response = ofFailed(error, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, T data) {
+        BaseResponse<T> response = ofFailed(error, message, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors) {
+        BaseResponse response = ofFailed(error, message, errors);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors, T data) {
+        BaseResponse<T> response = ofFailed(error, message, errors, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessException exception) {
+        BaseResponse response = ofFailed(exception);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {
+        BaseResponse<T> response = ofFailed(exception, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+}
+
+# Summary: 
+
+public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {
+        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {
+            return;
+        }
+
+        Meta meta = baseResponse.meta;
+        if (status != meta.getCode()) {
+            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);
+        }
+    }
+
+'BaseService':
+# Summary: 
+
+@Service
+@Slf4j
+public class BaseService {
+
+    @Autowired
+    protected Environment env;
+
+    @Value("${spring.application.name}")
+    protected String appName;
+
+    @Autowired
+    protected ObjectMapper objectMapper;
+
+    @Autowired
+    protected HttpServletRequest httpServletRequest;
+
+    @Autowired
+    protected HttpServletResponse httpServletResponse;
+
+    public String getMessage(String key) {
+        try {
+            String result = env.getProperty(key);
+            return ObjectUtils.isEmpty(result) ? key : result;
+        } catch (Exception e) {
+            return key;
+        }
+    }
+
+    public String getMessage(int code) {
+        return getMessage(String.valueOf(code));
+    }
+
+    public String getMessage(BusinessError error) {
+        return ObjectUtils.isEmpty(error.getMessage()) ? getMessage(error.getCode()) : error.getMessage();
+    }
+
+    public Object getRequestValue(String key) {
+        return getRequestValue(key, Object.class);
+    }
+
+    public <T> T getRequestValue(String key, Class<T> clazz) {
+        return clazz.cast(httpServletRequest.getAttribute(key));
+    }
+
+    public String getRequestStringValue(String key) {
+        return getRequestValue(key, String.class);
+    }
+
+    public String getRequestId() {
+        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();
+    }
+
+    public Object getRequestBody() {
+        return getRequestValue(RequestKeyConstant.REQUEST_BODY);
+    }
+
+    public <T> BaseResponse<T> ofSucceeded(T data) {
+        return BaseResponse.ofSucceeded(getRequestId(), data);
+    }
+
+    public <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        return BaseResponse.ofGetListSucceeded(data, requestList);
+    }
+
+    public <T> BaseResponse<T> ofFailed(BusinessException exception, T data) {
+        return BaseResponse.ofFailed(getRequestId(), exception, data);
+    }
+
+    public <T> BaseResponse<T> ofFailed(BusinessError error, String message, T data) {
+        return BaseResponse.ofFailed(getRequestId(), error, message, data);
+    }
+
+    public <T> BaseResponse<T> ofFailed(BusinessError error, String message, List<ErrorViolation> errors, T data) {
+        return BaseResponse.ofFailed(getRequestId(), error, message, errors, data);
+    }
+
+    public BaseResponse ofFailed(BusinessException exception) {
+        return BaseResponse.ofFailed(getRequestId(), exception);
+    }
+
+    public BaseResponse ofFailed(BusinessError error, String message) {
+        return BaseResponse.ofFailed(getRequestId(), error, message);
+    }
+
+    public BaseResponse ofFailed(BusinessError error) {
+        return BaseResponse.ofFailed(getRequestId(), error, getMessage(error));
+    }
+
+    public BaseResponse ofFailed(BusinessError error, String message, List<ErrorViolation> errors) {
+        return BaseResponse.ofFailed(getRequestId(), error, message, errors);
+    }
+
+    public BaseResponse ofFailed(int errorCode) {
+        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode));
+    }
+
+    public <T> BaseResponse<T> ofFailed(int errorCode, T data) {
+        return BaseResponse.ofFailed(getRequestId(), getBusinessError(errorCode), data);
+    }
+
+    public BusinessError getBusinessError(int errorCode) {
+        return BusinessError.builder()
+                .code(errorCode)
+                .message(getMessage(errorCode))
+                .build();
+    }
+
+    public HttpHeaders getHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        Enumeration<String> headerNames = httpServletRequest.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String headerValue = httpServletRequest.getHeader(headerName);
+            headers.add(headerName, headerValue);
+        }
+        return headers;
+    }
+
+    public int getErrorCode(String errorCode, int errorCodeDefault) {
+        try {
+            return Integer.parseInt(errorCode);
+        } catch (NumberFormatException e) {
+            return errorCodeDefault;
+        }
+    }
+}
+
+# Summary: 
+
+public HttpHeaders getHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        Enumeration<String> headerNames = httpServletRequest.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String headerValue = httpServletRequest.getHeader(headerName);
+            headers.add(headerName, headerValue);
+        }
+        return headers;
+    }
+
+# Summary: 
+
+public int getErrorCode(String errorCode, int errorCodeDefault) {
+        try {
+            return Integer.parseInt(errorCode);
+        } catch (NumberFormatException e) {
+            return errorCodeDefault;
+        }
+    }
+
+'UserPrincipal':
+# Summary: 
+
+@Getter
+@Builder
+@Slf4j
+@ToString
+public class UserPrincipal implements UserDetails {
+    private UUID id;
+    private String username;
+    private String email;
+    private String password;
+    private List<String> roles;
+
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities(){
+        return roles.stream()
+                .map(SimpleGrantedAuthority::new)
+                .toList();
+    }
+    public UserPrincipal(UUID id, String username, String email, String password, List<String> roles) {
+        this.id = id;
+        this.username = username;
+        this.email = email;
+        this.password = password;
+        this.roles = roles;
+    }
+
+    public static UserPrincipal from(User user) {
+        return UserPrincipal.builder()
+                .id(UUID.fromString(user.getId().toString()))
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .password(user.getCredentials().getPasswordHash())
+                .roles(List.of(user.getRole().toString()))
+                .build();
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+
+    @Override
+    public String getUsername() {
+        return username;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+}
+
+# Summary: 
+
+@Override
+    public Collection<? extends GrantedAuthority> getAuthorities(){
+        return roles.stream()
+                .map(SimpleGrantedAuthority::new)
+                .toList();
+    }
+
+# Summary: 
+
+public static UserPrincipal from(User user) {
+        return UserPrincipal.builder()
+                .id(UUID.fromString(user.getId().toString()))
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .password(user.getCredentials().getPasswordHash())
+                .roles(List.of(user.getRole().toString()))
+                .build();
+    }
+
+# Summary: 
+
+@Override
+    public String getPassword() {
+        return password;
+    }
+
+# Summary: 
+
+@Override
+    public String getUsername() {
+        return username;
+    }
+
+# Summary: 
+
+@Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+# Summary: 
+
+@Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+# Summary: 
+
+@Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+# Summary: 
+
+@Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+'PronunciationAccuracyRequestDto':
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PronunciationAccuracyRequestDto {
+
+    private String base64Audio;
+
+    private String text;
+
+}
+
+'PronunciationService':
+# Summary: 
+
+@Service
+public class PronunciationServiceImpl implements PronunciationService {
+
+    private final PronunciationFeignClient pronunciationFeignClient;
+
+    private final PronunciationMapper pronunciationMapper;
+
+    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
+        this.pronunciationFeignClient = pronunciationFeignClient;
+        this.pronunciationMapper = pronunciationMapper;
+    }
+
+    @Override
+    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
+        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
+        req.setCategory(request.getLevel().getValue());
+        req.setLanguage("en");
+        GetSampleResponse response = pronunciationFeignClient.getSample(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
+        }
+
+        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
+    }
+
+    @Override
+    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
+        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
+        req.setLanguage("en");
+        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
+        }
+
+        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
+    }
+}
+
+# Summary: 
+
+@Override
+    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
+        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
+        req.setCategory(request.getLevel().getValue());
+        req.setLanguage("en");
+        GetSampleResponse response = pronunciationFeignClient.getSample(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
+        }
+
+        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
+    }
+
+# Summary: 
+
+@Override
+    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
+        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
+        req.setLanguage("en");
+        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
+        }
+
+        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
+    }
+
+'PronunciationAccuracyResponseDto':
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class PronunciationAccuracyResponseDto {
+
+    private String startTime;
+
+    private String endTime;
+
+    private String ipaScript;
+
+    private String isLetterCorrectAllWords;
+
+    private String matchedTranscripts;
+
+    private String matchedTranscriptsIpa;
+
+    private String pairAccuracyCategory;
+
+    private Integer pronunciationAccuracy;
+
+    private String realTranscript;
+
+    private String realTranscripts;
+
+    private String realTranscriptsIpa;
+
+}
+
+'BaseResponse':
+# Summary: 
+
+@Data
+@Accessors(chain = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Slf4j
+@NoArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+@SuperBuilder
+public class BaseResponse<T> {
+
+    private Meta meta = new Meta();
+
+    private T data;
+
+    public BaseResponse(Meta meta, T data) {
+        this.meta = meta;
+        this.data = data;
+    }
+
+    public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {
+        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {
+            return;
+        }
+
+        Meta meta = baseResponse.meta;
+        if (status != meta.getCode()) {
+            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);
+        }
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded(T data) {
+        BaseResponse<T> response = new BaseResponse<>();
+        response.data = data;
+        response.meta.setCode(ErrorConstant.SUCCESS);
+        response.meta.setMessage("OK");
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded() {
+        BaseResponse<T> response = new BaseResponse<>();
+        response.meta.setCode(ErrorConstant.SUCCESS);
+        return response;
+    }
+
+    public static BaseResponse ofFailed(BusinessError error) {
+        return ofFailed(error, null);
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessError error, T data) {
+        return ofFailed(error, null, data);
+    }
+
+    public static BaseResponse ofFailed(BusinessError error, String message) {
+        return ofFailed(error, message, null);
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, T data) {
+        return ofFailed(error, message, null, data);
+    }
+
+    public static BaseResponse ofFailed(BusinessError error, String message, List<ErrorViolation> errors) {
+        BaseResponse response = new BaseResponse<>();
+        response.meta.setCode(error.getCode());
+        response.meta.setMessage((message != null) ? message : error.getMessage());
+        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);
+        if(errors != null && errors.size() > 0) {
+            response.meta.setMessage(errors.get(0).getDescription());
+        }
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, List<ErrorViolation> errors, T data) {
+        BaseResponse<T> response = new BaseResponse<>();
+        response.meta.setCode(error.getCode());
+        response.meta.setMessage((message != null) ? message : error.getMessage());
+        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);
+        if(errors != null && errors.size() > 0) {
+            response.meta.setMessage(errors.get(0).getDescription());
+        }
+        response.data = data;
+        return response;
+    }
+
+    public static BaseResponse ofFailed(BusinessException exception) {
+        return ofFailed(exception.getError(), exception.getMessage());
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessException exception, T data) {
+        return ofFailed(exception.getError(), exception.getMessage(), data);
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded(String requestId, T data) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+    public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(requestList.getRequestId());
+        response.meta.setPageSize(requestList.getPageSize());
+        response.meta.setPageIndex(requestList.getPageIndex());
+        response.meta.setTotalItems(requestList.getTotalItems());
+        response.data = data;
+        return response;
+    }
+    public static <T> BaseResponse<T> ofSucceeded(BasicRequest request, T data) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(request.getRequestId());
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded(String requestId) {
+        BaseResponse<T> response = ofSucceeded();
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessError error) {
+        BaseResponse response = ofFailed(error);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessError error, String message) {
+        BaseResponse response = ofFailed(error, message);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, T data) {
+        BaseResponse<T> response = ofFailed(error, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, T data) {
+        BaseResponse<T> response = ofFailed(error, message, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors) {
+        BaseResponse response = ofFailed(error, message, errors);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors, T data) {
+        BaseResponse<T> response = ofFailed(error, message, errors, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessException exception) {
+        BaseResponse response = ofFailed(exception);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {
+        BaseResponse<T> response = ofFailed(exception, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+}
+
+# Summary: 
+
+public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {
+        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {
+            return;
+        }
+
+        Meta meta = baseResponse.meta;
+        if (status != meta.getCode()) {
+            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);
+        }
+    }
+
+'PronunciationFeignClient':
+# Summary: 
+public abstract String getFileUrl(String fileName);
+[HybridScore: 0.000]
+
+@Override
+    public GetResourceResponse getResource(String id, UUID requestId) {
+        Resource resource = resourceRepository.findById(requestId.toString());
+        if (Objects.isNull(resource)) {
+            throw new RuntimeException("Resource not found");
+        }
+        try {
+            if (!requestId.equals(resource.getOwnerId())) {
+                throw new RuntimeException("You are not allowed to access this resource");
+            }
+            String url = storageService.getFileUrl(resource.getUrl());
+            return GetResourceResponse.builder()
+                    .name(resource.getName())
+                    .url(url)
+                    .build();
+        } catch (Exception e) {
+            log.info("Generate url failed {}", e.getMessage());
+            throw new RuntimeException("Generate url failed");
+        }
+    }
+
+public abstract String deleteFile(String fileName);
+
+public abstract String uploadFile(MultipartFile file);
+
+    public Resource uploadResource(MultipartFile file, UUID requestId) {
+        String url = storageService.uploadFile(file);
+        Resource resource = Resource.builder()
+                .name(file.getOriginalFilename())
+                .ownerId(requestId)
+                .extension(file.getContentType())
+                .sizeBytes(file.getSize())
+                .cloudId(storageService.getProviderName())
+        resourceRepository.save(resource);
+        return resource;
+
+public abstract String getProviderName();
+
+'PronunciationAccuracyRequest':
+# Summary: 
+
+@Data
+public class PronunciationAccuracyRequest {
+
+    private String base64Audio;
+
+    private String language;
+
+    @JsonProperty("title")
+    private String text;
+
+}
+
+'PronunciationAccuracyResponse':
+# Summary: 
+
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+@Data
+public class PronunciationAccuracyResponse {
+
+    private String startTime;
+
+    private String endTime;
+
+    private String ipaScript;
+
+    private String isLetterCorrectAllWords;
+
+    private String matchedTranscripts;
+
+    private String matchedTranscriptsIpa;
+
+    private String pairAccuracyCategory;
+
+    private Integer pronunciationAccuracy;
+
+    private String realTranscript;
+
+    private String realTranscripts;
+
+    private String realTranscriptsIpa;
+
+}
+
+'PronunciationMapper':
+# Summary: 
+public abstract String getProviderName();
+[HybridScore: 0.000]
+
+@Override
+    public Resource uploadResource(MultipartFile file, UUID requestId) {
+        String url = storageService.uploadFile(file);
+        Resource resource = Resource.builder()
+                .name(file.getOriginalFilename())
+                .url(url)
+                .ownerId(requestId)
+                .extension(file.getContentType())
+                .sizeBytes(file.getSize())
+                .cloudId(storageService.getProviderName())
+                .build();
+        resourceRepository.save(resource);
+        return resource;
+    }
+
+public abstract String uploadFile(MultipartFile file);
+
+public abstract String getFileUrl(String fileName);
+
+    public GetResourceResponse getResource(String id, UUID requestId) {
+        Resource resource = resourceRepository.findById(requestId.toString());
+        if (Objects.isNull(resource)) {
+            throw new RuntimeException("Resource not found");
+        try {
+            if (!requestId.equals(resource.getOwnerId())) {
+                throw new RuntimeException("You are not allowed to access this resource");
+            String url = storageService.getFileUrl(resource.getUrl());
+            return GetResourceResponse.builder()
+                    .name(resource.getName())
+        } catch (Exception e) {
+            log.info("Generate url failed {}", e.getMessage());
+            throw new RuntimeException("Generate url failed");
+
+public abstract String deleteFile(String fileName);
+
+'BusinessException':
+# Summary: 
+
+@Getter
+@Builder
+public class BusinessException extends RuntimeException implements Serializable {
+
+    private static final long serialVersionUID = 1905122041950251207L;
+
+    private final BusinessError error;
+
+    public BusinessException(int code, String message, HttpStatus status) {
+        super(message);
+        this.error = new BusinessError(code, message, status);
+    }
+
+    public BusinessException(int code, HttpStatus status) {
+        this.error = new BusinessError(code, status);
+    }
+
+    public BusinessException(int code) {
+        this.error = new BusinessError(code);
+    }
+
+    public BusinessException(int code, Object data) {
+        this.error = new BusinessError(code, data);
+    }
+
+    public BusinessException(int code, String message) {
+        this.error = new BusinessError(code, message);
+    }
+
+    public BusinessException(BusinessError error) {
+        super(error.getMessage());
+        this.error = error;
+    }
+
+    public BusinessException(BusinessError error, String message) {
+        super(message);
+        this.error = error;
+    }
+
+    public BusinessException(BusinessError error, String message, Throwable cause) {
+        super(message, cause);
+        this.error = error;
+    }
+}
+
+# Summary: 
+
+@ExceptionHandler(BusinessException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleBusinessException(BusinessException exception) {
+        exception.getError().setMessage(getMessage(exception.getError()));
+        Object dataException = exception.getError().getData();
+        BaseResponse<?> data = ofFailed(exception);
+        if(!ObjectUtils.isEmpty(dataException) && dataException instanceof String) {
+            data.getMeta().setErrors(Collections.singletonList(
+                ErrorViolation.builder().description((String) dataException).build()));
+        }
+        return new ResponseEntity<>(data, exception.getError().getHttpStatus() == null
+                ? HttpStatus.OK : exception.getError().getHttpStatus());
+    }
+
+'ErrorConstant':
+# Summary: 
+
+public class ErrorConstant {
+
+    private ErrorConstant() {}
+
+    /**
+     * Write the error code prefixed with 200 below
+     * 200
+     */
+    public static final int SUCCESS = 200000;
+    public static final int SUCCESS_200 = 200;
+
+    /**
+     * Write the error code prefixed with 400 below
+     * 400
+     */
+    public static final int INVALID_PARAMETERS = 4000001;
+
+    public static final int SYSTEM_CONFIGURATION_NOT_FOUND = 4004208;
+
+    public static final int TRANSACTION_NOT_FOUND = 4001210;
+
+    public static final int TRANSACTION_NOT_EXIST = 4001218;
+
+    public static final int TRANSACTION_MUST_NOT_REFUND = 4001212;
+
+    public static final int TRANSACTION_NOT_SUCCESS = 4001213;
+
+    public static final int TRANSACTION_NOT_ENOUGH_AMOUNT = 4001214;
+
+    public static final int HTTP_CONNECTION_ERROR  = 4009000;
+
+    public static final int NULL_META_DATA_RESPONSE  = 4009001;
+
+    /**
+     * Write the error code prefixed with 401 below
+     * 401
+     */
+    public static final int UNAUTHORIZED = 4010001;
+    public static final int USERNAME_PASSWORD_WRONG = 4010002;
+
+    /**
+     * Write the error code prefixed with 403 below
+     * 403
+     */
+    public static final int FORBIDDEN_ERROR = 4030001;
+
+    /**
+     *  Write the error code prefixed with 404 below
+     * 404
+     */
+    public static final int NOT_FOUND = 4040001;
+    public static final int QUIZ_NOT_FOUND = 4040002;
+    public static final int QUIZ_ATTEMPT_NOT_FOUND = 4040003;
+    public static final int QUIZ_ATTEMPT_SUBMITTED = 4040004;
+    public static final int QUESTION_DOES_NOT_BELONG_TO_QUIZ = 4040005;
+    public static final int QUESTION_NOT_FOUND = 4040006;
+    public static final int QUIZ_ATTEMPT_NOT_BELONG_TO_USER = 4040007;
+    public static final int QUIZ_TIME_LIMIT_EXCEEDED = 4040008;
+    public static final int QUIZ_NOT_SAVED = 4040009;
+    public static final int GET_PRONUNCIATION_SAMPLE_ERROR = 4040010;
+    public static final int GET_PRONUNCIATION_ACCURACY_ERROR = 4040011;
+
+    /** @Get_VA_number_information*/
+    public static final int INVALID_VA_NUMBER = 40010525;
+
+    /**
+     * Write the error code prefixed with 500 below
+     * 500
+     */
+    public static final int INTERNAL_SERVER_ERROR = 5001001;
+
+}
+
+'Meta':
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@SuperBuilder
+public class Meta {
+
+    private Integer code;
+
+    private Long pageIndex;
+
+    private Long pageSize;
+
+    private Long totalItems;
+
+    private List<ErrorViolation> errors;
+
+    private String message;
+
+    private String requestId;
+
+
+    public Meta(String requestId, int code, Long pageIndex, Long pageSize, long totalItems) {
+        this.requestId = requestId;
+        this.code = code;
+        this.pageSize = pageSize;
+        this.pageIndex = pageIndex;
+        this.totalItems = totalItems;
+    }
+
+
+    public Meta(String requestId, int code, String message) {
+        this.requestId = requestId;
+        this.code = code;
+        this.message = message;
+    }
+}
+
+'GetSampleRequestDto':
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class GetSampleRequestDto {
+
+    @NotNull
+    private PronunciationLevel level;
+
+    private String customText;
+
+}
+
+'GetSampleRequest':
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class GetSampleRequestDto {
+
+    @NotNull
+    private PronunciationLevel level;
+
+    private String customText;
+
+}
+
+# Summary: 
+
+@Data
+public class GetSampleRequest {
+
+    private String category;
+
+    private String language;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String transcript;
+
+}
+
+'GetSampleResponse':
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class GetSampleResponse {
+
+    @JsonProperty("ipa_transcript")
+    private String ipaTranscript;
+
+    @JsonProperty("real_transcript")
+    private String realTranscript;
+
+    @JsonProperty("transcript_translation")
+    private String transcriptTranslation;
+
+}
+
+'GetPronunciationSampleResponseDto':
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class GetPronunciationSampleResponseDto {
+
+    private String ipaTranscript;
+
+    private String realTranscript;
+
+    private String transcriptTranslation;
+
+}
+
+'BusinessError':
+# Summary: 
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@SuperBuilder
+public class BusinessError implements Serializable {
+
+    private static final long serialVersionUID = 2405172041950251807L;
+
+    private int code;
+
+    private String message;
+
+    private HttpStatus httpStatus;
+
+    private Object data;
+
+    public BusinessError(int code, HttpStatus httpStatus) {
+        this.code = code;
+        this.httpStatus = httpStatus;
+    }
+
+    public BusinessError(int code) {
+        this.code = code;
+    }
+
+    public BusinessError(int code, HttpStatus httpStatus, Object data) {
+        this.code = code;
+        this.httpStatus = httpStatus;
+        this.data = data;
+    }
+
+    public BusinessError(int code, Object data) {
+        this.code = code;
+        this.data = data;
+    }
+
+    public BusinessError(int code, String message) {
+        this.code = code;
+        this.message = message;
+    }
+
+    public BusinessError(int code, String message, HttpStatus httpStatus) {
+        this.code = code;
+        this.message = message;
+        this.httpStatus = httpStatus;
+    }
+}
+
+'ErrorViolation':
+# Summary: 
+
+@Data
+@Accessors(chain = true)
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+@SuperBuilder
+public class ErrorViolation {
+
+    private String field;
+
+    private String code;
+
+    private String description;
+}
+
+'RequestKeyConstant':
+# Summary: 
+
+public class RequestKeyConstant {
+
+    private RequestKeyConstant() {}
+
+    public static final String REQUEST_ID = "request_id";
+
+    public static final String THREAD_REQUEST_ID = "requestId";
+
+    public static final String REQUEST_PARAMETERS = "request_parameters";
+
+    public static final String REQUEST_BODY = "request_body";
+
+    public static final String URI = "uri";
+
+    public static final String X_REQUEST_ID = "X-Request-ID";
+
+    public static final String CONTENT_TYPE = "Content-Type";
+
+    public static final String USER_AGENT = "User-Agent";
+
+    public static final String X_API_KEY = "x-api-key";
+
+    public static final String X_API_SECRET = "x-api-secret";
+
+    public static final String API_KEY = "api_key";
+
+    public static final String API_SECRET = "api_secret";
+
+    public static final String AUTHORIZATION = "Authorization";
+
+}
+
+'BasicRequestList':
+# Summary: 
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@SuperBuilder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+public class BasicRequestList extends BasicRequest {
+
+    private static final long serialVersionUID = -2411435498386121564L;
+
+    @NotNull(message = "page_index must not be null!")
+    private Long pageIndex;
+
+    private Long pageStart;
+
+    @NotNull(message = "page_size must not be null!")
+    private Long pageSize;
+
+    private Long totalItems;
+
+    public BasicRequestList(Long totalItems, String requestId) {
+        this.setTotalItems(totalItems);
+        this.setRequestId(requestId);
+    }
+
+}
+
+'BasicRequest':
+# Summary: 
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@SuperBuilder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+public class BasicRequest implements Serializable {
+
+    private static final long serialVersionUID = 1606619939033520333L;
+
+    private String requestId;
+
+    private String uri;
+
+    private String opsUserEmail;
+
+    private String opsUserId;
+
+    private String opsUsername;
+
+    private List<String> manageMerchants;
+
+    private List<String> branchCodes;
+
+    public boolean isValidByManageMerchants(String merchantCode) {
+        if (StringUtils.isBlank(merchantCode)) {
+            return true;
+        }
+
+        return new HashSet<>(manageMerchants).contains(merchantCode);
+    }
+
+}
+
+# Summary: 
+
+public boolean isValidByManageMerchants(String merchantCode) {
+        if (StringUtils.isBlank(merchantCode)) {
+            return true;
+        }
+
+        return new HashSet<>(manageMerchants).contains(merchantCode);
+    }
+
+# Summary: 
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@SuperBuilder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+public class BasicRequestList extends BasicRequest {
+
+    private static final long serialVersionUID = -2411435498386121564L;
+
+    @NotNull(message = "page_index must not be null!")
+    private Long pageIndex;
+
+    private Long pageStart;
+
+    @NotNull(message = "page_size must not be null!")
+    private Long pageSize;
+
+    private Long totalItems;
+
+    public BasicRequestList(Long totalItems, String requestId) {
+        this.setTotalItems(totalItems);
+        this.setRequestId(requestId);
+    }
+
+}
+
+No new code found for symbol: HttpServletRequest.
+
+'HttpServletResponse':
+public abstract byte[] downloadFile(String fileName);
+
+No new code found for symbol: Environment.
+
+No new code found for symbol: ObjectMapper.
+
+'HttpHeaders':
+public abstract byte[] downloadFile(String fileName);
+
+'HttpStatus':
+# Summary: 
+
+@ExceptionHandler(HttpStatusCodeException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleHttpStatusCodeException(HttpStatusCodeException exception) {
+        HttpStatus statusCode = (HttpStatus) exception.getStatusCode();
+
+        if (statusCode.value() == HttpStatus.BAD_REQUEST.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.UNAUTHORIZED.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.UNAUTHORIZED);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.FORBIDDEN.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.FORBIDDEN_ERROR);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.NOT_FOUND.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.NOT_FOUND);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.INTERNAL_SERVER_ERROR.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.INTERNAL_SERVER_ERROR);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        throw exception;
+    }
+
+'AuthProfileResponse':
+# Summary: 
+
+@AllArgsConstructor
+@Data
+public class AuthProfileResponse {
+
+    private String email;
+
+    private String username;
+
+    private String firstName;
+
+    private String lastName;
+
+    private String phoneNumber;
+
+    private String gender;
+
+    private String role;
+
+    private String avatar;
+
+    private Boolean isVerified;
+
+}
+
+'CreateQuizDto':
+# Summary: 
+
+@Data
+public class CreateQuizDto {
+
+    private String id;
+
+    private String title;
+
+    private String description;
+
+    private List<QuestionDto> questions;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    private Integer totalPoints;
+
+    private String difficulty;
+
+    private Integer estimatedDuration;
+
+    private List<String> tags;
+
+    private Boolean isPublic;
+
+    private Integer version;
+
+    private QuizNavigationMode navigationMode;
+
+    private Boolean hasTimer;
+
+    private Integer timeLimit;
+
+    private Integer warningTime;
+
+    private Boolean allowQuestionPicker;
+
+    private Boolean shuffleQuestions;
+
+    private Boolean shuffleAnswers;
+
+    private Boolean showProgress;
+
+    private Boolean allowPause;
+
+    private Integer maxAttempts;
+
+    private Integer passingScore;
+
+}
+
+'Quiz':
+# Summary: 
+
+@RestController
+@RequestMapping("/api/v1/quizzes")
+public class QuizController {
+
+    private final QuizService quizService;
+
+    private final BaseService baseService;
+
+    public QuizController(QuizService quizService, BaseService baseService) {
+        this.quizService = quizService;
+        this.baseService = baseService;
+    }
+
+    @PostMapping
+    @LogsActivityAnnotation
+    BaseResponse<?> createQuiz(@RequestBody CreateQuizDto request, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.createQuiz(request, currentUser.getId()));
+    }
+
+    @PutMapping
+    @LogsActivityAnnotation
+    BaseResponse<?> updateQuiz(@RequestBody CreateQuizDto request, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.updateQuiz(request));
+    }
+
+    @GetMapping("/{id}")
+    @LogsActivityAnnotation
+    BaseResponse<Quiz> getQuizById(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getById(id));
+    }
+
+    @GetMapping("/{id}/stats")
+    @LogsActivityAnnotation
+    BaseResponse<Quiz> getQuizStatsById(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getQuizStatsById(id));
+    }
+
+    @GetMapping("/my")
+    @LogsActivityAnnotation
+    BaseResponse<List<Quiz>> getMyQuizzes(@CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getMyQuizzes(currentUser.getId()));
+    }
+
+    @DeleteMapping("/{id}")
+    @LogsActivityAnnotation
+    BaseResponse<?> deleteQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        quizService.deleteQuiz(id);
+        return baseService.ofSucceeded(null);
+    }
+
+    @PostMapping("/{id}/save")
+    @LogsActivityAnnotation
+    BaseResponse<?> saveQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        quizService.saveQuiz(id, currentUser.getId());
+        return baseService.ofSucceeded(null);
+    }
+
+    @DeleteMapping("/{id}/save")
+    @LogsActivityAnnotation
+    BaseResponse<?> unsaveQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        quizService.unsaveQuiz(id, currentUser.getId());
+        return baseService.ofSucceeded(null);
+    }
+
+    @GetMapping("/{id}/save")
+    @LogsActivityAnnotation
+    BaseResponse<List<UserSavedQuiz>> getListUserSavedQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getUserSavedQuiz(id, currentUser.getId()));
+    }
+
+    @GetMapping("/save")
+    @LogsActivityAnnotation
+    BaseResponse<List<Quiz>> getSavedQuizzes(@CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getSavedQuizzes(currentUser.getId()));
+    }
+
+    @PostMapping("/{id}/attempts")
+    @LogsActivityAnnotation
+    BaseResponse<?> attemptQuiz(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.startQuiz(id, currentUser.getId()));
+    }
+
+    @GetMapping("/attempts")
+    @LogsActivityAnnotation
+    BaseResponse<List<Quiz>> getQuizAttempts(@CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getMyQuizAttempts(currentUser.getId().toString()));
+    }
+
+    @GetMapping("/attempts/{id}")
+    @LogsActivityAnnotation
+    BaseResponse<QuizAttempt> getQuizAttempt(@PathVariable String id, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.getAttempt(id, currentUser.getId()));
+    }
+
+    @PostMapping("/attempts/{attempt_id}/submit-question")
+    @LogsActivityAnnotation
+    BaseResponse<?> submitQuizQuestion(@PathVariable String attempt_id, @RequestBody SubmitAnswerRequest request, @CurrentUser UserPrincipal currentUser) {
+        return baseService.ofSucceeded(quizService.submitQuizQuestion(attempt_id, request, currentUser.getId()));
+    }
+
+    @PostMapping("/attempts/{attempt_id}/complete")
+    @LogsActivityAnnotation
+    BaseResponse<?> submitQuizComplete(@PathVariable String attempt_id, @CurrentUser UserPrincipal currentUser) {
+        quizService.submitQuizComplete(attempt_id, currentUser.getId());
+        return baseService.ofSucceeded(null);
+    }
+}
+
+# Summary: 
+
+@RestController
+@RequestMapping("/api/v1/pub/quizzes")
+public class QuizPubController {
+
+    private final QuizService quizService;
+
+    public QuizPubController(QuizService quizService) {
+        this.quizService = quizService;
+    }
+
+    @GetMapping
+    @LogsActivityAnnotation
+    BaseResponse<List<Quiz>> getAllQuizzes(@CurrentUser UserPrincipal currentUser) {
+        return BaseResponse.ofSucceeded(quizService.getAllPublicQuizzes());
+    }
+
+}
+
+# Summary: 
+
+@Data
+public class CreateQuizDto {
+
+    private String id;
+
+    private String title;
+
+    private String description;
+
+    private List<QuestionDto> questions;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    private Integer totalPoints;
+
+    private String difficulty;
+
+    private Integer estimatedDuration;
+
+    private List<String> tags;
+
+    private Boolean isPublic;
+
+    private Integer version;
+
+    private QuizNavigationMode navigationMode;
+
+    private Boolean hasTimer;
+
+    private Integer timeLimit;
+
+    private Integer warningTime;
+
+    private Boolean allowQuestionPicker;
+
+    private Boolean shuffleQuestions;
+
+    private Boolean shuffleAnswers;
+
+    private Boolean showProgress;
+
+    private Boolean allowPause;
+
+    private Integer maxAttempts;
+
+    private Integer passingScore;
+
+}
+
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class StartQuizResponse {
+
+    private String quizAttemptId;
+
+    private String quizId;
+
+    private String userId;
+
+    private LocalDateTime startedAt;
+
+}
+
+# Summary: 
+
+@Entity
+@Table(name = "quizzes")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Quiz {
+
+    @Id
+    @GeneratedValue(generator = "UUID")
+    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @Column(name = "id", updatable = false, nullable = false)
+    private UUID id;
+
+    @Column(name = "title")
+    private String title;
+
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "category")
+    private String category;
+
+    @Column(name = "difficulty")
+    private String difficulty;
+
+    @Column(name = "duration")
+    private Integer duration;
+
+    @Column(name = "question_count")
+    private Integer questionCount = 0;
+
+    @Column(name = "tags", columnDefinition = "text[]")
+    @Type(ListArrayType.class)
+    private List<String> tags = new ArrayList<>();
+
+    @Column(name = "status")
+    @Enumerated(EnumType.STRING)
+    private QuizStatus status;
+
+    @CreationTimestamp
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "author_id") // This is the ID field for the conceptual author
+    private UUID authorId;
+
+    @Transient
+    private User author;
+
+    @Column(name = "rating", precision = 3, scale = 2)
+    private BigDecimal rating = BigDecimal.valueOf(0.00);
+
+    @Column(name = "attempts")
+    private Integer attempts = 0;
+
+    @Column(name = "passing_score")
+    private Integer passingScore;
+
+    @Column(name = "navigation_mode")
+    private String navigationMode;
+
+    @Column(name = "has_timer")
+    private Boolean hasTimer = false;
+
+    @Column(name = "time_limit")
+    private Integer timeLimit;
+
+    @Column(name = "warning_time")
+    private Integer warningTime;
+
+    @Column(name = "allow_question_picker")
+    private Boolean allowQuestionPicker = false;
+
+    @Column(name = "shuffle_questions")
+    private Boolean shuffleQuestions = false;
+
+    @Column(name = "shuffle_answers")
+    private Boolean shuffleAnswers = false;
+
+    @Column(name = "show_progress")
+    private Boolean showProgress = false;
+
+    @Column(name = "allow_pause")
+    private Boolean allowPause = false;
+
+    @Column(name = "max_attempts")
+    private Integer maxAttempts;
+
+    @Transient
+    private Set<Question> questions;
+
+    @Transient
+    private Set<QuizAttempt> quizAttempts;
+
+    @Transient
+    private Set<User> savedByUsers;
+
+    @Transient
+    private Set<LeaderboardEntry> leaderboardEntries;
+
+}
+
+# Summary: 
+
+@Entity
+@Table(name = "quiz_answers")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class QuizAnswer {
+    @Id
+    @GeneratedValue(generator = "UUID")
+    @Column(name = "id", updatable = false, nullable = false)
+    private UUID id;
+
+    @Column(name = "quiz_attempt_id", nullable = false)
+    private UUID quizAttemptId;
+
+    @Column(name = "question_id", nullable = false)
+    private UUID questionId;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "selected_answers", columnDefinition = "jsonb")
+    private List<QuestionOption> selectedAnswers;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "fill_in_blanks_answers", columnDefinition = "jsonb")
+    private List<String> fillInBlanksAnswers;
+
+    @Column(name = "answer_text")
+    private String answerText;
+
+    @Column(name = "is_correct")
+    private boolean isCorrect;
+
+    @Column(name = "score_achieved")
+    private Integer scoreAchieved;
+
+    @Column(name = "time_taken")
+    private Integer timeTaken;
+
+    @Column(name = "audio_url")
+    private String audioUrl;
+
+    @CreationTimestamp
+    @Column(name = "answered_at")
+    private LocalDateTime answeredAt;
+
+}
+
+# Summary: 
+
+@Entity
+@Table(name = "quiz_attempts")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class QuizAttempt {
+
+    @Id
+    @GeneratedValue(generator = "UUID")
+    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @Column(name = "id", updatable = false, nullable = false)
+    private UUID id;
+
+    @Column(name = "quiz_id", nullable = false)
+    private UUID quizId;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
+    @Transient
+    private Quiz quiz;
+
+    @Transient
+    private User user;
+
+    @Transient
+    private List<QuizAnswer> answers;
+
+    @Column(name = "score", precision = 5, scale = 2)
+    private BigDecimal score;
+
+    @Column(name = "total_questions")
+    private Integer totalQuestions;
+
+    @Column(name = "correct_answers")
+    private Integer correctAnswers;
+
+    @Column(name = "time_spent")
+    private Long timeSpent;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    @Column(name = "passed")
+    private Boolean passed;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "created_at")
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+
+}
+
+# Summary: 
+
+@Entity
+@Table(name = "user_saved_quizzes")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@IdClass(UserSavedQuizId.class)
+public class UserSavedQuiz {
+
+    @Id
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
+    @Id
+    @Column(name = "quiz_id", nullable = false)
+    private UUID quizId;
+
+    @Transient
+    private User user;
+    @Transient
+    private Quiz quiz;
+
+    @CreationTimestamp
+    @Column(name = "saved_at", updatable = false)
+    private LocalDateTime savedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+}
+
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserSavedQuizId implements Serializable {
+    private UUID userId;
+    private UUID quizId;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserSavedQuizId that = (UserSavedQuizId) o;
+        return Objects.equals(userId, that.userId) &&
+                Objects.equals(quizId, that.quizId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(userId, quizId);
+    }
+}
+
+# Summary: 
+
+@Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserSavedQuizId that = (UserSavedQuizId) o;
+        return Objects.equals(userId, that.userId) &&
+                Objects.equals(quizId, that.quizId);
+    }
+
+# Summary: 
+
+@Override
+    public int hashCode() {
+        return Objects.hash(userId, quizId);
+    }
+
+# Summary: 
+
+@Override
+    @Transactional(readOnly = true)
+    public List<Question> findByQuizId(String quizId) {
+        return repository.findByQuizId(UUID.fromString(quizId));
+    }
+
+# Summary: 
+
+@Override
+    public Integer countByQuizId(String quizId) {
+        return repository.countByQuizId(UUID.fromString(quizId));
+    }
+
+# Summary: 
+
+@Repository
+public class QuizAnswerRepositoryImpl implements QuizAnswerRepository {
+
+    private final JpaQuizAnswerRepository repository;
+
+    public QuizAnswerRepositoryImpl(JpaQuizAnswerRepository repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    public QuizAnswer save(QuizAnswer answer) {
+        return repository.save(answer);
+    }
+
+    @Override
+    public void saveAll(List<QuizAnswer> answers) {
+        repository.saveAll(answers);
+    }
+
+    @Override
+    public Optional<QuizAnswer> findById(String id) {
+        return repository.findById(UUID.fromString(id));
+    }
+
+    @Override
+    public List<QuizAnswer> findByQuizAttemptId(String attemptId) {
+        return repository.findByQuizAttemptId(UUID.fromString(attemptId));
+    }
+
+    @Override
+    public void delete(QuizAnswer oldAnswer) {
+        repository.delete(oldAnswer);
+    }
+}
+
+# Summary: 
+
+@Override
+    public QuizAnswer save(QuizAnswer answer) {
+        return repository.save(answer);
+    }
+
+# Summary: 
+
+@Override
+    public void saveAll(List<QuizAnswer> answers) {
+        repository.saveAll(answers);
+    }
+
+# Summary: 
+
+@Override
+    public Optional<QuizAnswer> findById(String id) {
+        return repository.findById(UUID.fromString(id));
+    }
+
+# Summary: 
+
+@Override
+    public List<QuizAnswer> findByQuizAttemptId(String attemptId) {
+        return repository.findByQuizAttemptId(UUID.fromString(attemptId));
+    }
+
+# Summary: 
+
+@Override
+    public void delete(QuizAnswer oldAnswer) {
+        repository.delete(oldAnswer);
+    }
+
+# Summary: 
+
+@Repository
+public class QuizAttemptRepositoryImpl implements QuizAttemptRepository {
+
+    private final JpaQuizAttemptRepository jpaQuizAttemptRepository;
+
+    public QuizAttemptRepositoryImpl(JpaQuizAttemptRepository jpaQuizAttemptRepository) {
+        this.jpaQuizAttemptRepository = jpaQuizAttemptRepository;
+    }
+
+    @Override
+    public QuizAttempt save(QuizAttempt attempt) {
+        return jpaQuizAttemptRepository.save(attempt);
+    }
+
+    @Override
+    public Optional<QuizAttempt> findById(String id) {
+        return jpaQuizAttemptRepository.findById(UUID.fromString(id));
+    }
+
+    @Override
+    public List<QuizAttempt> findAll() {
+        return jpaQuizAttemptRepository.findAll();
+    }
+
+    @Override
+    public List<QuizAttempt> findByUserId(UUID id) {
+        return jpaQuizAttemptRepository.findByUserId(id);
+    }
+
+    @Override
+    public List<QuizAttempt> findByQuizId(String id) {
+        return jpaQuizAttemptRepository.findByQuizId(UUID.fromString(id));
+    }
+}
+
+# Summary: 
+
+@Override
+    public QuizAttempt save(QuizAttempt attempt) {
+        return jpaQuizAttemptRepository.save(attempt);
+    }
+
+# Summary: 
+
+@Override
+    public Optional<QuizAttempt> findById(String id) {
+        return jpaQuizAttemptRepository.findById(UUID.fromString(id));
+    }
+
+# Summary: 
+
+@Override
+    public List<QuizAttempt> findAll() {
+        return jpaQuizAttemptRepository.findAll();
+    }
+
+# Summary: 
+
+@Override
+    public List<QuizAttempt> findByUserId(UUID id) {
+        return jpaQuizAttemptRepository.findByUserId(id);
+    }
+
+# Summary: 
+
+@Override
+    public List<QuizAttempt> findByQuizId(String id) {
+        return jpaQuizAttemptRepository.findByQuizId(UUID.fromString(id));
+    }
+
+# Summary: 
+
+@Repository
+public class QuizRepositoryImpl implements QuizRepository {
+
+    private final JpaQuizRepository repository;
+
+    public QuizRepositoryImpl(JpaQuizRepository repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    public void save(Quiz quiz) {
+        repository.save(quiz);
+    }
+
+    @Override
+    public Optional<Quiz> findById(String id) {
+        return repository.findById(UUID.fromString(id));
+    }
+
+    @Override
+    public List<Quiz> findAll() {
+        return repository.findAll();
+    }
+
+    @Override
+    public List<Quiz> findByUserId(UUID id) {
+        return repository.findByAuthorId(id);
+    }
+
+    @Override
+    public List<Quiz> findByIdIn(Set<String> quizId) {
+        return repository.findByIdIn(quizId.stream()
+                .map(UUID::fromString)
+                .toList());
+    }
+
+    @Override
+    public List<Quiz> findAllPublic() {
+        return repository.findByStatus(QuizStatus.PUBLIC);
+    }
+}
+
+# Summary: 
+
+@Override
+    public void save(Quiz quiz) {
+        repository.save(quiz);
+    }
+
+# Summary: 
+
+@Override
+    public Optional<Quiz> findById(String id) {
+        return repository.findById(UUID.fromString(id));
+    }
+
+# Summary: 
+
+@Override
+    public List<Quiz> findAll() {
+        return repository.findAll();
+    }
+
+# Summary: 
+
+@Override
+    public List<Quiz> findByUserId(UUID id) {
+        return repository.findByAuthorId(id);
+    }
+
+# Summary: 
+
+@Override
+    public List<Quiz> findByIdIn(Set<String> quizId) {
+        return repository.findByIdIn(quizId.stream()
+                .map(UUID::fromString)
+                .toList());
+    }
+
+# Summary: 
+
+@Override
+    public List<Quiz> findAllPublic() {
+        return repository.findByStatus(QuizStatus.PUBLIC);
+    }
+
+# Summary: 
+
+@Repository
+public class SavedQuizRepositoryImpl implements SavedQuizRepository {
+
+    private final JpaSavedQuizRepository jpaSavedQuizRepository;
+
+    public SavedQuizRepositoryImpl(JpaSavedQuizRepository jpaSavedQuizRepository) {
+        this.jpaSavedQuizRepository = jpaSavedQuizRepository;
+    }
+
+    @Override
+    public void saveQuiz(String quizId, String userId) {
+        UserSavedQuiz savedQuiz = new UserSavedQuiz();
+        savedQuiz.setSavedAt(LocalDateTime.now());
+        savedQuiz.setQuizId(UUID.fromString(quizId));
+        savedQuiz.setUserId(UUID.fromString(userId));
+        jpaSavedQuizRepository.save(savedQuiz);
+    }
+
+    @Override
+    public List<UserSavedQuiz> findAllByUserId(String userId) {
+        return jpaSavedQuizRepository.findByUserId(UUID.fromString(userId));
+    }
+
+    @Override
+    public void deleteByQuizIdAndUserId(String quizId, String userId) {
+        jpaSavedQuizRepository.deleteByQuizIdAndUserId(UUID.fromString(quizId), UUID.fromString(userId));
+    }
+
+    @Override
+    public boolean existsByQuizIdAndUserId(String quizId, String userId) {
+        return jpaSavedQuizRepository.existsByQuizIdAndUserId(UUID.fromString(quizId), UUID.fromString(userId));
+    }
+
+    @Override
+    public List<UserSavedQuiz> findAllByQuizId(String quizId) {
+        return jpaSavedQuizRepository.findAllByQuizId(UUID.fromString(quizId));
+    }
+
+    @Override
+    public void update(UserSavedQuiz savedQuiz) {
+        jpaSavedQuizRepository.save(savedQuiz);
+    }
+}
+
+# Summary: 
+
+@Override
+    public void saveQuiz(String quizId, String userId) {
+        UserSavedQuiz savedQuiz = new UserSavedQuiz();
+        savedQuiz.setSavedAt(LocalDateTime.now());
+        savedQuiz.setQuizId(UUID.fromString(quizId));
+        savedQuiz.setUserId(UUID.fromString(userId));
+        jpaSavedQuizRepository.save(savedQuiz);
+    }
+
+# Summary: 
+
+@Override
+    public List<UserSavedQuiz> findAllByUserId(String userId) {
+        return jpaSavedQuizRepository.findByUserId(UUID.fromString(userId));
+    }
+
+# Summary: 
+
+@Override
+    public void deleteByQuizIdAndUserId(String quizId, String userId) {
+        jpaSavedQuizRepository.deleteByQuizIdAndUserId(UUID.fromString(quizId), UUID.fromString(userId));
+    }
+
+# Summary: 
+
+@Override
+    public boolean existsByQuizIdAndUserId(String quizId, String userId) {
+        return jpaSavedQuizRepository.existsByQuizIdAndUserId(UUID.fromString(quizId), UUID.fromString(userId));
+    }
+
+# Summary: 
+
+@Override
+    public List<UserSavedQuiz> findAllByQuizId(String quizId) {
+        return jpaSavedQuizRepository.findAllByQuizId(UUID.fromString(quizId));
+    }
+
+# Summary: 
+
+@Override
+    public void update(UserSavedQuiz savedQuiz) {
+        jpaSavedQuizRepository.save(savedQuiz);
+    }
+
+# Summary: 
+
+@Service
+@Slf4j
+public class QuizServiceImpl implements QuizService {
+
+    private final QuizMapper quizMapper;
+
+    private final QuestionMapper questionMapper;
+
+    private final QuizRepository quizRepository;
+
+    private final QuestionRepository questionRepository;
+
+    private final QuizAttemptRepository quizAttemptRepository;
+
+    private final QuizAnswerRepository quizAnswerRepository;
+
+    private final UserRepository userRepository;
+
+    private final SavedQuizRepository savedQuizRepository;
+
+    private final PronunciationServiceImpl pronunciationService;
+
+    private final ResourceService resourceService;
+
+    public QuizServiceImpl(QuizMapper quizMapper,
+                           QuestionMapper questionMapper,
+                           QuizRepository quizRepository,
+                           QuestionRepository questionRepository,
+                           QuizAttemptRepository quizAttemptRepository,
+                           QuizAnswerRepository quizAnswerRepository,
+                           UserRepository userRepository,
+                           SavedQuizRepository savedQuizRepository,
+                           PronunciationServiceImpl pronunciationService,
+                           ResourceService resourceService) {
+        this.quizMapper = quizMapper;
+        this.questionMapper = questionMapper;
+        this.quizRepository = quizRepository;
+        this.questionRepository = questionRepository;
+        this.quizAttemptRepository = quizAttemptRepository;
+        this.quizAnswerRepository = quizAnswerRepository;
+        this.userRepository = userRepository;
+        this.savedQuizRepository = savedQuizRepository;
+        this.pronunciationService = pronunciationService;
+        this.resourceService = resourceService;
+    }
+
+    @Override
+    public BaseCreateUpdateResponse createQuiz(CreateQuizDto request, UUID authorId) {
+        Quiz q = quizMapper.createQuizDtoToQuiz(request);
+        q.setAuthorId(authorId);
+        quizRepository.save(q);
+        return new BaseCreateUpdateResponse(q.getId().toString());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public BaseCreateUpdateResponse updateQuiz(CreateQuizDto request) {
+        if (request.getId() == null) {
+            throw new IllegalArgumentException("Quiz ID must be provided for update operation.");
+        }
+        UUID quizId = UUID.fromString(request.getId());
+        Quiz existingQuiz = quizRepository.findById(request.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Quiz with ID " + request.getId() + " not found."));
+
+        quizMapper.updateQuizFromDto(request, existingQuiz);
+        existingQuiz.setUpdatedAt(LocalDateTime.now());
+        if (request.getIsPublic()) {
+            existingQuiz.setStatus(QuizStatus.PUBLIC);
+        } else {
+            existingQuiz.setStatus(QuizStatus.DRAFT);
+        }
+
+        List<Question> existingQuestions = questionRepository.findByQuizId(request.getId());
+        Map<UUID, Question> existingQuestionMap = existingQuestions.stream()
+                .collect(Collectors.toMap(Question::getId, q -> q));
+
+        List<Question> questionsToSaveOrUpdate = new ArrayList<>();
+        Set<UUID> questionIdsInDto = request.getQuestions().stream()
+                .filter(qDto -> qDto.getId() != null)
+                .map(qDto -> UUID.fromString(qDto.getId()))
+                .collect(Collectors.toSet());
+
+        for (QuestionDto qDto : request.getQuestions()) {
+            if (qDto.getId() == null) {
+                Question newQuestion = questionMapper.questionDtoToQuestion(qDto);
+                newQuestion.setQuizId(quizId);
+                newQuestion.setCreatedAt(LocalDateTime.now());
+                newQuestion.setUpdatedAt(LocalDateTime.now());
+                if (!CollectionUtils.isEmpty(newQuestion.getOptions())) {
+                    for (QuestionOption option : newQuestion.getOptions()) {
+                        option.setId(UUID.randomUUID());
+                    }
+                }
+                questionsToSaveOrUpdate.add(newQuestion);
+            } else {
+                UUID qId = UUID.fromString(qDto.getId());
+                Question questionToUpdate = existingQuestionMap.get(qId);
+                if (questionToUpdate != null) {
+                    questionMapper.updateQuestionFromDto(qDto, questionToUpdate);
+                    questionToUpdate.setUpdatedAt(LocalDateTime.now());
+                    // Ensure options are updated correctly
+                    if (!CollectionUtils.isEmpty(questionToUpdate.getOptions())) {
+                        for (QuestionOption option : questionToUpdate.getOptions()) {
+                            if (option.getId() == null) {
+                                option.setId(UUID.randomUUID());
+                            }
+                        }
+                    }
+                    questionsToSaveOrUpdate.add(questionToUpdate);
+                }
+            }
+        }
+
+        List<Question> questionsToDelete = existingQuestions.stream()
+                .filter(eq -> !questionIdsInDto.contains(eq.getId()))
+                .collect(Collectors.toList());
+
+        if (!questionsToDelete.isEmpty()) {
+            questionRepository.deleteAll(questionsToDelete);
+        }
+        if (!questionsToSaveOrUpdate.isEmpty()) {
+            questionRepository.saveAll(questionsToSaveOrUpdate);
+        }
+
+        existingQuiz.setQuestionCount(questionRepository.countByQuizId(quizId.toString()));
+
+        quizRepository.save(existingQuiz);
+        return new BaseCreateUpdateResponse(existingQuiz.getId().toString());
+    }
+
+    @Override
+    public List<Quiz> getAllPublicQuizzes() {
+        List<Quiz> quizzes = quizRepository.findAllPublic();
+        getQuizAuthor(quizzes);
+        return quizzes;
+    }
+
+    @Override
+    public List<Quiz> getMyQuizzes(UUID id) {
+        List<Quiz> quizzes = quizRepository.findByUserId(id);
+        getQuizAuthor(quizzes);
+        return quizzes;
+    }
+
+    @Override
+    public Quiz getById(String id) {
+        Quiz quiz = quizRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_FOUND));
+        Set<Question> questions = new HashSet<>(questionRepository.findByQuizId(id));
+        quiz.setQuestions(questions);
+        getQuizAuthor(Collections.singletonList(quiz));
+        return quiz;
+    }
+
+    @Override
+    public void deleteQuiz(String id) {
+        Quiz quiz = quizRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_FOUND));
+        quiz.setDeletedAt(LocalDateTime.now());
+        quizRepository.save(quiz);
+    }
+
+    @Override
+    @Transactional
+    public BaseCreateUpdateResponse startQuiz(String quizId, UUID userId) {
+        quizRepository.findById(quizId)
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_FOUND));
+
+        QuizAttempt quizAttempt = new QuizAttempt();
+        quizAttempt.setQuizId(UUID.fromString(quizId));
+        quizAttempt.setUserId(userId);
+        quizAttempt.setScore(BigDecimal.ZERO);
+        quizAttempt.setCorrectAnswers(0);
+        quizAttempt.setTimeSpent(0L);
+        quizAttempt.setCompletedAt(null);
+        quizAttempt.setPassed(false);
+
+        QuizAttempt savedAttempt = quizAttemptRepository.save(quizAttempt);
+        return new BaseCreateUpdateResponse(savedAttempt.getId().toString());
+    }
+
+    @Override
+    @Transactional
+    public BaseCreateUpdateResponse submitQuizQuestion(String attemptId, SubmitAnswerRequest request, UUID id) {
+        UUID questionId = UUID.fromString(request.getQuestionId());
+
+        QuizAttempt quizAttempt = quizAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_ATTEMPT_NOT_FOUND));
+
+        // Ensure the quiz attempt is not already completed
+        if (quizAttempt.getCompletedAt() != null) {
+            throw new BusinessException(ErrorConstant.QUIZ_ATTEMPT_SUBMITTED);
+        }
+
+        Quiz quiz = quizRepository.findById(quizAttempt.getQuizId().toString()).orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_FOUND));
+
+        // calculate if time is exceeded by field created_at and quiz.getTimeLimit()
+        if (quiz.getTimeLimit() != null && quizAttempt.getCreatedAt() != null) {
+            LocalDateTime start = quizAttempt.getCreatedAt();
+            LocalDateTime end = LocalDateTime.now();
+            long timeSpent = Duration.between(start, end).toMinutes();
+            if (timeSpent > quiz.getTimeLimit()) {
+                quizAttempt.setTimeSpent(timeSpent);
+                quizAttempt.setCompletedAt(quizAttempt.getCreatedAt().plusMinutes(timeSpent));
+                quizAttemptRepository.save(quizAttempt);
+                throw new BusinessException(ErrorConstant.QUIZ_TIME_LIMIT_EXCEEDED);
+            }
+        }
+
+        Question question = questionRepository.findById(request.getQuestionId())
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUESTION_NOT_FOUND));
+
+        if (!Objects.equals(question.getQuizId(), quizAttempt.getQuizId())) {
+            throw new BusinessException(ErrorConstant.QUESTION_DOES_NOT_BELONG_TO_QUIZ);
+        }
+
+        // Prepare QuizAnswer entity
+        QuizAnswer quizAnswer = new QuizAnswer();
+        quizAnswer.setQuestionId(questionId);
+
+        if (QuestionType.MULTIPLE_CHOICE.name().equals(question.getType()) && !CollectionUtils.isEmpty(question.getOptions())) {
+            List<QuestionOption> options = question.getOptions().stream()
+                    .filter(option -> option.getId() != null && request.getSelectedOptions().contains(option.getId().toString()))
+                    .collect(Collectors.toList());
+            quizAnswer.setSelectedAnswers(options);
+        }
+        quizAnswer.setFillInBlanksAnswers(request.getFillInBlanksAnswers());
+        quizAnswer.setAnswerText(request.getAnswerText());
+        quizAnswer.setTimeTaken(request.getTimeTaken());
+        quizAnswer.setAudioUrl(request.getAudioUrl());
+
+        boolean isCorrect = false;
+        Integer scoreAchieved = 0;
+
+        // Determine if the answer is correct based on question type
+        switch (question.getType().toLowerCase()) {
+            case "multiple_choice":
+                List<String> userSelectedValues = request.getSelectedOptions() != null ?
+                        request.getSelectedOptions().stream()
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toList()) : new ArrayList<>();
+
+                List<String> correctOptionValues = question.getCorrectAnswer() != null ?
+                        question.getOptions().stream().filter(QuestionOption::getIsCorrect).map(i -> i.getId().toString()).sorted().toList() : new ArrayList<>();
+                userSelectedValues.sort(String::compareTo);
+
+                isCorrect = userSelectedValues.equals(correctOptionValues);
+                break;
+            case "true_false":
+                isCorrect = (request.getUserAnswerTrueFalse() != null &&
+                        request.getUserAnswerTrueFalse().equals(question.getTrueFalseAnswer()));
+                break;
+            case "fill_in_the_blank":
+                List<String> userFillInBlanks = request.getFillInBlanksAnswers() != null ?
+                        request.getFillInBlanksAnswers().stream()
+                                .filter(Objects::nonNull)
+                                .map(i -> i.toLowerCase().trim())
+                                .collect(Collectors.toList()) : new ArrayList<>();
+
+                List<String> correctBlanks = question.getCorrectBlanks() != null ?
+                        question.getCorrectBlanks().stream()
+                                .filter(Objects::nonNull)
+                                .map(i -> i.toLowerCase().trim())
+                                .collect(Collectors.toList()) : new ArrayList<>();
+
+                Collections.sort(userFillInBlanks);
+                Collections.sort(correctBlanks);
+
+                isCorrect = userFillInBlanks.equals(correctBlanks);
+                break;
+            case "short_answer":
+                isCorrect = (request.getAnswerText() != null &&
+                        question.getCorrectAnswer() != null &&
+                        !question.getCorrectAnswer().isEmpty() &&
+                        question.getCorrectAnswer().getFirst().equalsIgnoreCase(request.getAnswerText().trim()));
+                break;
+            case "pronunciation":
+                if (request.getAudioUrl() == null || request.getAudioUrl().isEmpty()) {
+                    break;
+                }
+                File audioFile = resourceService.downloadResourceFromUrl(request.getAudioUrl());
+                if (audioFile == null || !audioFile.exists()) {
+                    break;
+                }
+                String base64File = "data:audio/ogg;;base64," + FileUtils.convertToBase64(audioFile);
+                if (base64File == null) {
+                    break;
+                }
+                try {
+                    PronunciationAccuracyResponseDto pronunAccuracy = pronunciationService.getAccuracy(
+                            PronunciationAccuracyRequestDto.builder()
+                                    .base64Audio(base64File)
+                                    .text(question.getPronunciationText())
+                                    .build()
+                    );
+                    isCorrect = pronunAccuracy.getPronunciationAccuracy() >= question.getAcceptRate();
+                    quizAnswer.setAnswerText(JsonUtils.toJsonString(pronunAccuracy));
+                } catch (Exception e) {
+                    log.error("Error while checking pronunciation accuracy: {}", e.getMessage());
+                }
+                break;
+
+            default:
+                System.err.println("Unknown question type: " + question.getType());
+        }
+
+        if (isCorrect) {
+            scoreAchieved = question.getPoints() != null ? question.getPoints() : 0;
+        }
+
+        quizAnswer.setCorrect(isCorrect);
+        quizAnswer.setScoreAchieved(scoreAchieved);
+
+        List<QuizAnswer> currentAnswers = quizAnswerRepository.findByQuizAttemptId(attemptId);
+
+        for (int i = 0; i < currentAnswers.size(); i++) {
+            if (currentAnswers.get(i).getQuestionId().equals(questionId)) {
+                QuizAnswer oldAnswer = currentAnswers.get(i);
+                quizAttempt.setScore(quizAttempt.getScore().subtract(BigDecimal.valueOf(oldAnswer.getScoreAchieved())));
+                if (oldAnswer.isCorrect()) {
+                    quizAttempt.setCorrectAnswers(quizAttempt.getCorrectAnswers() - 1);
+                }
+                quizAnswerRepository.delete(oldAnswer);
+                break;
+            }
+        }
+
+        quizAnswer.setQuizAttemptId(UUID.fromString(attemptId));
+        // check if question submitted before
+        quizAnswerRepository.save(quizAnswer);
+
+        quizAttempt.setScore(quizAttempt.getScore().add(BigDecimal.valueOf(scoreAchieved)));
+        if (isCorrect) {
+            quizAttempt.setCorrectAnswers(quizAttempt.getCorrectAnswers() + 1);
+        }
+
+        // update total score
+        quizAttemptRepository.save(quizAttempt);
+
+        return new BaseCreateUpdateResponse(quizAnswer.getId().toString());
+    }
+
+    @Override
+    public List<Quiz> getMyQuizAttempts(String userId) {
+        List<QuizAttempt> attempts = quizAttemptRepository.findByUserId(UUID.fromString(userId));
+        if (CollectionUtils.isEmpty(attempts)) {
+            return Collections.emptyList();
+        }
+
+        Set<String> quizId = attempts.stream()
+                .map(QuizAttempt::getQuizId)
+                .map(UUID::toString)
+                .collect(Collectors.toSet());
+
+        List<Quiz> quizzes = quizRepository.findByIdIn(quizId);
+        if (CollectionUtils.isEmpty(quizzes)) {
+            return Collections.emptyList();
+        }
+
+        getQuizAuthor(quizzes);
+
+        Map<UUID, List<QuizAttempt>> attemptMap = attempts.stream()
+                .collect(Collectors.groupingBy(QuizAttempt::getQuizId));
+        for (Quiz quiz : quizzes) {
+            quiz.setQuizAttempts(new HashSet<>(attemptMap.get(quiz.getId())));
+        }
+
+        return quizzes;
+    }
+
+    @Override
+    public QuizAttempt getAttempt(String attemptId, UUID userId) {
+        // TODO: check permission
+        QuizAttempt attempt = quizAttemptRepository.findById(attemptId).orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_ATTEMPT_NOT_FOUND));
+        Quiz quiz = this.getById(attempt.getQuizId().toString());
+        getQuizAuthor(Collections.singletonList(quiz));
+        attempt.setQuiz(quiz);
+        List<QuizAnswer> answers = quizAnswerRepository.findByQuizAttemptId(attemptId);
+        attempt.setAnswers(answers);
+
+        return attempt;
+    }
+
+    @Override
+    public void submitQuizComplete(String attemptId, UUID id) {
+        QuizAttempt attempt = quizAttemptRepository.findById(attemptId).orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_ATTEMPT_NOT_FOUND));
+        if (!id.equals(attempt.getUserId())) {
+            throw new BusinessException(ErrorConstant.QUIZ_ATTEMPT_NOT_BELONG_TO_USER);
+        }
+
+        if (attempt.getCompletedAt() != null) {
+            throw new BusinessException(ErrorConstant.QUIZ_ATTEMPT_SUBMITTED);
+        }
+        attempt.setCompletedAt(LocalDateTime.now());
+        quizAttemptRepository.save(attempt);
+        log.info("saved quiz attempt with id: {}", attemptId);
+    }
+
+    @Override
+    public Quiz getQuizStatsById(String id) {
+        Quiz quiz = quizRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_FOUND));
+        getQuizAuthor(Collections.singletonList(quiz));
+        List<Question> questions = questionRepository.findByQuizId(id);
+        quiz.setQuestions(new HashSet<>(questions));
+        List<QuizAttempt> attempts = quizAttemptRepository.findByQuizId(quiz.getId().toString());
+
+        attempts.forEach(attempt -> {
+            userRepository.getUserById(attempt.getUserId().toString()).ifPresent(attempt::setUser);
+        });
+
+        quiz.setQuizAttempts(new HashSet<>(attempts));
+        List<User> savedUsers = savedQuizRepository.findAllByQuizId(id)
+                .stream()
+                .map(savedQuiz -> userRepository.getUserById(savedQuiz.getUserId().toString()).orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+        quiz.setSavedByUsers(new HashSet<>(savedUsers));
+
+        return quiz;
+    }
+
+    @Override
+    public void saveQuiz(String quizId, UUID userId) {
+        savedQuizRepository.saveQuiz(quizId, userId.toString());
+    }
+
+    @Override
+    public List<Quiz> getSavedQuizzes(UUID userId) {
+        List<UserSavedQuiz> savedQuizzes = savedQuizRepository.findAllByUserId(userId.toString());
+        if (CollectionUtils.isEmpty(savedQuizzes)) {
+            return Collections.emptyList();
+        }
+
+        Set<String> quizIds = savedQuizzes.stream()
+                .map(UserSavedQuiz::getQuizId)
+                .map(UUID::toString)
+                .collect(Collectors.toSet());
+        if (CollectionUtils.isEmpty(quizIds)) {
+            return Collections.emptyList();
+        }
+
+        List<Quiz> quizzes = quizRepository.findByIdIn(quizIds);
+        if (CollectionUtils.isEmpty(quizzes)) {
+            return Collections.emptyList();
+        }
+
+        getQuizAuthor(quizzes);
+
+        return quizzes;
+    }
+
+    @Override
+    public void unsaveQuiz(String quizId, UUID userId) {
+        UserSavedQuiz savedQuiz = savedQuizRepository.findAllByQuizId(quizId)
+                .stream()
+                .filter(q -> q.getUserId().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_SAVED));
+
+        savedQuiz.setSavedAt(LocalDateTime.now());
+        savedQuiz.setDeletedAt(null);
+        savedQuizRepository.update(savedQuiz);
+    }
+
+    @Override
+    public List<UserSavedQuiz> getUserSavedQuiz(String quizId, UUID userId) {
+        List<UserSavedQuiz> savedQuizzes = savedQuizRepository.findAllByUserId(userId.toString());
+        savedQuizzes.forEach(savedQuiz -> {
+            userRepository.getUserById(savedQuiz.getUserId().toString()).ifPresent(savedQuiz::setUser);
+        });
+        return savedQuizzes;
+    }
+
+    private void getQuizAuthor(List<Quiz> quizzes) {
+        quizzes.forEach(q -> {
+            if (q.getAuthorId() != null) {
+                q.setAuthor(userRepository.getUserById(q.getAuthorId().toString()).orElse(null));
+            }
+        });
+    }
+
+}
+
+# Summary: 
+
+@Override
+    public BaseCreateUpdateResponse createQuiz(CreateQuizDto request, UUID authorId) {
+        Quiz q = quizMapper.createQuizDtoToQuiz(request);
+        q.setAuthorId(authorId);
+        quizRepository.save(q);
+        return new BaseCreateUpdateResponse(q.getId().toString());
+    }
+
+# Summary: 
+
+@Override
+    @Transactional(rollbackFor = Exception.class)
+    public BaseCreateUpdateResponse updateQuiz(CreateQuizDto request) {
+        if (request.getId() == null) {
+            throw new IllegalArgumentException("Quiz ID must be provided for update operation.");
+        }
+        UUID quizId = UUID.fromString(request.getId());
+        Quiz existingQuiz = quizRepository.findById(request.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Quiz with ID " + request.getId() + " not found."));
+
+        quizMapper.updateQuizFromDto(request, existingQuiz);
+        existingQuiz.setUpdatedAt(LocalDateTime.now());
+        if (request.getIsPublic()) {
+            existingQuiz.setStatus(QuizStatus.PUBLIC);
+        } else {
+            existingQuiz.setStatus(QuizStatus.DRAFT);
+        }
+
+        List<Question> existingQuestions = questionRepository.findByQuizId(request.getId());
+        Map<UUID, Question> existingQuestionMap = existingQuestions.stream()
+                .collect(Collectors.toMap(Question::getId, q -> q));
+
+        List<Question> questionsToSaveOrUpdate = new ArrayList<>();
+        Set<UUID> questionIdsInDto = request.getQuestions().stream()
+                .filter(qDto -> qDto.getId() != null)
+                .map(qDto -> UUID.fromString(qDto.getId()))
+                .collect(Collectors.toSet());
+
+        for (QuestionDto qDto : request.getQuestions()) {
+            if (qDto.getId() == null) {
+                Question newQuestion = questionMapper.questionDtoToQuestion(qDto);
+                newQuestion.setQuizId(quizId);
+                newQuestion.setCreatedAt(LocalDateTime.now());
+                newQuestion.setUpdatedAt(LocalDateTime.now());
+                if (!CollectionUtils.isEmpty(newQuestion.getOptions())) {
+                    for (QuestionOption option : newQuestion.getOptions()) {
+                        option.setId(UUID.randomUUID());
+                    }
+                }
+                questionsToSaveOrUpdate.add(newQuestion);
+            } else {
+                UUID qId = UUID.fromString(qDto.getId());
+                Question questionToUpdate = existingQuestionMap.get(qId);
+                if (questionToUpdate != null) {
+                    questionMapper.updateQuestionFromDto(qDto, questionToUpdate);
+                    questionToUpdate.setUpdatedAt(LocalDateTime.now());
+                    // Ensure options are updated correctly
+                    if (!CollectionUtils.isEmpty(questionToUpdate.getOptions())) {
+                        for (QuestionOption option : questionToUpdate.getOptions()) {
+                            if (option.getId() == null) {
+                                option.setId(UUID.randomUUID());
+                            }
+                        }
+                    }
+                    questionsToSaveOrUpdate.add(questionToUpdate);
+                }
+            }
+        }
+
+        List<Question> questionsToDelete = existingQuestions.stream()
+                .filter(eq -> !questionIdsInDto.contains(eq.getId()))
+                .collect(Collectors.toList());
+
+        if (!questionsToDelete.isEmpty()) {
+            questionRepository.deleteAll(questionsToDelete);
+        }
+        if (!questionsToSaveOrUpdate.isEmpty()) {
+            questionRepository.saveAll(questionsToSaveOrUpdate);
+        }
+
+        existingQuiz.setQuestionCount(questionRepository.countByQuizId(quizId.toString()));
+
+        quizRepository.save(existingQuiz);
+        return new BaseCreateUpdateResponse(existingQuiz.getId().toString());
+    }
+
+# Summary: 
+
+@Override
+    public List<Quiz> getAllPublicQuizzes() {
+        List<Quiz> quizzes = quizRepository.findAllPublic();
+        getQuizAuthor(quizzes);
+        return quizzes;
+    }
+
+# Summary: 
+
+@Override
+    public List<Quiz> getMyQuizzes(UUID id) {
+        List<Quiz> quizzes = quizRepository.findByUserId(id);
+        getQuizAuthor(quizzes);
+        return quizzes;
+    }
+
+# Summary: 
+
+@Override
+    public Quiz getById(String id) {
+        Quiz quiz = quizRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_FOUND));
+        Set<Question> questions = new HashSet<>(questionRepository.findByQuizId(id));
+        quiz.setQuestions(questions);
+        getQuizAuthor(Collections.singletonList(quiz));
+        return quiz;
+    }
+
+# Summary: 
+
+@Override
+    public void deleteQuiz(String id) {
+        Quiz quiz = quizRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_FOUND));
+        quiz.setDeletedAt(LocalDateTime.now());
+        quizRepository.save(quiz);
+    }
+
+# Summary: 
+
+@Override
+    @Transactional
+    public BaseCreateUpdateResponse startQuiz(String quizId, UUID userId) {
+        quizRepository.findById(quizId)
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_FOUND));
+
+        QuizAttempt quizAttempt = new QuizAttempt();
+        quizAttempt.setQuizId(UUID.fromString(quizId));
+        quizAttempt.setUserId(userId);
+        quizAttempt.setScore(BigDecimal.ZERO);
+        quizAttempt.setCorrectAnswers(0);
+        quizAttempt.setTimeSpent(0L);
+        quizAttempt.setCompletedAt(null);
+        quizAttempt.setPassed(false);
+
+        QuizAttempt savedAttempt = quizAttemptRepository.save(quizAttempt);
+        return new BaseCreateUpdateResponse(savedAttempt.getId().toString());
+    }
+
+# Summary: 
+
+@Override
+    @Transactional
+    public BaseCreateUpdateResponse submitQuizQuestion(String attemptId, SubmitAnswerRequest request, UUID id) {
+        UUID questionId = UUID.fromString(request.getQuestionId());
+
+        QuizAttempt quizAttempt = quizAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_ATTEMPT_NOT_FOUND));
+
+        // Ensure the quiz attempt is not already completed
+        if (quizAttempt.getCompletedAt() != null) {
+            throw new BusinessException(ErrorConstant.QUIZ_ATTEMPT_SUBMITTED);
+        }
+
+        Quiz quiz = quizRepository.findById(quizAttempt.getQuizId().toString()).orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_FOUND));
+
+        // calculate if time is exceeded by field created_at and quiz.getTimeLimit()
+        if (quiz.getTimeLimit() != null && quizAttempt.getCreatedAt() != null) {
+            LocalDateTime start = quizAttempt.getCreatedAt();
+            LocalDateTime end = LocalDateTime.now();
+            long timeSpent = Duration.between(start, end).toMinutes();
+            if (timeSpent > quiz.getTimeLimit()) {
+                quizAttempt.setTimeSpent(timeSpent);
+                quizAttempt.setCompletedAt(quizAttempt.getCreatedAt().plusMinutes(timeSpent));
+                quizAttemptRepository.save(quizAttempt);
+                throw new BusinessException(ErrorConstant.QUIZ_TIME_LIMIT_EXCEEDED);
+            }
+        }
+
+        Question question = questionRepository.findById(request.getQuestionId())
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUESTION_NOT_FOUND));
+
+        if (!Objects.equals(question.getQuizId(), quizAttempt.getQuizId())) {
+            throw new BusinessException(ErrorConstant.QUESTION_DOES_NOT_BELONG_TO_QUIZ);
+        }
+
+        // Prepare QuizAnswer entity
+        QuizAnswer quizAnswer = new QuizAnswer();
+        quizAnswer.setQuestionId(questionId);
+
+        if (QuestionType.MULTIPLE_CHOICE.name().equals(question.getType()) && !CollectionUtils.isEmpty(question.getOptions())) {
+            List<QuestionOption> options = question.getOptions().stream()
+                    .filter(option -> option.getId() != null && request.getSelectedOptions().contains(option.getId().toString()))
+                    .collect(Collectors.toList());
+            quizAnswer.setSelectedAnswers(options);
+        }
+        quizAnswer.setFillInBlanksAnswers(request.getFillInBlanksAnswers());
+        quizAnswer.setAnswerText(request.getAnswerText());
+        quizAnswer.setTimeTaken(request.getTimeTaken());
+        quizAnswer.setAudioUrl(request.getAudioUrl());
+
+        boolean isCorrect = false;
+        Integer scoreAchieved = 0;
+
+        // Determine if the answer is correct based on question type
+        switch (question.getType().toLowerCase()) {
+            case "multiple_choice":
+                List<String> userSelectedValues = request.getSelectedOptions() != null ?
+                        request.getSelectedOptions().stream()
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toList()) : new ArrayList<>();
+
+                List<String> correctOptionValues = question.getCorrectAnswer() != null ?
+                        question.getOptions().stream().filter(QuestionOption::getIsCorrect).map(i -> i.getId().toString()).sorted().toList() : new ArrayList<>();
+                userSelectedValues.sort(String::compareTo);
+
+                isCorrect = userSelectedValues.equals(correctOptionValues);
+                break;
+            case "true_false":
+                isCorrect = (request.getUserAnswerTrueFalse() != null &&
+                        request.getUserAnswerTrueFalse().equals(question.getTrueFalseAnswer()));
+                break;
+            case "fill_in_the_blank":
+                List<String> userFillInBlanks = request.getFillInBlanksAnswers() != null ?
+                        request.getFillInBlanksAnswers().stream()
+                                .filter(Objects::nonNull)
+                                .map(i -> i.toLowerCase().trim())
+                                .collect(Collectors.toList()) : new ArrayList<>();
+
+                List<String> correctBlanks = question.getCorrectBlanks() != null ?
+                        question.getCorrectBlanks().stream()
+                                .filter(Objects::nonNull)
+                                .map(i -> i.toLowerCase().trim())
+                                .collect(Collectors.toList()) : new ArrayList<>();
+
+                Collections.sort(userFillInBlanks);
+                Collections.sort(correctBlanks);
+
+                isCorrect = userFillInBlanks.equals(correctBlanks);
+                break;
+            case "short_answer":
+                isCorrect = (request.getAnswerText() != null &&
+                        question.getCorrectAnswer() != null &&
+                        !question.getCorrectAnswer().isEmpty() &&
+                        question.getCorrectAnswer().getFirst().equalsIgnoreCase(request.getAnswerText().trim()));
+                break;
+            case "pronunciation":
+                if (request.getAudioUrl() == null || request.getAudioUrl().isEmpty()) {
+                    break;
+                }
+                File audioFile = resourceService.downloadResourceFromUrl(request.getAudioUrl());
+                if (audioFile == null || !audioFile.exists()) {
+                    break;
+                }
+                String base64File = "data:audio/ogg;;base64," + FileUtils.convertToBase64(audioFile);
+                if (base64File == null) {
+                    break;
+                }
+                try {
+                    PronunciationAccuracyResponseDto pronunAccuracy = pronunciationService.getAccuracy(
+                            PronunciationAccuracyRequestDto.builder()
+                                    .base64Audio(base64File)
+                                    .text(question.getPronunciationText())
+                                    .build()
+                    );
+                    isCorrect = pronunAccuracy.getPronunciationAccuracy() >= question.getAcceptRate();
+                    quizAnswer.setAnswerText(JsonUtils.toJsonString(pronunAccuracy));
+                } catch (Exception e) {
+                    log.error("Error while checking pronunciation accuracy: {}", e.getMessage());
+                }
+                break;
+
+            default:
+                System.err.println("Unknown question type: " + question.getType());
+        }
+
+        if (isCorrect) {
+            scoreAchieved = question.getPoints() != null ? question.getPoints() : 0;
+        }
+
+        quizAnswer.setCorrect(isCorrect);
+        quizAnswer.setScoreAchieved(scoreAchieved);
+
+        List<QuizAnswer> currentAnswers = quizAnswerRepository.findByQuizAttemptId(attemptId);
+
+        for (int i = 0; i < currentAnswers.size(); i++) {
+            if (currentAnswers.get(i).getQuestionId().equals(questionId)) {
+                QuizAnswer oldAnswer = currentAnswers.get(i);
+                quizAttempt.setScore(quizAttempt.getScore().subtract(BigDecimal.valueOf(oldAnswer.getScoreAchieved())));
+                if (oldAnswer.isCorrect()) {
+                    quizAttempt.setCorrectAnswers(quizAttempt.getCorrectAnswers() - 1);
+                }
+                quizAnswerRepository.delete(oldAnswer);
+                break;
+            }
+        }
+
+        quizAnswer.setQuizAttemptId(UUID.fromString(attemptId));
+        // check if question submitted before
+        quizAnswerRepository.save(quizAnswer);
+
+        quizAttempt.setScore(quizAttempt.getScore().add(BigDecimal.valueOf(scoreAchieved)));
+        if (isCorrect) {
+            quizAttempt.setCorrectAnswers(quizAttempt.getCorrectAnswers() + 1);
+        }
+
+        // update total score
+        quizAttemptRepository.save(quizAttempt);
+
+        return new BaseCreateUpdateResponse(quizAnswer.getId().toString());
+    }
+
+# Summary: 
+
+@Override
+    public List<Quiz> getMyQuizAttempts(String userId) {
+        List<QuizAttempt> attempts = quizAttemptRepository.findByUserId(UUID.fromString(userId));
+        if (CollectionUtils.isEmpty(attempts)) {
+            return Collections.emptyList();
+        }
+
+        Set<String> quizId = attempts.stream()
+                .map(QuizAttempt::getQuizId)
+                .map(UUID::toString)
+                .collect(Collectors.toSet());
+
+        List<Quiz> quizzes = quizRepository.findByIdIn(quizId);
+        if (CollectionUtils.isEmpty(quizzes)) {
+            return Collections.emptyList();
+        }
+
+        getQuizAuthor(quizzes);
+
+        Map<UUID, List<QuizAttempt>> attemptMap = attempts.stream()
+                .collect(Collectors.groupingBy(QuizAttempt::getQuizId));
+        for (Quiz quiz : quizzes) {
+            quiz.setQuizAttempts(new HashSet<>(attemptMap.get(quiz.getId())));
+        }
+
+        return quizzes;
+    }
+
+# Summary: 
+
+@Override
+    public QuizAttempt getAttempt(String attemptId, UUID userId) {
+        // TODO: check permission
+        QuizAttempt attempt = quizAttemptRepository.findById(attemptId).orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_ATTEMPT_NOT_FOUND));
+        Quiz quiz = this.getById(attempt.getQuizId().toString());
+        getQuizAuthor(Collections.singletonList(quiz));
+        attempt.setQuiz(quiz);
+        List<QuizAnswer> answers = quizAnswerRepository.findByQuizAttemptId(attemptId);
+        attempt.setAnswers(answers);
+
+        return attempt;
+    }
+
+# Summary: 
+
+@Override
+    public void submitQuizComplete(String attemptId, UUID id) {
+        QuizAttempt attempt = quizAttemptRepository.findById(attemptId).orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_ATTEMPT_NOT_FOUND));
+        if (!id.equals(attempt.getUserId())) {
+            throw new BusinessException(ErrorConstant.QUIZ_ATTEMPT_NOT_BELONG_TO_USER);
+        }
+
+        if (attempt.getCompletedAt() != null) {
+            throw new BusinessException(ErrorConstant.QUIZ_ATTEMPT_SUBMITTED);
+        }
+        attempt.setCompletedAt(LocalDateTime.now());
+        quizAttemptRepository.save(attempt);
+        log.info("saved quiz attempt with id: {}", attemptId);
+    }
+
+# Summary: 
+
+@Override
+    public Quiz getQuizStatsById(String id) {
+        Quiz quiz = quizRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_FOUND));
+        getQuizAuthor(Collections.singletonList(quiz));
+        List<Question> questions = questionRepository.findByQuizId(id);
+        quiz.setQuestions(new HashSet<>(questions));
+        List<QuizAttempt> attempts = quizAttemptRepository.findByQuizId(quiz.getId().toString());
+
+        attempts.forEach(attempt -> {
+            userRepository.getUserById(attempt.getUserId().toString()).ifPresent(attempt::setUser);
+        });
+
+        quiz.setQuizAttempts(new HashSet<>(attempts));
+        List<User> savedUsers = savedQuizRepository.findAllByQuizId(id)
+                .stream()
+                .map(savedQuiz -> userRepository.getUserById(savedQuiz.getUserId().toString()).orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+        quiz.setSavedByUsers(new HashSet<>(savedUsers));
+
+        return quiz;
+    }
+
+# Summary: 
+
+@Override
+    public void saveQuiz(String quizId, UUID userId) {
+        savedQuizRepository.saveQuiz(quizId, userId.toString());
+    }
+
+# Summary: 
+
+@Override
+    public List<Quiz> getSavedQuizzes(UUID userId) {
+        List<UserSavedQuiz> savedQuizzes = savedQuizRepository.findAllByUserId(userId.toString());
+        if (CollectionUtils.isEmpty(savedQuizzes)) {
+            return Collections.emptyList();
+        }
+
+        Set<String> quizIds = savedQuizzes.stream()
+                .map(UserSavedQuiz::getQuizId)
+                .map(UUID::toString)
+                .collect(Collectors.toSet());
+        if (CollectionUtils.isEmpty(quizIds)) {
+            return Collections.emptyList();
+        }
+
+        List<Quiz> quizzes = quizRepository.findByIdIn(quizIds);
+        if (CollectionUtils.isEmpty(quizzes)) {
+            return Collections.emptyList();
+        }
+
+        getQuizAuthor(quizzes);
+
+        return quizzes;
+    }
+
+# Summary: 
+
+@Override
+    public void unsaveQuiz(String quizId, UUID userId) {
+        UserSavedQuiz savedQuiz = savedQuizRepository.findAllByQuizId(quizId)
+                .stream()
+                .filter(q -> q.getUserId().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorConstant.QUIZ_NOT_SAVED));
+
+        savedQuiz.setSavedAt(LocalDateTime.now());
+        savedQuiz.setDeletedAt(null);
+        savedQuizRepository.update(savedQuiz);
+    }
+
+# Summary: 
+
+@Override
+    public List<UserSavedQuiz> getUserSavedQuiz(String quizId, UUID userId) {
+        List<UserSavedQuiz> savedQuizzes = savedQuizRepository.findAllByUserId(userId.toString());
+        savedQuizzes.forEach(savedQuiz -> {
+            userRepository.getUserById(savedQuiz.getUserId().toString()).ifPresent(savedQuiz::setUser);
+        });
+        return savedQuizzes;
+    }
+
+# Summary: 
+
+private void getQuizAuthor(List<Quiz> quizzes) {
+        quizzes.forEach(q -> {
+            if (q.getAuthorId() != null) {
+                q.setAuthor(userRepository.getUserById(q.getAuthorId().toString()).orElse(null));
+            }
+        });
+    }
+
+'List<Quiz>':
+# Summary: 
+@Override
+    public List<Quiz> findByUserId(UUID id) {
+        return repository.findByAuthorId(id);
+    }
+[HybridScore: 0.000]
+
+'UserSavedQuiz':
+# Summary: 
+
+@Entity
+@Table(name = "user_saved_quizzes")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@IdClass(UserSavedQuizId.class)
+public class UserSavedQuiz {
+
+    @Id
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
+    @Id
+    @Column(name = "quiz_id", nullable = false)
+    private UUID quizId;
+
+    @Transient
+    private User user;
+    @Transient
+    private Quiz quiz;
+
+    @CreationTimestamp
+    @Column(name = "saved_at", updatable = false)
+    private LocalDateTime savedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+}
+
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserSavedQuizId implements Serializable {
+    private UUID userId;
+    private UUID quizId;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserSavedQuizId that = (UserSavedQuizId) o;
+        return Objects.equals(userId, that.userId) &&
+                Objects.equals(quizId, that.quizId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(userId, quizId);
+    }
+}
+
+# Summary: 
+
+@Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserSavedQuizId that = (UserSavedQuizId) o;
+        return Objects.equals(userId, that.userId) &&
+                Objects.equals(quizId, that.quizId);
+    }
+
+# Summary: 
+
+@Override
+    public int hashCode() {
+        return Objects.hash(userId, quizId);
+    }
+
+# Summary: 
+
+@Override
+    public List<UserSavedQuiz> getUserSavedQuiz(String quizId, UUID userId) {
+        List<UserSavedQuiz> savedQuizzes = savedQuizRepository.findAllByUserId(userId.toString());
+        savedQuizzes.forEach(savedQuiz -> {
+            userRepository.getUserById(savedQuiz.getUserId().toString()).ifPresent(savedQuiz::setUser);
+        });
+        return savedQuizzes;
+    }
+
+'SubmitAnswerRequest':
+# Summary: 
+
+@Data
+public class SubmitAnswerRequest {
+
+    private String questionId;
+
+    private List<String> selectedOptions;
+
+    private List<String> fillInBlanksAnswers;
+
+    private String answerText;
+
+    private Boolean userAnswerTrueFalse;
+
+    private Integer timeTaken;
+
+    private String audioUrl;
+
+}
+
+'QuizAttempt':
+# Summary: 
+
+@Entity
+@Table(name = "quiz_attempts")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class QuizAttempt {
+
+    @Id
+    @GeneratedValue(generator = "UUID")
+    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @Column(name = "id", updatable = false, nullable = false)
+    private UUID id;
+
+    @Column(name = "quiz_id", nullable = false)
+    private UUID quizId;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
+    @Transient
+    private Quiz quiz;
+
+    @Transient
+    private User user;
+
+    @Transient
+    private List<QuizAnswer> answers;
+
+    @Column(name = "score", precision = 5, scale = 2)
+    private BigDecimal score;
+
+    @Column(name = "total_questions")
+    private Integer totalQuestions;
+
+    @Column(name = "correct_answers")
+    private Integer correctAnswers;
+
+    @Column(name = "time_spent")
+    private Long timeSpent;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    @Column(name = "passed")
+    private Boolean passed;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "created_at")
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+
+}
+
+# Summary: 
+
+@Override
+    public List<QuizAnswer> findByQuizAttemptId(String attemptId) {
+        return repository.findByQuizAttemptId(UUID.fromString(attemptId));
+    }
+
+# Summary: 
+
+@Repository
+public class QuizAttemptRepositoryImpl implements QuizAttemptRepository {
+
+    private final JpaQuizAttemptRepository jpaQuizAttemptRepository;
+
+    public QuizAttemptRepositoryImpl(JpaQuizAttemptRepository jpaQuizAttemptRepository) {
+        this.jpaQuizAttemptRepository = jpaQuizAttemptRepository;
+    }
+
+    @Override
+    public QuizAttempt save(QuizAttempt attempt) {
+        return jpaQuizAttemptRepository.save(attempt);
+    }
+
+    @Override
+    public Optional<QuizAttempt> findById(String id) {
+        return jpaQuizAttemptRepository.findById(UUID.fromString(id));
+    }
+
+    @Override
+    public List<QuizAttempt> findAll() {
+        return jpaQuizAttemptRepository.findAll();
+    }
+
+    @Override
+    public List<QuizAttempt> findByUserId(UUID id) {
+        return jpaQuizAttemptRepository.findByUserId(id);
+    }
+
+    @Override
+    public List<QuizAttempt> findByQuizId(String id) {
+        return jpaQuizAttemptRepository.findByQuizId(UUID.fromString(id));
+    }
+}
+
+# Summary: 
+
+@Override
+    public QuizAttempt save(QuizAttempt attempt) {
+        return jpaQuizAttemptRepository.save(attempt);
+    }
+
+# Summary: 
+
+@Override
+    public Optional<QuizAttempt> findById(String id) {
+        return jpaQuizAttemptRepository.findById(UUID.fromString(id));
+    }
+
+# Summary: 
+
+@Override
+    public List<QuizAttempt> findAll() {
+        return jpaQuizAttemptRepository.findAll();
+    }
+
+# Summary: 
+
+@Override
+    public List<QuizAttempt> findByUserId(UUID id) {
+        return jpaQuizAttemptRepository.findByUserId(id);
+    }
+
+# Summary: 
+
+@Override
+    public List<QuizAttempt> findByQuizId(String id) {
+        return jpaQuizAttemptRepository.findByQuizId(UUID.fromString(id));
+    }
+
+# Summary: 
+
+@Override
+    public List<Quiz> getMyQuizAttempts(String userId) {
+        List<QuizAttempt> attempts = quizAttemptRepository.findByUserId(UUID.fromString(userId));
+        if (CollectionUtils.isEmpty(attempts)) {
+            return Collections.emptyList();
+        }
+
+        Set<String> quizId = attempts.stream()
+                .map(QuizAttempt::getQuizId)
+                .map(UUID::toString)
+                .collect(Collectors.toSet());
+
+        List<Quiz> quizzes = quizRepository.findByIdIn(quizId);
+        if (CollectionUtils.isEmpty(quizzes)) {
+            return Collections.emptyList();
+        }
+
+        getQuizAuthor(quizzes);
+
+        Map<UUID, List<QuizAttempt>> attemptMap = attempts.stream()
+                .collect(Collectors.groupingBy(QuizAttempt::getQuizId));
+        for (Quiz quiz : quizzes) {
+            quiz.setQuizAttempts(new HashSet<>(attemptMap.get(quiz.getId())));
+        }
+
+        return quizzes;
+    }
+
+'Resource':
+# Summary: 
+
+@RestController
+@RequestMapping("/api/v1/resources")
+public class ResourceController {
+
+    private final BaseService baseService;
+
+    private final ResourceService resourceService;
+
+    public ResourceController(BaseService baseService, ResourceService resourceService) {
+        this.baseService = baseService;
+        this.resourceService = resourceService;
+    }
+
+    @PostMapping()
+    public BaseResponse<Resource> uploadResource(
+            @CurrentUser UserPrincipal requester,
+            @RequestParam("file") MultipartFile file
+    ) {
+        return baseService.ofSucceeded(resourceService.uploadResource(file, requester.getId()));
+    }
+
+    @GetMapping("/{id}")
+    public BaseResponse<GetResourceResponse> getResource(
+            @CurrentUser UserPrincipal requester,
+            @PathVariable String id
+    ) {
+        return baseService.ofSucceeded(resourceService.getResource(id, requester.getId()));
+    }
+
+}
+
+# Summary: 
+
+@Data
+@Builder
+public class GetResourceResponse {
+
+    private String url;
+
+    private String name;
+
+}
+
+# Summary: 
+
+@Entity
+@Table(name = "resources")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Resource {
+
+    @Id
+    @GeneratedValue(generator = "UUID")
+    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @Column(name = "id")
+    private UUID id;
+
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "path")
+    private String path; //  e.g., 'documents/reports/q1_report.pdf'
+
+    @Column(name = "url")
+    private String url;
+
+    @Column(name = "owner_id")
+    private UUID ownerId; // ID of the user who uploaded the resource
+
+    @Column(name = "extension")
+    private String extension; // Extension of the file, e.g., 'mp3', 'jpg'.
+
+    @Column(name = "size_bytes")
+    private Long sizeBytes;
+
+    @Column(name = "cloud_id")
+    private String cloudId; // ID assigned by the cloud storage provider (e.g., S3 ETag, Google Drive File ID)
+
+    @Column(name = "uploaded_at")
+    private LocalDateTime uploadedAt;
+
+    @Column(name = "last_modified_at")
+    private LocalDateTime lastModifiedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "metadata", columnDefinition = "jsonb")
+    private String metadata;
+
+}
+
+# Summary: 
+
+@Repository
+public class ResourceRepositoryImpl implements ResourceRepository {
+
+    private final JpaResourceRepository repository;
+
+    public ResourceRepositoryImpl(JpaResourceRepository repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    public Resource save(Resource resource) {
+        return repository.save(resource);
+    }
+
+    @Override
+    public Resource findById(String id) {
+        return repository.findById(UUID.fromString(id)).orElse(null);
+    }
+}
+
+# Summary: 
+
+@Override
+    public Resource save(Resource resource) {
+        return repository.save(resource);
+    }
+
+# Summary: 
+
+@Override
+    public Resource findById(String id) {
+        return repository.findById(UUID.fromString(id)).orElse(null);
+    }
+
+# Summary: 
+
+@Service
+@Slf4j
+public class ResourceServiceImpl implements ResourceService {
+
+    private final ResourceRepository resourceRepository;
+
+    private final StorageService storageService;
+
+    public ResourceServiceImpl(StorageFactory storageFactory, ResourceRepository resourceRepository) {
+        this.resourceRepository = resourceRepository;
+        this.storageService = storageFactory.getStorageService(Constant.STORAGE_AWS);
+    }
+
+    @Override
+    public Resource uploadResource(MultipartFile file, UUID requestId) {
+
+        String url = storageService.uploadFile(file);
+
+        Resource resource = Resource.builder()
+                .name(file.getOriginalFilename())
+                .url(url)
+                .ownerId(requestId)
+                .extension(file.getContentType())
+                .sizeBytes(file.getSize())
+                .cloudId(storageService.getProviderName())
+                .build();
+        resourceRepository.save(resource);
+        return resource;
+    }
+
+    @Override
+    public GetResourceResponse getResource(String id, UUID requestId) {
+        Resource resource = resourceRepository.findById(requestId.toString());
+
+        if (Objects.isNull(resource)) {
+            throw new RuntimeException("Resource not found");
+        }
+
+        try {
+            if (!requestId.equals(resource.getOwnerId())) {
+                throw new RuntimeException("You are not allowed to access this resource");
+            }
+
+            String url = storageService.getFileUrl(resource.getUrl());
+
+            return GetResourceResponse.builder()
+                    .name(resource.getName())
+                    .url(url)
+                    .build();
+
+        } catch (Exception e) {
+            log.info("Generate url failed {}", e.getMessage());
+            throw new RuntimeException("Generate url failed");
+        }
+    }
+
+    @Override
+    public File downloadResourceFromUrl(String urlString) {
+        try {
+            URI uri = URI.create(urlString);
+            URL url = uri.toURL();
+
+            String fileName = Path.of(uri.getPath()).getFileName().toString();
+            File outputFile = File.createTempFile("download_", "_" + fileName);
+
+            try (InputStream in = url.openStream();
+                 FileOutputStream out = new FileOutputStream(outputFile)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, bytesRead);
+                }
+            }
+
+            return outputFile;
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to download file from URL: " + urlString, e);
+        }
+    }
+}
+
+# Summary: 
+
+@Override
+    public File downloadResourceFromUrl(String urlString) {
+        try {
+            URI uri = URI.create(urlString);
+            URL url = uri.toURL();
+
+            String fileName = Path.of(uri.getPath()).getFileName().toString();
+            File outputFile = File.createTempFile("download_", "_" + fileName);
+
+            try (InputStream in = url.openStream();
+                 FileOutputStream out = new FileOutputStream(outputFile)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, bytesRead);
+                }
+            }
+
+            return outputFile;
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to download file from URL: " + urlString, e);
+        }
+    }
+
+'GetResourceResponse':
+# Summary: 
+
+@Data
+@Builder
+public class GetResourceResponse {
+
+    private String url;
+
+    private String name;
+
+}
+
+'AuthLoginRequest':
+# Summary: 
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class AuthLoginRequest {
+
+    @NotBlank
+    String username;
+
+    @NotBlank
+    String password;
+
+}
+
+'AuthLoginResponse':
+# Summary: 
+public abstract byte[] downloadFile(String fileName);
+[HybridScore: 0.000]
+
+'AuthRegisterRequest':
+# Summary: 
+
+@Data
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+@AllArgsConstructor
+@NoArgsConstructor
+public class AuthRegisterRequest {
+
+    @NotBlank(message = "Username is required")
+    String username;
+
+    @NotBlank(message = "Email is required")
+    @Email(message = "Email is invalid")
+    String email;
+
+    @NotBlank(message = "Password is required")
+    String password;
+
+    @NotBlank(message = "Name is required")
+    String name;
+
+}
+
+'AuthRegisterResponse':
+# Summary: 
+
+@AllArgsConstructor
+@Data
+public class AuthRegisterResponse {
+    private String id;
+}
+
+'MultipartFile':
+# Summary: 
+
+protected File convertMultiPartFileToFile(MultipartFile file) throws IOException {
+        String originalFilename = Objects.requireNonNull(file.getOriginalFilename());
+        String name = originalFilename;
+        String extension = "";
+        int lastDotIndex = originalFilename.lastIndexOf(".");
+        if (lastDotIndex != -1) {
+            name = originalFilename.substring(0, lastDotIndex);
+            extension = originalFilename.substring(lastDotIndex);
+        }
+
+        Path tempFilePath = Files.createTempFile(name + "_", extension);
+
+        file.transferTo(tempFilePath.toFile());
+
+        log.debug("Created temporary file: {}", tempFilePath.toAbsolutePath());
+        return tempFilePath.toFile();
+    }
+
+No new code found for symbol: PronunciationLevel.
+
+'User':
+# Summary: 
+
+@RestController
+@RequestMapping("/api/v1/users")
+public class UserController {
+
+    private final BaseService baseService;
+
+    public UserController(BaseService baseService) {
+        this.baseService = baseService;
+    }
+
+    @PutMapping
+    public BaseResponse<?> uploadResource(
+            @CurrentUser UserPrincipal requester
+    ) {
+        
+        return baseService.ofSucceeded(null);
+    }
+
+}
+
+# Summary: 
+
+@Data
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+public class BasicUserDto {
+
+    private UUID id;
+
+    private String username;
+
+    private String email;
+
+    private String firstName;
+
+    private String lastName;
+
+}
+
+# Summary: 
+
+@Entity
+@Table(name = "users")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class User {
+
+    @Id
+    @GeneratedValue(generator = "UUID")
+    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @Column(name = "id", updatable = false, nullable = false)
+    private UUID id;
+
+    @Column(name = "username", nullable = false, unique = true)
+    private String username;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "email", nullable = false, unique = true)
+    private String email;
+
+    @Column(name = "avatar")
+    private String avatar;
+
+    @CreationTimestamp
+    @Column(name = "joined_at")
+    private LocalDateTime joinedAt;
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
+
+    @Column(name = "is_active")
+    private Boolean isActive = true;
+
+    @Column(name = "role", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private UserRole role;
+
+    @Transient
+    private UserCredential credentials;
+
+    @Transient
+    private Set<Quiz> createdQuizzes;
+
+    @Transient
+    private Set<QuizAttempt> quizAttempts;
+
+    @Transient
+    private Set<Quiz> savedQuizzes;
+
+    @Transient
+    private Set<LeaderboardEntry> leaderboardEntries;
+
+}
+
+# Summary: 
+
+@Entity
+@Table(name = "user_credentials")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class UserCredential {
+
+    @Id
+    @Column(name = "user_id", updatable = false, nullable = false)
+    private UUID userId;
+
+    @Transient
+    private User user;
+
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+
+    @CreationTimestamp
+    @Column(name = "last_password_change_at")
+    private LocalDateTime lastPasswordChangeAt;
+
+    @Column(name = "failed_login_attempts")
+    private Integer failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+}
+
+# Summary: 
+
+@Entity
+@Table(name = "user_saved_quizzes")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@IdClass(UserSavedQuizId.class)
+public class UserSavedQuiz {
+
+    @Id
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
+    @Id
+    @Column(name = "quiz_id", nullable = false)
+    private UUID quizId;
+
+    @Transient
+    private User user;
+    @Transient
+    private Quiz quiz;
+
+    @CreationTimestamp
+    @Column(name = "saved_at", updatable = false)
+    private LocalDateTime savedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+}
+
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserSavedQuizId implements Serializable {
+    private UUID userId;
+    private UUID quizId;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserSavedQuizId that = (UserSavedQuizId) o;
+        return Objects.equals(userId, that.userId) &&
+                Objects.equals(quizId, that.quizId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(userId, quizId);
+    }
+}
+
+# Summary: 
+
+@Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserSavedQuizId that = (UserSavedQuizId) o;
+        return Objects.equals(userId, that.userId) &&
+                Objects.equals(quizId, that.quizId);
+    }
+
+# Summary: 
+
+@Override
+    public int hashCode() {
+        return Objects.hash(userId, quizId);
+    }
+
+# Summary: 
+
+@Override
+    public List<QuizAttempt> findByUserId(UUID id) {
+        return jpaQuizAttemptRepository.findByUserId(id);
+    }
+
+# Summary: 
+
+@Override
+    public List<Quiz> findByUserId(UUID id) {
+        return repository.findByAuthorId(id);
+    }
+
+# Summary: 
+
+@Override
+    public List<UserSavedQuiz> findAllByUserId(String userId) {
+        return jpaSavedQuizRepository.findByUserId(UUID.fromString(userId));
+    }
+
+# Summary: 
+
+@Override
+    public void deleteByQuizIdAndUserId(String quizId, String userId) {
+        jpaSavedQuizRepository.deleteByQuizIdAndUserId(UUID.fromString(quizId), UUID.fromString(userId));
+    }
+
+# Summary: 
+
+@Override
+    public boolean existsByQuizIdAndUserId(String quizId, String userId) {
+        return jpaSavedQuizRepository.existsByQuizIdAndUserId(UUID.fromString(quizId), UUID.fromString(userId));
+    }
+
+# Summary: 
+
+@Repository
+public class UserRepositoryImpl implements UserRepository {
+
+    private final JpaUserRepository repository;
+
+    private final JpaUserCredentialRepository userCredentialRepository;
+
+    public UserRepositoryImpl(JpaUserRepository repository, JpaUserCredentialRepository userCredentialRepository) {
+        this.repository = repository;
+        this.userCredentialRepository = userCredentialRepository;
+    }
+
+    @Override
+    public Optional<User> getUserById(String userId) {
+        return repository.findById(UUID.fromString(userId));
+    }
+
+    @Override
+    public Optional<User> getByUsername(String username) {
+        return repository.findByUsername(username);
+    }
+
+    @Override
+    public Optional<User> getByUsernameForAuth(String username) {
+        Optional<User> user = repository.findByUsername(username);
+        if (user.isPresent()) {
+            UserCredential credentials = userCredentialRepository.findByUserId(user.get().getId());
+            user.get().setCredentials(credentials);
+            return user;
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public User persist(User user) {
+        User userRes = repository.save(user);
+        UserCredential credentials = user.getCredentials();
+        credentials.setUserId(userRes.getId());
+        userCredentialRepository.save(credentials);
+        return userRes;
+    }
+
+    @Override
+    public List<User> getByUserIdList(List<UUID> studentIds) {
+        return repository.findAllById(studentIds);
+    }
+
+    @Override
+    public List<BasicUserDto> basicSearch(String keyword) {
+        return List.of();
+    }
+
+    @Override
+    public Optional<User> getByEmail(String email) {
+        return repository.findByEmail(email);
+    }
+}
+
+# Summary: 
+
+@Override
+    public Optional<User> getUserById(String userId) {
+        return repository.findById(UUID.fromString(userId));
+    }
+
+# Summary: 
+
+@Override
+    public Optional<User> getByUsername(String username) {
+        return repository.findByUsername(username);
+    }
+
+# Summary: 
+
+@Override
+    public Optional<User> getByUsernameForAuth(String username) {
+        Optional<User> user = repository.findByUsername(username);
+        if (user.isPresent()) {
+            UserCredential credentials = userCredentialRepository.findByUserId(user.get().getId());
+            user.get().setCredentials(credentials);
+            return user;
+        }
+        return Optional.empty();
+    }
+
+# Summary: 
+
+@Override
+    public User persist(User user) {
+        User userRes = repository.save(user);
+        UserCredential credentials = user.getCredentials();
+        credentials.setUserId(userRes.getId());
+        userCredentialRepository.save(credentials);
+        return userRes;
+    }
+
+# Summary: 
+
+@Override
+    public List<User> getByUserIdList(List<UUID> studentIds) {
+        return repository.findAllById(studentIds);
+    }
+
+# Summary: 
+
+@Override
+    public List<BasicUserDto> basicSearch(String keyword) {
+        return List.of();
+    }
+
+# Summary: 
+
+@Override
+    public Optional<User> getByEmail(String email) {
+        return repository.findByEmail(email);
+    }
+
+# Summary: 
+
+@Bean
+    public UserDetailsService userDetailsService() {
+        return new AppUserDetailsService(userRepository);
+    }
+
+# Summary: 
+
+public String extractUsername(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.getSubject();
+    }
+
+# Summary: 
+
+@Service
+@Slf4j
+public class AppUserDetailsService implements UserDetailsService {
+
+    private final UserRepository userRepository;
+
+    public AppUserDetailsService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        User user = userRepository.getByUsernameForAuth(username).orElseThrow(() -> new BusinessException(ErrorConstant.UNAUTHORIZED));
+
+        return UserPrincipal.from(user);
+    }
+}
+
+# Summary: 
+
+@Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        User user = userRepository.getByUsernameForAuth(username).orElseThrow(() -> new BusinessException(ErrorConstant.UNAUTHORIZED));
+
+        return UserPrincipal.from(user);
+    }
+
+# Summary: 
+
+@Override
+    public List<UserSavedQuiz> getUserSavedQuiz(String quizId, UUID userId) {
+        List<UserSavedQuiz> savedQuizzes = savedQuizRepository.findAllByUserId(userId.toString());
+        savedQuizzes.forEach(savedQuiz -> {
+            userRepository.getUserById(savedQuiz.getUserId().toString()).ifPresent(savedQuiz::setUser);
+        });
+        return savedQuizzes;
+    }
+
+No new code found for symbol: UUID.
+
+            REQUIREMENTS TO ANALYZE:
+            Sprint Planning for Pronunciation Accuracy: A Business Perspective
+Our team is embarking on a new sprint, focusing on enhancing our language learning platform. A key initiative for this sprint is to deliver a robust Pronunciation Accuracy Feature. The goal is to provide our users with immediate and detailed feedback on their spoken language, helping them improve their pronunciation and build confidence.
+
+Product Vision for Pronunciation Accuracy
+"To empower our users with precise, instant feedback on their pronunciation, fostering a more effective and engaging language learning experience."
+
+User Stories & Acceptance Criteria
+User Story: As a Language Learner, I want to submit my spoken audio and text so that I can receive a detailed assessment of my pronunciation accuracy.
+Description: Our users need a way to practice speaking and immediately understand how well they pronounced specific words or phrases. This direct feedback is crucial for self-correction and progress tracking.
+
+Acceptance Criteria:
+
+Given I have an audio recording of my speech and the corresponding text I intended to say,
+
+When I submit this audio and text to the system,
+
+Then the system should process my submission to determine pronunciation accuracy.
+
+And the system must provide a comprehensive accuracy report including:
+
+When my pronunciation started and ended within the audio.
+
+The phonetic representation (IPA script) of what I said.
+
+An indication of whether all individual sounds were correctly pronounced.
+
+The words and their phonetic forms that the system matched to my speech.
+
+A categorization of my overall pronunciation accuracy (e.g., "Excellent," "Good," "Needs Improvement").
+
+A numerical score representing my pronunciation accuracy.
+
+The exact original text and its phonetic representation that I was supposed to say.
+
+And if for any reason the pronunciation analysis cannot be completed (e.g., the external service we rely on is unavailable), I should receive a clear message indicating that the accuracy assessment failed.
+
+            TEST CASES TO VERIFY:
+            Positive Test Cases:
+TC-PA-001: Verify that the API correctly processes a high-quality audio submission with perfectly pronounced text.
+
+TC-PA-002: Verify that the API correctly processes audio with minor deviations or a noticeable accent, providing a non-perfect but reasonable score.
+
+Negative & Edge Test Cases:
+TC-PA-003: Verify that the API gracefully handles the scenario where the external pronunciation service is down or unresponsive.
+
+TC-PA-004: Verify that the API handles an invalid or corrupted Base64 audio string.
+
+TC-PA-005: Verify that the API handles an empty Base64 audio string.
+
+TC-PA-006: Verify that the API handles an empty text field.
+
+TC-PA-007: Verify that the API processes audio and text that do not match, returning a low accuracy score.
+
+Data Integrity & Constraints Test Cases:
+TC-PA-008: Test the API's behavior with an audio file that approaches or exceeds expected size limits.
+
+TC-PA-009: Test the API's behavior with a very long text input.
+
+            ADDITIONAL INSTRUCTIONS:
+            check PronunciationAccuracyResponseDto, pronunciationserviceimpl and all related codes and configuration
+
+            If you don't have enough context, call the get_project_code_context tool to get more context, don't assume.
+            If you have enough context, provide your final analysis as valid JSON with this structure:
+            {
+                "document": "detailed explanation of what the endpoint does",
+                "requirement_coverage": [
+                    {
+                        "requirement": "exact requirement text",
+                        "coverage_score": "0-100",
+                        "explain": "how the code meets or fails this requirement"
+                    }
+                ],
+                "test_cases": [
+                    {
+                        "test_case": "exact test case text",
+                        "coverage_score": "0-100", 
+                        "explain": "whether this test case is covered by the implementation"
+                    }
+                ],
+                "improvements": [
+                    {
+                        "type": "category",
+                        "reason": "what needs improvement",
+                        "solution": "recommended fix"
+                    }
+                ]
+            }
+
+            Do not assume any code logic, always check the code and use get_project_code_context if any part of the code is not fully implemented.
+            Your response:
