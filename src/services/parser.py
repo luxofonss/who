@@ -69,9 +69,8 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
     graph: DependencyGraph = {}
 
     root_node = tree.root_node
-    # lines = source.splitlines()
 
-    for class_node in [n for n in root_node.children if n.type == "class_declaration"]:
+    for class_node in [n for n in root_node.children]:
         class_name = _get_identifier(class_node, source) or file_path.stem
         chunk_type = _infer_chunk_type(class_node, source)
         class_endpoints = _extract_class_level_endpoints(class_node, source)
@@ -92,8 +91,6 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
             class_name=class_name,
             method_name=None,
             chunk_type=chunk_type,
-            start_byte=class_node.start_byte,
-            end_byte=class_node.end_byte,
             start_point=class_node.start_point,
             end_point=class_node.end_point,
             content=source[class_node.start_byte:class_node.end_byte],
@@ -131,8 +128,6 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
                 class_name=class_name,
                 method_name=method_name,
                 chunk_type=chunk_type,
-                start_byte=m_node.start_byte,
-                end_byte=m_node.end_byte,
                 start_point=m_node.start_point,
                 end_point=m_node.end_point,
                 content=source[m_node.start_byte:m_node.end_byte],
@@ -397,8 +392,6 @@ def _build_chunk(
     class_name: str,
     method_name: str | None,
     chunk_type: str,
-    start_byte: int,
-    end_byte: int,
     start_point: Tuple[int, int],
     end_point: Tuple[int, int],
     content: str,

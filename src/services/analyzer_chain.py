@@ -507,13 +507,7 @@ class AnalyzerChain:
 
     def _verify_response_node(self, state: AgentState) -> AgentState:
         """Verify final LLM response before ending."""
-        node_name = "verify"
-        # state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
-        # if state["node_call_count"][node_name] > 3:
-        #     logger.warning("Max iterations reached, ending workflow to prevent infinite loop.")
-        #     return state
         if state["iteration_count"] > 3:
-            # logger.warning("Max iterations reached, ending workflow to prevent infinite loop.")
             return state
 
         response = state["final_response"] or ""
@@ -550,8 +544,9 @@ class AnalyzerChain:
             """
 
         try:
+            self._write_prompt_to_file(prompt, "verification_input")
             result = self.llm.invoke(prompt)
-            logger.info(f"🔍 Verifier response: {result}")
+            self._write_prompt_to_file(result, "verification_result")
             parsed = self._parse_json_response(result)
             parsed = json.loads(parsed)
 
