@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import re
+import json
 from pathlib import Path
 from typing import Tuple, List, Dict, Optional
 
 from loguru import logger
 from tree_sitter import Language, Parser
 from tree_sitter_languages import get_language
-from adapters.gemini import Gemini  # Assume your own Gemini interface
+# from adapters.gemini import Gemini  # Assume your own Gemini interface
 
 JAVA_LANGUAGE: Language = get_language("java")
 _PARSER = Parser()
 _PARSER.set_language(JAVA_LANGUAGE)
+EXCLUDE_CHUNK_TYPE = ["package_declaration", "import_declaration"]
 
 CodeChunk = Dict[str, object]
 DependencyGraph = Dict[str, Dict[str, List[str]]]
@@ -70,15 +72,13 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
 
     root_node = tree.root_node
 
-    for class_node in [n for n in root_node.children]:
+    for class_node in [n for n in root_node.children if n.type not in EXCLUDE_CHUNK_TYPE]:
         class_name = _get_identifier(class_node, source) or file_path.stem
         chunk_type = _infer_chunk_type(class_node, source)
         class_endpoints = _extract_class_level_endpoints(class_node, source)
         class_hierarchy = _extract_class_hierarchy(class_node, source)
 
-        logger.info(f"node:: {class_node}")
-        field_map, _ = _extract_field_types_and_imports(class_node, source)
-        logger.info(f"Parsing field_map {field_map})")
+        field_map = _extract_fields(class_node, source)
 
         method_nodes = []
         for child in class_node.children:
@@ -112,9 +112,7 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
         for m_node in method_nodes:
             method_name = _get_identifier(m_node, source) or "unknown"
             param_map = _extract_param_types(m_node, source)
-
-            logger.info(f"Parsing method {method_name} in class {class_name} with params {param_map}")
-            logger.info(f"Parsing method {method_name} in class {class_name} with field_map {field_map}")
+            vars = _extract_vars(m_node, source)
             calls = _extract_calls(m_node, source, class_name, {**field_map, **param_map})
 
             endpoint = _extract_method_endpoint(m_node, source)
@@ -135,12 +133,27 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
                 endpoints=endpoints,
                 extends=None,
                 implements=[],
+                vars=vars,
             )
             chunks.append(chunk)
             graph[f"{class_name}.{method_name}"] = {"calls": calls, "called_by": []}
 
     return chunks, graph
 
+def _extract_vars(node, source: str) -> List[str]:
+    q = """
+    (
+        (type_identifier) @vars
+    )
+    """
+    captures = JAVA_LANGUAGE.query(q).captures(node);
+    res = []
+
+    for node, capture_name in captures:
+        logger.info(f"capture_name: {capture_name}, text: {node.text.decode()}")
+        res.append(node.text.decode())
+
+    return res
 
 def _get_identifier(node, source: str) -> str | None:
     for child in node.children:
@@ -337,9 +350,8 @@ def _extract_method_endpoint(method_node, source: str) -> Tuple[str, str] | None
         full_path = class_path.rstrip("/")
     return full_path or "/", http_method
 
-def _extract_field_types_and_imports(class_node, source: str) -> Tuple[Dict[str, str], List[str]]:
+def _extract_fields(class_node, source: str) -> Dict[str, str]:
     field_map: Dict[str, str] = {}
-    imports: List[str] = []
 
     field_nodes = []
     for child in class_node.children:
@@ -377,13 +389,7 @@ def _extract_field_types_and_imports(class_node, source: str) -> Tuple[Dict[str,
                 field_map[var_name] = type_name
                 logger.debug(f"[FIELD] {var_name} : {type_name}")
 
-    # 📦 Extract import statements
-    for line in source.splitlines():
-        line = line.strip()
-        if line.startswith("import ") and line.endswith(";"):
-            imports.append(line[7:-1].strip())
-
-    return field_map, imports
+    return field_map
 
 
 def _build_chunk(
@@ -399,6 +405,7 @@ def _build_chunk(
     endpoints: List[Dict[str, str]],
     extends: Optional[str] = None,
     implements: Optional[List[str]] = None,
+    vars: List[str] = []
 ) -> CodeChunk:
     line_start = start_point[0] + 1
     line_end = end_point[0] + 1
@@ -419,6 +426,7 @@ def _build_chunk(
         "implements": implements or [],
         "extended_by": [],
         "implemented_by": [],
+        "vars": vars
     }
 
     # TODO: add summary, now i dont have enough model to do this hehe

@@ -10,7 +10,7 @@ from utils.logger import init_logger
 from utils.file import write_json, ensure_dir
 from services.fetcher import clone_repo
 from services.parser import parse_project
-from services.embedder import embed_texts
+# from services.embedder import embed_texts
 from services.indexer import Indexer
 from services.merkle import compute_merkle_tree, diff_trees, save_merkle, load_merkle
 
@@ -40,14 +40,14 @@ async def create_project(body: CreateProjectRequest):
     # Embeddings & FAISS index
     texts = [f"{c.get('summary','')}\n\n{c['content']}" for c in chunks]
 
-    logger.info(f"Embedding: {texts}")
-    vectors = embed_texts(texts)
+    # logger.info(f"Embedding: {texts}")
+    # vectors = embed_texts(texts)
 
     # Build index with metadata (without content to save space)
     meta_for_index = [{k: v for k, v in ch.items()} for ch in chunks]
-    indexer = Indexer(body.project_id, index_type="hnsw")
-    indexer.build_index(vectors, metadata=meta_for_index)
-    await indexer.save()
+    # indexer = Indexer(body.project_id, index_type="hnsw")
+    # indexer.build_index(vectors, metadata=meta_for_index)
+    # await indexer.save()
 
     # Write metadata
     meta = {
@@ -112,11 +112,11 @@ async def reindex(body: ReindexRequest):
     # Re-parse & re-index – could be incremental, here we rebuild for clarity
     chunks, dep_graph = parse_project(repo_path)
     texts = [format_chunk_for_embedding(c) for c in chunks]
-    vectors = embed_texts(texts)
+    # vectors = embed_texts(texts)
 
     meta_for_index = [{k: v for k, v in ch.items()} for ch in chunks]
     indexer = Indexer(body.project_id, index_type="hnsw")
-    indexer.build_index(vectors, metadata=meta_for_index)
+    # indexer.build_index(vectors, metadata=meta_for_index)
     await indexer.save()
 
     meta = {

@@ -47,28 +47,29 @@ def embed_texts(
     if not texts:
         return np.empty((0, 768))
 
-    tokenizer, model = _load_model(model_name)
-    logger.info("load model successfully!")
+    # tokenizer, model = _load_model(model_name)
+    # logger.info("load model successfully!")
 
-    inputs = tokenizer(
-        texts,
-        return_tensors="pt",
-        padding=True,
-        truncation=True,
-        max_length=256
-    ).to(DEVICE)
+    # inputs = tokenizer(
+    #     texts,
+    #     return_tensors="pt",
+    #     padding=True,
+    #     truncation=True,
+    #     max_length=256
+    # ).to(DEVICE)
 
-    with torch.no_grad():
-        outputs = model(**inputs)
+    # with torch.no_grad():
+    #     outputs = model(**inputs)
 
-    if pooling == "mean":
-        embeddings = _mean_pooling(outputs, inputs["attention_mask"])
-    elif pooling == "cls":
-        embeddings = _cls_pooling(outputs)
-    else:
-        raise ValueError(f"Unsupported pooling: {pooling}")
+    # if pooling == "mean":
+    #     embeddings = _mean_pooling(outputs, inputs["attention_mask"])
+    # elif pooling == "cls":
+    #     embeddings = _cls_pooling(outputs)
+    # else:
+    #     raise ValueError(f"Unsupported pooling: {pooling}")
 
-    return embeddings.cpu().numpy()
+    # return embeddings.cpu().numpy()
+    return np.empty((0, 768))
 
 def embed(
     text: str,
