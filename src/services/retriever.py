@@ -13,7 +13,6 @@ from services.embedder import embed
 from utils.file import read_json
 from adapters.gemini import Gemini
 from services.bm25 import bm25_search
-from services.reranker import rerank_chunks
 from utils.prompt import HYDE_ENHANCE_CODE_DEPENDENCIES
 
 STORAGE_DIR = Path("storage")
@@ -168,7 +167,7 @@ class LangChainRetriever:
         logger.debug(f"After deduplication: {len(all_candidates)} unique chunks")
 
         # 5. Rerank deduplicated results
-        top_chunks = rerank_chunks(query, all_candidates, top_k=top)
+        top_chunks = all_candidates
 
         docs: List[Document] = []
         seen: Set[str] = set()
@@ -192,16 +191,13 @@ class LangChainRetriever:
 
     def _traverse_call_graph(self, seed: Dict, docs: List[Document], seen: Set[str]):
         """Recursively traverse transitive dependencies including calls, inheritance, and interface relations."""
+        logger.info(f"Traversing call graph for {seed.get('class_name')}.{seed.get('method_name')}")
         stack = [seed]
-        # RELATION_TYPES = [
-        #     "calls", "called_by", 
-        #     "implements", "implemented_by", 
-        #     "extends", "extended_by"
-        # ]
         RELATION_TYPES = [
             "calls", 
             "implemented_by", 
-            "extended_by"
+            "extended_by",
+            "vars"
         ]
 
         while stack:
@@ -209,18 +205,42 @@ class LangChainRetriever:
             key = self._key(c)
 
             for rel in RELATION_TYPES:
-                related = self.dep_graph.get(key, {}).get(rel, [])
-                for neighbor in related:
-                    if neighbor in seen:
+                relates = c.get(rel, [])
+                logger.info(f"Related: {relates}")
+                for related in relates:
+                    if related in seen:
                         continue
-                    neighbor_chunk = self._chunk_lookup.get(neighbor)
-                    if not neighbor_chunk or "content" not in neighbor_chunk:
-                        continue
-                    full_text = f"# Summary: {neighbor_chunk.get('summary', '')}\n\n{neighbor_chunk['content']}"
-                    docs.append(Document(page_content=full_text, metadata=neighbor_chunk))
-                    seen.add(neighbor)
-                    stack.append(neighbor_chunk)
+                    seen.add(related)
+                    d = self.find_chunk_by_symbol_name(related)
+                    for dx in d:
+                        full_text = f"# Summary: {dx.get('summary', '')}\n\n{dx['content']}"
+                        docs.append(Document(page_content=full_text, metadata=dx))
+                        stack.append(dx)
 
+    def find_chunk_by_symbol_name(self, symbol: str) -> List[Dict]:
+        # Ensure the index and chunk lookup are loaded
+        if not self._loaded:
+            logger.debug(f"Loading index for symbol search: {symbol}")
+            self._ensure_loaded_sync()
+            
+        if not self._loaded:
+            logger.warning(f"Failed to load index for find_by_symbol_name, returning empty results")
+            return []
+            
+        found = []
+        logger.debug(f"🔍 Finding by symbol name: {symbol}")
+        
+        if not hasattr(self, '_chunk_lookup'):
+            logger.warning(f"Chunk lookup not available, returning empty results")
+            return []
+            
+        for key, chunk in self._chunk_lookup.items():
+            # logger.info(f"key: {key}")
+            if symbol.lower() in key.lower():
+                found.append(chunk)
+        logger.info(f"Found {len(found)} matches for symbol: {symbol}")
+        logger.info(f"Found: {found}")
+        return found
 
     def find_by_symbol_name(self, symbol: str) -> List[Document]:
         # Ensure the index and chunk lookup are loaded

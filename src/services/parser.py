@@ -8,6 +8,7 @@ from typing import Tuple, List, Dict, Optional
 from loguru import logger
 from tree_sitter import Language, Parser
 from tree_sitter_languages import get_language
+from utils.constant import JAVA_STANDARD_TYPES, GENERIC_TYPE_VARS
 # from adapters.gemini import Gemini  # Assume your own Gemini interface
 
 JAVA_LANGUAGE: Language = get_language("java")
@@ -35,7 +36,6 @@ def list_java_files(root: Path) -> List[Path]:
         if p.suffix in WHITELIST_EXT and not _should_skip(p):
             files.append(p)
     return files
-
 
 def parse_project(root: Path) -> Tuple[List[CodeChunk], DependencyGraph]:
     chunks: List[CodeChunk] = []
@@ -82,10 +82,13 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
 
         method_nodes = []
         for child in class_node.children:
-            if child.type == "class_body":
+            if child.type == "class_body" or child.type == "interface_body" or child.type == "enum_body":
                 method_nodes.extend([
                     n for n in child.children if n.type == "method_declaration"
                 ])
+    
+        logger.info(f"class_node: {class_name}")
+        logger.info(f"method_nodes: {method_nodes}")
         chunk = _build_chunk(
             file_path=file_path,
             class_name=class_name,
@@ -111,8 +114,10 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
 
         for m_node in method_nodes:
             method_name = _get_identifier(m_node, source) or "unknown"
+            logger.info(f"method_name: {method_name}")
             param_map = _extract_param_types(m_node, source)
-            vars = _extract_vars(m_node, source)
+            vars = _extract_vars(m_node)
+            vars = [var for var in vars if var not in JAVA_STANDARD_TYPES and var not in GENERIC_TYPE_VARS]
             calls = _extract_calls(m_node, source, class_name, {**field_map, **param_map})
 
             endpoint = _extract_method_endpoint(m_node, source)
@@ -140,7 +145,7 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
 
     return chunks, graph
 
-def _extract_vars(node, source: str) -> List[str]:
+def _extract_vars(node) -> List[str]:
     q = """
     (
         (type_identifier) @vars
@@ -237,9 +242,6 @@ def _resolve_object_name(node, source: str) -> str:
     return "unknown"
 
 def _extract_param_types(method_node, source: str) -> Dict[str, str]:
-    """
-    Extracts parameter names and types from a method declaration.
-    """
     param_map = {}
     for child in method_node.children:
         if child.type == "formal_parameters":
@@ -255,23 +257,28 @@ def _extract_param_types(method_node, source: str) -> Dict[str, str]:
 
 def _infer_chunk_type(node, source: str) -> str:
     annotations = [c for c in node.children if c.type == "modifiers"]
-    ann_text = "".join(source[c.start_byte:c.end_byte] for c in annotations)
-    if "@Controller" in ann_text or "@RestController" in ann_text:
+    ann_text = "".join(source[c.start_byte:c.end_byte].lower() for c in annotations)
+    if "@controller" in ann_text or "@restController" in ann_text:
         return "controller"
-    if "@Service" in ann_text:
+    if "@service" in ann_text:
         return "service"
-    if "@Repository" in ann_text:
+    if "@repository" in ann_text:
         return "repository"
-    if "@Entity" in ann_text:
+    if "@entity" in ann_text:
         return "entity"
-    if "Filter" in ann_text:
+    if "filter" in ann_text:
         return "filter"
-    if "Configuration" in ann_text:
+    if "configuration" in ann_text:
         return "configuration"
-    if "Component" in ann_text:
+    if "component" in ann_text:
         return "component"
-    if "Bean" in ann_text:
+    if "bean" in ann_text:
         return "bean"
+    if "interface" in ann_text:
+        return "interface"
+    if "abstract" in ann_text:
+        return "abstract_class"
+    
     return "other"
 
 
@@ -360,12 +367,8 @@ def _extract_fields(class_node, source: str) -> Dict[str, str]:
                 n for n in child.children if n.type == "field_declaration"
             ])
 
-    logger.info(f"field_nodes {field_nodes}")
-
     for field_node in field_nodes:
-        logger.info(f"field_node:: {field_node}")
         type_node = field_node.child_by_field_name("type")
-        logger.info(f"field_node type_node: {type_node}")
         if not type_node:
             continue
 
@@ -379,15 +382,12 @@ def _extract_fields(class_node, source: str) -> Dict[str, str]:
         declarator_nodes = [
             n for n in field_node.children if n.type == "variable_declarator"
         ]
-        logger.info(f"declarator_nodes: {declarator_nodes}")
         for decl in declarator_nodes:
             logger.info(f"decl: {decl}")
             name_node = decl.child_by_field_name("name")
             if name_node:
-                logger.info(f"name_node: {name_node}")
                 var_name = source[name_node.start_byte:name_node.end_byte].strip()
                 field_map[var_name] = type_name
-                logger.debug(f"[FIELD] {var_name} : {type_name}")
 
     return field_map
 

@@ -1,0 +1,9 @@
+{
+  "document": "Analysis completed but not in JSON format",
+  "requirement_coverage": [],
+  "test_cases": [],
+  "improvements": [],
+  "endpoint": "/api/v1/pub/pronunciations/accuracy",
+  "raw_response": "Error in agent reasoning: 400 API key not valid. Please pass a valid API key. [reason: \"API_KEY_INVALID\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"generativelanguage.googleapis.com\"\n}\n, locale: \"en-US\"\nmessage: \"API key not valid. Please pass a valid API key.\"\n]",
+  "analysis_method": "langgraph"
+}

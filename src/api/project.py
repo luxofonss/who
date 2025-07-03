@@ -10,7 +10,7 @@ from utils.logger import init_logger
 from utils.file import write_json, ensure_dir
 from services.fetcher import clone_repo
 from services.parser import parse_project
-# from services.embedder import embed_texts
+from services.embedder import embed_texts
 from services.indexer import Indexer
 from services.merkle import compute_merkle_tree, diff_trees, save_merkle, load_merkle
 
@@ -112,7 +112,7 @@ async def reindex(body: ReindexRequest):
     # Re-parse & re-index – could be incremental, here we rebuild for clarity
     chunks, dep_graph = parse_project(repo_path)
     texts = [format_chunk_for_embedding(c) for c in chunks]
-    # vectors = embed_texts(texts)
+    vectors = embed_texts(texts)
 
     meta_for_index = [{k: v for k, v in ch.items()} for ch in chunks]
     indexer = Indexer(body.project_id, index_type="hnsw")
