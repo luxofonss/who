@@ -3545,7 +3545,7 @@
       "file_path": "storage/repos/demo10/src/main/java/com/edu/onestudy/service/PronunciationService.java",
       "class_name": "PronunciationService",
       "method_name": null,
-      "chunk_type": "other",
+      "chunk_type": "interface",
       "calls": [],
       "called_by": [],
       "line_start": 8,
@@ -3566,7 +3566,7 @@
       "file_path": "storage/repos/demo10/src/main/java/com/edu/onestudy/service/PronunciationService.java",
       "class_name": "PronunciationService",
       "method_name": "getSample",
-      "chunk_type": "other",
+      "chunk_type": "interface",
       "calls": [],
       "called_by": [
         "PronunciationController.getSamplePronunciations"
@@ -3592,7 +3592,7 @@
       "file_path": "storage/repos/demo10/src/main/java/com/edu/onestudy/service/PronunciationService.java",
       "class_name": "PronunciationService",
       "method_name": "getAccuracy",
-      "chunk_type": "other",
+      "chunk_type": "interface",
       "calls": [],
       "called_by": [
         "PronunciationController.getAccuracy"
@@ -3618,7 +3618,7 @@
       "file_path": "storage/repos/demo10/src/main/java/com/edu/onestudy/thirdparty/pronunciation_svc/PronunciationFeignClient.java",
       "class_name": "PronunciationFeignClient",
       "method_name": null,
-      "chunk_type": "other",
+      "chunk_type": "interface",
       "calls": [],
       "called_by": [],
       "line_start": 11,
@@ -3637,7 +3637,7 @@
       "file_path": "storage/repos/demo10/src/main/java/com/edu/onestudy/thirdparty/pronunciation_svc/PronunciationFeignClient.java",
       "class_name": "PronunciationFeignClient",
       "method_name": "getAccuracyFromRecordedAudio",
-      "chunk_type": "other",
+      "chunk_type": "interface",
       "calls": [],
       "called_by": [
         "PronunciationServiceImpl.getAccuracy"
@@ -3666,7 +3666,7 @@
       "file_path": "storage/repos/demo10/src/main/java/com/edu/onestudy/thirdparty/pronunciation_svc/PronunciationFeignClient.java",
       "class_name": "PronunciationFeignClient",
       "method_name": "getSample",
-      "chunk_type": "other",
+      "chunk_type": "interface",
       "calls": [],
       "called_by": [
         "PronunciationServiceImpl.getSample"

@@ -67,61 +67,24 @@ class LangChainRetriever:
         # Create a unique ID combining these fields
         return f"{file_path}::{class_name}::{method_name}::{start_line}"
 
-    def _deduplicate_chunks(self, chunks: List[Dict]) -> List[Dict]:
-        if not chunks:
-            return chunks
-            
-        seen_ids = set()
-        unique_chunks = []
-        duplicates_count = 0
-        
-        for chunk in chunks:
-            chunk_id = chunk.get("id")
-            if chunk_id not in seen_ids:
-                seen_ids.add(chunk_id)
-                unique_chunks.append(chunk)
-            else:
-                duplicates_count += 1
-        
-        if duplicates_count > 0:
-            logger.debug(f"🔄 Removed {duplicates_count} duplicate chunks")
-            
-        return unique_chunks
-
-    def _deduplicate_documents(self, docs: List[Document]) -> List[Document]:
-        if not docs:
-            return docs
-            
-        seen_ids = set()
-        unique_docs = []
-        duplicates_count = 0
-        
-        for doc in docs:
-            # Use chunk metadata to create document ID
-            chunk_id = doc.metadata.get("id")
-            if chunk_id not in seen_ids:
-                seen_ids.add(chunk_id)
-                unique_docs.append(doc)
-            else:
-                duplicates_count += 1
-        
-        if duplicates_count > 0:
-            logger.debug(f"🔄 Removed {duplicates_count} duplicate documents")
-            
-        return unique_docs
-
     async def retrieve(self, query: str, user_text: str, top: int, hyde: bool = False) -> List[Document]:
+        logger.info(f"retrieve query: {query}")
         await self._ensure_loaded()
-        # 2. Embedding
+        # turn raw query to embedded query
         query_emb = embed(query)
+        logger.info(f"query_emb: {query_emb}")
 
-        # 3. Hybrid retrieval (get scores for both)
+        # hybrid retrieval using bm25 and faiss (get scores for both)
         bm25_task = asyncio.to_thread(self._bm25_with_scores, query, self.indexer.metadata)
         faiss_task = asyncio.to_thread(self.indexer.search, query_emb, self.k)
-        bm25_scored, faiss_results_tuple = await asyncio.gather(bm25_task, faiss_task)
-
+        
+        bm25_scored, faiss_results_tuple = await asyncio.gather(bm25_task, faiss_task) # async
+        logger.info(f"bm25_scored: {bm25_scored}")
+        logger.info(f"faiss_results_tuple: {faiss_results_tuple}")
+        
         faiss_distances, faiss_chunks = faiss_results_tuple
         # Convert FAISS distances to similarity scores (lower distance = higher score)
+        logger.info(f"faiss_distances: {faiss_distances}")
         if len(faiss_distances) > 0:
             faiss_sim = 1 / (1 + faiss_distances)
         else:
@@ -139,10 +102,12 @@ class LangChainRetriever:
         def normalize(scores):
             if not scores:
                 return {}
-            min_s, max_s = min(scores.values()), max(scores.values())
-            if max_s == min_s:
+            values = list(scores.values())
+            min_s, max_s = min(values), max(values)
+            diff = max_s - min_s
+            if diff == 0:  # All scores are the same
                 return {k: 1.0 for k in scores}
-            return {k: (v - min_s) / (max_s - min_s) for k, v in scores.items()}
+            return {k: (v - min_s) / diff for k, v in scores.items()}
 
         norm_faiss = normalize(faiss_dict)
         norm_bm25 = normalize(bm25_dict)
@@ -202,7 +167,6 @@ class LangChainRetriever:
 
         while stack:
             c = stack.pop()
-            key = self._key(c)
 
             for rel in RELATION_TYPES:
                 relates = c.get(rel, [])
@@ -211,13 +175,14 @@ class LangChainRetriever:
                     if related in seen:
                         continue
                     seen.add(related)
-                    d = self.find_chunk_by_symbol_name(related)
+                    d = self.find_chunk_by_symbol_name(related, seed.get("method_name", ""))
+                    logger.info(f"d: {d}")
                     for dx in d:
                         full_text = f"# Summary: {dx.get('summary', '')}\n\n{dx['content']}"
                         docs.append(Document(page_content=full_text, metadata=dx))
                         stack.append(dx)
 
-    def find_chunk_by_symbol_name(self, symbol: str) -> List[Dict]:
+    def find_chunk_by_symbol_name(self, symbol: str, method_name: str = '') -> List[Dict]:
         # Ensure the index and chunk lookup are loaded
         if not self._loaded:
             logger.debug(f"Loading index for symbol search: {symbol}")
@@ -238,6 +203,24 @@ class LangChainRetriever:
             # logger.info(f"key: {key}")
             if symbol.lower() in key.lower():
                 found.append(chunk)
+                if chunk.get("chunk_type") == "interface":
+                    interfaces = chunk.get("implemented_by", [])
+                    for interface in interfaces:
+                        if method_name:
+                            itfs = self.find_chunk_by_symbol_name(interface + "." + method_name)
+                        else:
+                            itfs = self.find_chunk_by_symbol_name(interface)
+                        for itf in itfs:
+                            found.append(itf)
+                if chunk.get("chunk_type") == "abstract_class":
+                    sub_classes = chunk.get("extended_by", [])
+                    for sub_class in sub_classes:
+                        if method_name:
+                            sb_classes = self.find_chunk_by_symbol_name(sub_class + "." + method_name)
+                        else:
+                            sb_classes = self.find_chunk_by_symbol_name(sub_class)
+                        for sb_class in sb_classes:
+                            found.append(sb_class)
         logger.info(f"Found {len(found)} matches for symbol: {symbol}")
         logger.info(f"Found: {found}")
         return found
@@ -268,10 +251,6 @@ class LangChainRetriever:
         logger.debug(f"Found {len(found)} matches for symbol: {symbol}")
         return found
 
-    # ------------------------------------------------------------------
-    # Convenience sync wrapper for LangChain tools / agents
-    # ------------------------------------------------------------------
-
     def retrieve_sync(self, query: str, user_text: str = "", top: int = 5, hyde: bool = False) -> List[Document]:
         """Blocking wrapper around *retrieve* for non-async callers.
 
@@ -296,3 +275,46 @@ class LangChainRetriever:
         scores = bm25.get_scores(query.split())
         ranked = sorted(range(len(scores)), key=lambda i: -scores[i])[:top_k]
         return [(metadata[i], scores[i]) for i in ranked]
+    
+    def _deduplicate_chunks(self, chunks: List[Dict]) -> List[Dict]:
+        if not chunks:
+            return chunks
+            
+        seen_ids = set()
+        unique_chunks = []
+        duplicates_count = 0
+        
+        for chunk in chunks:
+            chunk_id = chunk.get("id")
+            if chunk_id not in seen_ids:
+                seen_ids.add(chunk_id)
+                unique_chunks.append(chunk)
+            else:
+                duplicates_count += 1
+        
+        if duplicates_count > 0:
+            logger.debug(f"🔄 Removed {duplicates_count} duplicate chunks")
+            
+        return unique_chunks
+
+    def _deduplicate_documents(self, docs: List[Document]) -> List[Document]:
+        if not docs:
+            return docs
+            
+        seen_ids = set()
+        unique_docs = []
+        duplicates_count = 0
+        
+        for doc in docs:
+            # Use chunk metadata to create document ID
+            chunk_id = doc.metadata.get("id")
+            if chunk_id not in seen_ids:
+                seen_ids.add(chunk_id)
+                unique_docs.append(doc)
+            else:
+                duplicates_count += 1
+        
+        if duplicates_count > 0:
+            logger.debug(f"🔄 Removed {duplicates_count} duplicate documents")
+            
+        return unique_docs

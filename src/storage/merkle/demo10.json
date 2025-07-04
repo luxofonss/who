@@ -27,7 +27,7 @@
   ".git/hooks/prepare-commit-msg.sample": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619",
   ".git/hooks/update.sample": "751c037320024ec2ee2757f3ffae0b10ad2c946367684e7059d4dc97eac7e431",
   ".git/info/exclude": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1",
-  ".git/logs/HEAD": "e9a1888c160afa165b93679fa189dfafd6a2c3c2f83e24a5881da3c864a99c75",
+  ".git/logs/HEAD": "270815899713b9876bb83c32334efe47360ff14653c921a9c75ad098eb671919",
   ".git/logs/refs/heads/test": "473439ef7d892c9a7e9a1772b67b0fbf2e0c3d4d17ed2166b96db0251bb42d21",
   ".git/objects/00/6e9e943d951f7d1011d8710c37f90be1103daf": "d91d39c64a114596c87d97de4d92478fc73e83a2e1e18339f8688bdf68cffd76",
   ".git/objects/02/0388cb5a8dd300befeeff8c8cc716eb1e20021": "78490f4cdbe21bb70b058607ac0394ef665354d0656d0acdf933a69f49b0f3e2",

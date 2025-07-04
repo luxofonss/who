@@ -155,7 +155,6 @@ def _extract_vars(node) -> List[str]:
     res = []
 
     for node, capture_name in captures:
-        logger.info(f"capture_name: {capture_name}, text: {node.text.decode()}")
         res.append(node.text.decode())
 
     return res
@@ -274,10 +273,13 @@ def _infer_chunk_type(node, source: str) -> str:
         return "component"
     if "bean" in ann_text:
         return "bean"
-    if "interface" in ann_text:
-        return "interface"
     if "abstract" in ann_text:
         return "abstract_class"
+
+    interface_nodes = [i for i in node.children if i.type == "interface_declaration"]
+    logger.info(f"interface_nodes: {interface_nodes}")
+    if node.type == "interface_declaration" or interface_nodes:
+        return "interface"
     
     return "other"
 

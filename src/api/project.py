@@ -40,14 +40,14 @@ async def create_project(body: CreateProjectRequest):
     # Embeddings & FAISS index
     texts = [f"{c.get('summary','')}\n\n{c['content']}" for c in chunks]
 
-    # logger.info(f"Embedding: {texts}")
-    # vectors = embed_texts(texts)
+    logger.info(f"Embedding: {texts}")
+    vectors = embed_texts(texts)
 
     # Build index with metadata (without content to save space)
     meta_for_index = [{k: v for k, v in ch.items()} for ch in chunks]
-    # indexer = Indexer(body.project_id, index_type="hnsw")
-    # indexer.build_index(vectors, metadata=meta_for_index)
-    # await indexer.save()
+    indexer = Indexer(body.project_id, index_type="hnsw")
+    indexer.build_index(vectors, metadata=meta_for_index)
+    await indexer.save()
 
     # Write metadata
     meta = {

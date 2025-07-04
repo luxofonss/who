@@ -1,0 +1,1222 @@
+Project: demo10
+Timestamp: 2025-07-04T07:07:19.210638
+Type: agent_iteration_0
+================================================================================
+
+You are an expert software architect analyzing the REST endpoint: /api/v1/pub/pronunciations/accuracy
+            ANALYSIS STRATEGY:
+            1. Review the current context for the endpoint implementation
+            2. Get all classes, services, repositories, DTOs, methods and check if they are fully implemented
+            3. If you see references to any classes, services, DTOs, or methods that are not fully shown, request more context using the tool
+            4. When there are no classes, services, DTOs, or methods that are not fully shown, you have sufficient implementation details, provide your final analysis as JSON
+            5. Do not assume that you have enough context, always check the code and use get_project_code_context if any part of the code is not fully implemented.
+
+            WHEN TO USE get_project_code_context TOOL:
+            - When you see class/interface names without their implementation
+            - When service methods are referenced but not shown
+            - When DTO/model classes are mentioned but structure is unclear
+            - When exception handling classes are referenced
+            - When you need to understand dependencies or business logic
+
+            To use the tool, respond with: "I need to get context for [exact_class_or_method_name]"
+            Examples:
+            - "I need to get context for UserService"
+            - "I need to get context for ValidationException"
+            - "I need to get context for OrderDto"
+
+            CURRENT CONTEXT:
+            # Summary: 
+
+@PostMapping("/accuracy")
+    public BaseResponse<Object> getAccuracy(@RequestBody PronunciationAccuracyRequestDto request) {
+        return baseService.ofSucceeded(pronunciationService.getAccuracy(request));
+    }
+
+[HybridScore: 0.000]
+
+# Summary: 
+
+public <T> BaseResponse<T> ofSucceeded(T data) {
+        return BaseResponse.ofSucceeded(getRequestId(), data);
+    }
+
+# Summary: 
+
+PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request);
+
+# Summary: 
+
+@Override
+    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
+        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
+        req.setLanguage("en");
+        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
+        }
+
+        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
+    }
+
+# Summary: 
+
+@Data
+@Accessors(chain = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Slf4j
+@NoArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+@SuperBuilder
+public class BaseResponse<T> {
+
+    private Meta meta = new Meta();
+
+    private T data;
+
+    public BaseResponse(Meta meta, T data) {
+        this.meta = meta;
+        this.data = data;
+    }
+
+    public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {
+        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {
+            return;
+        }
+
+        Meta meta = baseResponse.meta;
+        if (status != meta.getCode()) {
+            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);
+        }
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded(T data) {
+        BaseResponse<T> response = new BaseResponse<>();
+        response.data = data;
+        response.meta.setCode(ErrorConstant.SUCCESS);
+        response.meta.setMessage("OK");
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded() {
+        BaseResponse<T> response = new BaseResponse<>();
+        response.meta.setCode(ErrorConstant.SUCCESS);
+        return response;
+    }
+
+    public static BaseResponse ofFailed(BusinessError error) {
+        return ofFailed(error, null);
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessError error, T data) {
+        return ofFailed(error, null, data);
+    }
+
+    public static BaseResponse ofFailed(BusinessError error, String message) {
+        return ofFailed(error, message, null);
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, T data) {
+        return ofFailed(error, message, null, data);
+    }
+
+    public static BaseResponse ofFailed(BusinessError error, String message, List<ErrorViolation> errors) {
+        BaseResponse response = new BaseResponse<>();
+        response.meta.setCode(error.getCode());
+        response.meta.setMessage((message != null) ? message : error.getMessage());
+        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);
+        if(errors != null && errors.size() > 0) {
+            response.meta.setMessage(errors.get(0).getDescription());
+        }
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessError error, String message, List<ErrorViolation> errors, T data) {
+        BaseResponse<T> response = new BaseResponse<>();
+        response.meta.setCode(error.getCode());
+        response.meta.setMessage((message != null) ? message : error.getMessage());
+        response.meta.setErrors((errors != null) ? new ArrayList<>(errors) : null);
+        if(errors != null && errors.size() > 0) {
+            response.meta.setMessage(errors.get(0).getDescription());
+        }
+        response.data = data;
+        return response;
+    }
+
+    public static BaseResponse ofFailed(BusinessException exception) {
+        return ofFailed(exception.getError(), exception.getMessage());
+    }
+
+    public static <T> BaseResponse<T> ofFailed(BusinessException exception, T data) {
+        return ofFailed(exception.getError(), exception.getMessage(), data);
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded(String requestId, T data) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+    public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(requestList.getRequestId());
+        response.meta.setPageSize(requestList.getPageSize());
+        response.meta.setPageIndex(requestList.getPageIndex());
+        response.meta.setTotalItems(requestList.getTotalItems());
+        response.data = data;
+        return response;
+    }
+    public static <T> BaseResponse<T> ofSucceeded(BasicRequest request, T data) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(request.getRequestId());
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofSucceeded(String requestId) {
+        BaseResponse<T> response = ofSucceeded();
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessError error) {
+        BaseResponse response = ofFailed(error);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessError error, String message) {
+        BaseResponse response = ofFailed(error, message);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, T data) {
+        BaseResponse<T> response = ofFailed(error, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, T data) {
+        BaseResponse<T> response = ofFailed(error, message, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors) {
+        BaseResponse response = ofFailed(error, message, errors);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessError error, String message, List<ErrorViolation> errors, T data) {
+        BaseResponse<T> response = ofFailed(error, message, errors, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+    public static BaseResponse ofFailed(String requestId, BusinessException exception) {
+        BaseResponse response = ofFailed(exception);
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+    public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {
+        BaseResponse<T> response = ofFailed(exception, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+}
+
+# Summary: 
+
+public static void verifyMetaResponse(BaseResponse<?> baseResponse, HttpStatus httpStatus, int status) {
+        if (Objects.isNull(baseResponse) || Objects.isNull(baseResponse.meta)) {
+            return;
+        }
+
+        Meta meta = baseResponse.meta;
+        if (status != meta.getCode()) {
+            throw new BusinessException(meta.getCode(), meta.getMessage(), httpStatus);
+        }
+    }
+
+# Summary: 
+
+public static <T> BaseResponse<T> ofSucceeded(String requestId) {
+        BaseResponse<T> response = ofSucceeded();
+        response.meta.setRequestId(requestId);
+        return response;
+    }
+
+# Summary: 
+
+public static <T> BaseResponse<T> ofFailed(String requestId, BusinessException exception, T data) {
+        BaseResponse<T> response = ofFailed(exception, data);
+        response.meta.setRequestId(requestId);
+        response.data = data;
+        return response;
+    }
+
+# Summary: 
+
+public static <T> BaseResponse<T> ofGetListSucceeded(T data, BasicRequestList requestList) {
+        BaseResponse<T> response = ofSucceeded(data);
+        response.meta.setRequestId(requestList.getRequestId());
+        response.meta.setPageSize(requestList.getPageSize());
+        response.meta.setPageIndex(requestList.getPageIndex());
+        response.meta.setTotalItems(requestList.getTotalItems());
+        response.data = data;
+        return response;
+    }
+
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PronunciationAccuracyRequestDto {
+
+    private String base64Audio;
+
+    private String text;
+
+}
+
+# Summary: 
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@SuperBuilder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+public class BasicRequestList extends BasicRequest {
+
+    private static final long serialVersionUID = -2411435498386121564L;
+
+    @NotNull(message = "page_index must not be null!")
+    private Long pageIndex;
+
+    private Long pageStart;
+
+    @NotNull(message = "page_size must not be null!")
+    private Long pageSize;
+
+    private Long totalItems;
+
+    public BasicRequestList(Long totalItems, String requestId) {
+        this.setTotalItems(totalItems);
+        this.setRequestId(requestId);
+    }
+
+}
+
+# Summary: 
+
+@Getter
+@Builder
+public class BusinessException extends RuntimeException implements Serializable {
+
+    private static final long serialVersionUID = 1905122041950251207L;
+
+    private final BusinessError error;
+
+    public BusinessException(int code, String message, HttpStatus status) {
+        super(message);
+        this.error = new BusinessError(code, message, status);
+    }
+
+    public BusinessException(int code, HttpStatus status) {
+        this.error = new BusinessError(code, status);
+    }
+
+    public BusinessException(int code) {
+        this.error = new BusinessError(code);
+    }
+
+    public BusinessException(int code, Object data) {
+        this.error = new BusinessError(code, data);
+    }
+
+    public BusinessException(int code, String message) {
+        this.error = new BusinessError(code, message);
+    }
+
+    public BusinessException(BusinessError error) {
+        super(error.getMessage());
+        this.error = error;
+    }
+
+    public BusinessException(BusinessError error, String message) {
+        super(message);
+        this.error = error;
+    }
+
+    public BusinessException(BusinessError error, String message, Throwable cause) {
+        super(message, cause);
+        this.error = error;
+    }
+}
+
+# Summary: 
+
+@ExceptionHandler(BusinessException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleBusinessException(BusinessException exception) {
+        exception.getError().setMessage(getMessage(exception.getError()));
+        Object dataException = exception.getError().getData();
+        BaseResponse<?> data = ofFailed(exception);
+        if(!ObjectUtils.isEmpty(dataException) && dataException instanceof String) {
+            data.getMeta().setErrors(Collections.singletonList(
+                ErrorViolation.builder().description((String) dataException).build()));
+        }
+        return new ResponseEntity<>(data, exception.getError().getHttpStatus() == null
+                ? HttpStatus.OK : exception.getError().getHttpStatus());
+    }
+
+# Summary: 
+
+@ExceptionHandler(HttpStatusCodeException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleHttpStatusCodeException(HttpStatusCodeException exception) {
+        HttpStatus statusCode = (HttpStatus) exception.getStatusCode();
+
+        if (statusCode.value() == HttpStatus.BAD_REQUEST.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.UNAUTHORIZED.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.UNAUTHORIZED);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.FORBIDDEN.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.FORBIDDEN_ERROR);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.NOT_FOUND.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.NOT_FOUND);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.INTERNAL_SERVER_ERROR.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.INTERNAL_SERVER_ERROR);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        throw exception;
+    }
+
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@SuperBuilder
+public class Meta {
+
+    private Integer code;
+
+    private Long pageIndex;
+
+    private Long pageSize;
+
+    private Long totalItems;
+
+    private List<ErrorViolation> errors;
+
+    private String message;
+
+    private String requestId;
+
+
+    public Meta(String requestId, int code, Long pageIndex, Long pageSize, long totalItems) {
+        this.requestId = requestId;
+        this.code = code;
+        this.pageSize = pageSize;
+        this.pageIndex = pageIndex;
+        this.totalItems = totalItems;
+    }
+
+
+    public Meta(String requestId, int code, String message) {
+        this.requestId = requestId;
+        this.code = code;
+        this.message = message;
+    }
+}
+
+# Summary: 
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@SuperBuilder
+public class BusinessError implements Serializable {
+
+    private static final long serialVersionUID = 2405172041950251807L;
+
+    private int code;
+
+    private String message;
+
+    private HttpStatus httpStatus;
+
+    private Object data;
+
+    public BusinessError(int code, HttpStatus httpStatus) {
+        this.code = code;
+        this.httpStatus = httpStatus;
+    }
+
+    public BusinessError(int code) {
+        this.code = code;
+    }
+
+    public BusinessError(int code, HttpStatus httpStatus, Object data) {
+        this.code = code;
+        this.httpStatus = httpStatus;
+        this.data = data;
+    }
+
+    public BusinessError(int code, Object data) {
+        this.code = code;
+        this.data = data;
+    }
+
+    public BusinessError(int code, String message) {
+        this.code = code;
+        this.message = message;
+    }
+
+    public BusinessError(int code, String message, HttpStatus httpStatus) {
+        this.code = code;
+        this.message = message;
+        this.httpStatus = httpStatus;
+    }
+}
+
+# Summary: 
+
+public BusinessError getBusinessError(int errorCode) {
+        return BusinessError.builder()
+                .code(errorCode)
+                .message(getMessage(errorCode))
+                .build();
+    }
+
+# Summary: 
+
+public String getMessage(BusinessError error) {
+        return ObjectUtils.isEmpty(error.getMessage()) ? getMessage(error.getCode()) : error.getMessage();
+    }
+
+# Summary: 
+
+@Aspect
+@Component
+@Order(value = 1)
+@Slf4j
+public class LogsActivityAOPHandler extends BaseService {
+
+    private final HttpServletRequest httpServletRequest;
+
+    public static final String service_name = "service_name";
+
+    public static final String request_path = "request_path";
+
+    public static final String query_string = "query_string";
+
+    public static final String code_file = "code_file";
+
+    public static final String method_name = "method_name";
+
+    public static final String message_type = "message_type";
+
+    public static final String request_id = "request_id";
+
+    public static final String request = "request";
+
+    public static final String response = "response";
+
+    public static final String execution_time = "execution_time";
+
+    public static final String status_code = "status_code";
+
+    public static final String error_code = "error_code";
+
+    public static final String headers = "headers";
+
+    public LogsActivityAOPHandler(HttpServletRequest httpServletRequest) {
+        this.httpServletRequest = httpServletRequest;
+    }
+
+    @Around("execution(* *(..)) && @annotation(logsActivityAnnotation)")
+    @SneakyThrows
+    public Object logsActivityAnnotation(ProceedingJoinPoint point, LogsActivityAnnotation logsActivityAnnotation) {
+        // Parameter
+        Object objectRequest = point.getArgs().length > 0 ? point.getArgs()[0] : httpServletRequest.getParameterMap();
+        String requestId = getRequestId();
+        // Log request
+        Map<String, Object> mapCustomizeLog = new HashMap<>();
+        mapCustomizeLog.put(LogsActivityAOPHandler.request_path, httpServletRequest.getRequestURI());
+        mapCustomizeLog.put(LogsActivityAOPHandler.query_string, httpServletRequest.getQueryString());
+        mapCustomizeLog.put(LogsActivityAOPHandler.code_file, point.getSignature().getDeclaringTypeName());
+        mapCustomizeLog.put(LogsActivityAOPHandler.method_name, point.getSignature().getName());
+        mapCustomizeLog.put(LogsActivityAOPHandler.message_type, LogsActivityAOPHandler.request);
+        mapCustomizeLog.put(LogsActivityAOPHandler.request_id, requestId);
+        mapCustomizeLog.put(LogsActivityAOPHandler.headers, Utils.redact(JsonUtils.convertObjectToString(getHeaders())));
+        displayLog(objectRequest, mapCustomizeLog);
+
+        // Process and get response
+        long timeStart = new Date().getTime();
+        Object objectResponse = point.proceed();
+
+        // Log response
+        long timeHandle = new Date().getTime() - timeStart;
+        mapCustomizeLog.put(LogsActivityAOPHandler.execution_time, timeHandle);
+        mapCustomizeLog.put(LogsActivityAOPHandler.code_file, point.getSignature().getDeclaringTypeName());
+        mapCustomizeLog.put(LogsActivityAOPHandler.method_name, point.getSignature().getName());
+        mapCustomizeLog.put(LogsActivityAOPHandler.request_id, requestId);
+        mapCustomizeLog.put(LogsActivityAOPHandler.message_type, LogsActivityAOPHandler.response);
+        mapCustomizeLog.put(LogsActivityAOPHandler.headers, Utils.redact(JsonUtils.convertObjectToString(getHeaders())));
+
+        displayLog(objectResponse, mapCustomizeLog);
+        return objectResponse;
+    }
+
+    private void displayLog(Object messageObject, Map<String, Object> mapCustomizeLog) throws JsonProcessingException {
+        if (messageObject instanceof Exception) {
+            Exception e = (Exception) messageObject;
+            if (e instanceof MethodArgumentNotValidException) {
+                log.info(Utils.redact(objectMapper.writeValueAsString(getRequestBody())), entries(mapCustomizeLog));
+                return;
+            } else if (e instanceof BusinessException) {
+                BusinessException businessException = (BusinessException) e;
+                if (!ObjectUtils.isEmpty(businessException.getError())) {
+                    if (!ObjectUtils.isEmpty(businessException.getError().getMessage())) {
+                        log.info(Utils.redact(e.getMessage()), entries(mapCustomizeLog));
+                        return;
+                    } else if (!ObjectUtils.isEmpty(businessException.getError().getData())) {
+                        log.info(Utils.redact(objectMapper.writeValueAsString(businessException.getError().getData())),
+                                entries(mapCustomizeLog));
+                        return;
+                    }
+                }
+            } else if (!ObjectUtils.isEmpty(e.getMessage())) {
+                log.info(Utils.redact(e.getMessage()), entries(mapCustomizeLog));
+            }
+
+            if (mapCustomizeLog.get(LogsActivityAOPHandler.message_type).toString().equals(LogsActivityAOPHandler.request)) {
+                log.error("Request_id: {}, Exception: ", getRequestId(), e);
+            }
+        } else {
+            if (mapCustomizeLog.get(LogsActivityAOPHandler.message_type).toString().equals(LogsActivityAOPHandler.response)) {
+                if (messageObject instanceof ResponseEntity) {
+                    ResponseEntity responseEntity = (ResponseEntity) messageObject;
+                    BaseResponse baseResponse = JsonUtils.getGenericObject(responseEntity.getBody(), BaseResponse.class);
+                    log.info(Utils.redact(objectMapper.writeValueAsString(baseResponse)), entries(mapCustomizeLog));
+                    return;
+                }
+            }
+
+            log.info(Utils.redact(objectMapper.writeValueAsString(messageObject)), entries(mapCustomizeLog));
+        }
+    }
+}
+
+# Summary: 
+
+@Around("execution(* *(..)) && @annotation(logsActivityAnnotation)")
+    @SneakyThrows
+    public Object logsActivityAnnotation(ProceedingJoinPoint point, LogsActivityAnnotation logsActivityAnnotation) {
+        // Parameter
+        Object objectRequest = point.getArgs().length > 0 ? point.getArgs()[0] : httpServletRequest.getParameterMap();
+        String requestId = getRequestId();
+        // Log request
+        Map<String, Object> mapCustomizeLog = new HashMap<>();
+        mapCustomizeLog.put(LogsActivityAOPHandler.request_path, httpServletRequest.getRequestURI());
+        mapCustomizeLog.put(LogsActivityAOPHandler.query_string, httpServletRequest.getQueryString());
+        mapCustomizeLog.put(LogsActivityAOPHandler.code_file, point.getSignature().getDeclaringTypeName());
+        mapCustomizeLog.put(LogsActivityAOPHandler.method_name, point.getSignature().getName());
+        mapCustomizeLog.put(LogsActivityAOPHandler.message_type, LogsActivityAOPHandler.request);
+        mapCustomizeLog.put(LogsActivityAOPHandler.request_id, requestId);
+        mapCustomizeLog.put(LogsActivityAOPHandler.headers, Utils.redact(JsonUtils.convertObjectToString(getHeaders())));
+        displayLog(objectRequest, mapCustomizeLog);
+
+        // Process and get response
+        long timeStart = new Date().getTime();
+        Object objectResponse = point.proceed();
+
+        // Log response
+        long timeHandle = new Date().getTime() - timeStart;
+        mapCustomizeLog.put(LogsActivityAOPHandler.execution_time, timeHandle);
+        mapCustomizeLog.put(LogsActivityAOPHandler.code_file, point.getSignature().getDeclaringTypeName());
+        mapCustomizeLog.put(LogsActivityAOPHandler.method_name, point.getSignature().getName());
+        mapCustomizeLog.put(LogsActivityAOPHandler.request_id, requestId);
+        mapCustomizeLog.put(LogsActivityAOPHandler.message_type, LogsActivityAOPHandler.response);
+        mapCustomizeLog.put(LogsActivityAOPHandler.headers, Utils.redact(JsonUtils.convertObjectToString(getHeaders())));
+
+        displayLog(objectResponse, mapCustomizeLog);
+        return objectResponse;
+    }
+
+# Summary: 
+
+private void displayLog(Object messageObject, Map<String, Object> mapCustomizeLog) throws JsonProcessingException {
+        if (messageObject instanceof Exception) {
+            Exception e = (Exception) messageObject;
+            if (e instanceof MethodArgumentNotValidException) {
+                log.info(Utils.redact(objectMapper.writeValueAsString(getRequestBody())), entries(mapCustomizeLog));
+                return;
+            } else if (e instanceof BusinessException) {
+                BusinessException businessException = (BusinessException) e;
+                if (!ObjectUtils.isEmpty(businessException.getError())) {
+                    if (!ObjectUtils.isEmpty(businessException.getError().getMessage())) {
+                        log.info(Utils.redact(e.getMessage()), entries(mapCustomizeLog));
+                        return;
+                    } else if (!ObjectUtils.isEmpty(businessException.getError().getData())) {
+                        log.info(Utils.redact(objectMapper.writeValueAsString(businessException.getError().getData())),
+                                entries(mapCustomizeLog));
+                        return;
+                    }
+                }
+            } else if (!ObjectUtils.isEmpty(e.getMessage())) {
+                log.info(Utils.redact(e.getMessage()), entries(mapCustomizeLog));
+            }
+
+            if (mapCustomizeLog.get(LogsActivityAOPHandler.message_type).toString().equals(LogsActivityAOPHandler.request)) {
+                log.error("Request_id: {}, Exception: ", getRequestId(), e);
+            }
+        } else {
+            if (mapCustomizeLog.get(LogsActivityAOPHandler.message_type).toString().equals(LogsActivityAOPHandler.response)) {
+                if (messageObject instanceof ResponseEntity) {
+                    ResponseEntity responseEntity = (ResponseEntity) messageObject;
+                    BaseResponse baseResponse = JsonUtils.getGenericObject(responseEntity.getBody(), BaseResponse.class);
+                    log.info(Utils.redact(objectMapper.writeValueAsString(baseResponse)), entries(mapCustomizeLog));
+                    return;
+                }
+            }
+
+            log.info(Utils.redact(objectMapper.writeValueAsString(messageObject)), entries(mapCustomizeLog));
+        }
+    }
+
+# Summary: 
+
+@Controller
+@ControllerAdvice
+@Slf4j
+public class CommonExceptionHandler extends BaseService {
+
+    @ExceptionHandler(BusinessException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleBusinessException(BusinessException exception) {
+        exception.getError().setMessage(getMessage(exception.getError()));
+        Object dataException = exception.getError().getData();
+        BaseResponse<?> data = ofFailed(exception);
+        if(!ObjectUtils.isEmpty(dataException) && dataException instanceof String) {
+            data.getMeta().setErrors(Collections.singletonList(
+                ErrorViolation.builder().description((String) dataException).build()));
+        }
+        return new ResponseEntity<>(data, exception.getError().getHttpStatus() == null
+                ? HttpStatus.OK : exception.getError().getHttpStatus());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleMethodArgumentNotValidException(MethodArgumentNotValidException exception) {
+        List<ErrorViolation> errors = exception.getBindingResult().getFieldErrors().stream()
+            .map(e -> ErrorViolation.builder()
+                .field(CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, e.getField()))
+                .code(Integer.toString(getErrorCode(e.getDefaultMessage(), ErrorConstant.INVALID_PARAMETERS)))
+                .description(getMessage(e.getDefaultMessage()))
+                .build())
+            .collect(Collectors.toList());
+
+        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);
+        BaseResponse<?> data = ofFailed(error, getMessage(error), errors);
+        return new ResponseEntity<>(data, HttpStatus.OK);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleMethodArgumentNotValidException(MissingServletRequestParameterException exception) {
+        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);
+        BaseResponse<?> data = ofFailed(error,"Param " + exception.getParameterName() + " is required");
+        return new ResponseEntity<>(data, HttpStatus.OK);
+    }
+
+    @ExceptionHandler(Exception.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleException(Exception exception) {
+        BusinessError error = getBusinessError(ErrorConstant.INTERNAL_SERVER_ERROR);
+        BaseResponse<?> data = ofFailed(error, getMessage(error), null);
+        return new ResponseEntity<>(data, HttpStatus.OK);
+    }
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleException(HttpMessageNotReadableException exception) {
+        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);
+        BaseResponse<?> data = ofFailed(error,"invalid parameter");
+        return new ResponseEntity<>(data, HttpStatus.OK);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleIllegalArgumentException(IllegalArgumentException exception) {
+        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);
+        BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+        return new ResponseEntity<>(data, HttpStatus.OK);
+    }
+
+    @ExceptionHandler(HttpStatusCodeException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleHttpStatusCodeException(HttpStatusCodeException exception) {
+        HttpStatus statusCode = (HttpStatus) exception.getStatusCode();
+
+        if (statusCode.value() == HttpStatus.BAD_REQUEST.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.UNAUTHORIZED.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.UNAUTHORIZED);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.FORBIDDEN.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.FORBIDDEN_ERROR);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.NOT_FOUND.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.NOT_FOUND);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        if (statusCode.value() == HttpStatus.INTERNAL_SERVER_ERROR.value()) {
+            BusinessError error = getBusinessError(ErrorConstant.INTERNAL_SERVER_ERROR);
+            BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+            return new ResponseEntity<>(data, HttpStatus.OK);
+        }
+
+        throw exception;
+    }
+}
+
+# Summary: 
+
+@ExceptionHandler(MissingServletRequestParameterException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleMethodArgumentNotValidException(MissingServletRequestParameterException exception) {
+        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);
+        BaseResponse<?> data = ofFailed(error,"Param " + exception.getParameterName() + " is required");
+        return new ResponseEntity<>(data, HttpStatus.OK);
+    }
+
+# Summary: 
+
+@ExceptionHandler(HttpMessageNotReadableException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleException(HttpMessageNotReadableException exception) {
+        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);
+        BaseResponse<?> data = ofFailed(error,"invalid parameter");
+        return new ResponseEntity<>(data, HttpStatus.OK);
+    }
+
+# Summary: 
+
+@ExceptionHandler(IllegalArgumentException.class)
+    @LogsActivityAnnotation
+    public ResponseEntity<BaseResponse<?>> handleIllegalArgumentException(IllegalArgumentException exception) {
+        BusinessError error = getBusinessError(ErrorConstant.INVALID_PARAMETERS);
+        BaseResponse<?> data = ofFailed(error, getMessage(error), exception.getMessage());
+        return new ResponseEntity<>(data, HttpStatus.OK);
+    }
+
+# Summary: 
+
+public static <T> T getGenericObject(Object input, Class<T> clazz) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            objectMapper.enable(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);
+            return objectMapper.convertValue(input, clazz);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+# Summary: 
+
+public static String redact(@NonNull String string) {
+        try {
+            for (String key : redactKeys) {
+                Matcher matcher = Pattern.compile(String.format("\"%s\"%s", key, REGEX_FILTER_KEY)).matcher(string);
+                if (matcher.find() && matcher.group(1) != null) {
+                    String group = matcher.group(1);
+                    if (!ObjectUtils.isEmpty(group.trim()) && !"\"\"".equals(group)) {
+                        string = string.replace(group, "\"**********\"");
+                    }
+                }
+            }
+            return string;
+        } catch (Exception e) {
+            return string;
+        }
+    }
+
+# Summary: 
+
+public static String convertObjectToString(Object obj) throws JsonProcessingException {
+        return new ObjectMapper().writeValueAsString(obj);
+    }
+
+# Summary: 
+
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface LogsActivityAnnotation {
+}
+
+# Summary: 
+
+@PostMapping(value = "/GetAccuracyFromRecordedAudio", produces = "application/json")
+    PronunciationAccuracyResponse getAccuracyFromRecordedAudio(@RequestBody PronunciationAccuracyRequest request);
+
+# Summary: 
+
+PronunciationAccuracyRequest toPronunciationAccuracyRequest(PronunciationAccuracyRequestDto req);
+
+# Summary: 
+
+PronunciationAccuracyResponseDto toPronunciationAccuracyResponseDto(PronunciationAccuracyResponse response);
+
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class PronunciationAccuracyResponseDto {
+
+    private String startTime;
+
+    private String endTime;
+
+    private String ipaScript;
+
+    private String isLetterCorrectAllWords;
+
+    private String matchedTranscripts;
+
+    private String matchedTranscriptsIpa;
+
+    private String pairAccuracyCategory;
+
+    private Integer pronunciationAccuracy;
+
+    private String realTranscript;
+
+    private String realTranscripts;
+
+    private String realTranscriptsIpa;
+
+}
+
+# Summary: 
+
+@Data
+public class PronunciationAccuracyRequest {
+
+    private String base64Audio;
+
+    private String language;
+
+    @JsonProperty("title")
+    private String text;
+
+}
+
+# Summary: 
+
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+@Data
+public class PronunciationAccuracyResponse {
+
+    private String startTime;
+
+    private String endTime;
+
+    private String ipaScript;
+
+    private String isLetterCorrectAllWords;
+
+    private String matchedTranscripts;
+
+    private String matchedTranscriptsIpa;
+
+    private String pairAccuracyCategory;
+
+    private Integer pronunciationAccuracy;
+
+    private String realTranscript;
+
+    private String realTranscripts;
+
+    private String realTranscriptsIpa;
+
+}
+
+# Summary: 
+
+@Service
+public class PronunciationServiceImpl implements PronunciationService {
+
+    private final PronunciationFeignClient pronunciationFeignClient;
+
+    private final PronunciationMapper pronunciationMapper;
+
+    public PronunciationServiceImpl(PronunciationFeignClient pronunciationFeignClient, PronunciationMapper pronunciationMapper) {
+        this.pronunciationFeignClient = pronunciationFeignClient;
+        this.pronunciationMapper = pronunciationMapper;
+    }
+
+    @Override
+    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
+        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
+        req.setCategory(request.getLevel().getValue());
+        req.setLanguage("en");
+        GetSampleResponse response = pronunciationFeignClient.getSample(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
+        }
+
+        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
+    }
+
+    @Override
+    public PronunciationAccuracyResponseDto getAccuracy(PronunciationAccuracyRequestDto request) {
+        PronunciationAccuracyRequest req = pronunciationMapper.toPronunciationAccuracyRequest(request);
+        req.setLanguage("en");
+        PronunciationAccuracyResponse response = pronunciationFeignClient.getAccuracyFromRecordedAudio(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_ACCURACY_ERROR);
+        }
+
+        return pronunciationMapper.toPronunciationAccuracyResponseDto(response);
+    }
+}
+
+# Summary: 
+
+@Override
+    public GetPronunciationSampleResponseDto getSample(GetSampleRequestDto request) {
+        GetSampleRequest req = pronunciationMapper.toSampleRequest(request);
+        req.setCategory(request.getLevel().getValue());
+        req.setLanguage("en");
+        GetSampleResponse response = pronunciationFeignClient.getSample(req);
+
+        if (response == null) {
+            throw new BusinessException(ErrorConstant.GET_PRONUNCIATION_SAMPLE_ERROR);
+        }
+
+        return pronunciationMapper.toGetPronunciationSampleResponseDto(response);
+    }
+
+# Summary: 
+
+@PostMapping(value = "/getSample", produces = "application/json")
+    GetSampleResponse getSample(@RequestBody GetSampleRequest request);
+
+# Summary: 
+
+GetPronunciationSampleResponseDto toGetPronunciationSampleResponseDto(GetSampleResponse response);
+
+# Summary: 
+
+@Mapping(target = "transcript", source = "customText")
+    GetSampleRequest toSampleRequest(GetSampleRequestDto req);
+
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class GetPronunciationSampleResponseDto {
+
+    private String ipaTranscript;
+
+    private String realTranscript;
+
+    private String transcriptTranslation;
+
+}
+
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class GetSampleRequestDto {
+
+    @NotNull
+    private PronunciationLevel level;
+
+    private String customText;
+
+}
+
+# Summary: 
+
+@Data
+public class GetSampleRequest {
+
+    private String category;
+
+    private String language;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String transcript;
+
+}
+
+# Summary: 
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class GetSampleResponse {
+
+    @JsonProperty("ipa_transcript")
+    private String ipaTranscript;
+
+    @JsonProperty("real_transcript")
+    private String realTranscript;
+
+    @JsonProperty("transcript_translation")
+    private String transcriptTranslation;
+
+}
+
+# Summary: 
+
+public String getRequestId() {
+        return getRequestValue(RequestKeyConstant.REQUEST_ID).toString();
+    }
+
+# Summary: 
+
+public <T> T getRequestValue(String key, Class<T> clazz) {
+        return clazz.cast(httpServletRequest.getAttribute(key));
+    }
+
+            REQUIREMENTS TO ANALYZE:
+            Sprint Planning for Pronunciation Accuracy: A Business Perspective
+Our team is embarking on a new sprint, focusing on enhancing our language learning platform. A key initiative for this sprint is to deliver a robust Pronunciation Accuracy Feature. The goal is to provide our users with immediate and detailed feedback on their spoken language, helping them improve their pronunciation and build confidence.
+
+Product Vision for Pronunciation Accuracy
+"To empower our users with precise, instant feedback on their pronunciation, fostering a more effective and engaging language learning experience."
+
+User Stories & Acceptance Criteria
+User Story: As a Language Learner, I want to submit my spoken audio and text so that I can receive a detailed assessment of my pronunciation accuracy.
+Description: Our users need a way to practice speaking and immediately understand how well they pronounced specific words or phrases. This direct feedback is crucial for self-correction and progress tracking.
+
+Acceptance Criteria:
+
+Given I have an audio recording of my speech and the corresponding text I intended to say,
+
+When I submit this audio and text to the system,
+
+Then the system should process my submission to determine pronunciation accuracy.
+
+And the system must provide a comprehensive accuracy report including:
+
+When my pronunciation started and ended within the audio.
+
+The phonetic representation (IPA script) of what I said.
+
+An indication of whether all individual sounds were correctly pronounced.
+
+The words and their phonetic forms that the system matched to my speech.
+
+A categorization of my overall pronunciation accuracy (e.g., "Excellent," "Good," "Needs Improvement").
+
+A numerical score representing my pronunciation accuracy.
+
+The exact original text and its phonetic representation that I was supposed to say.
+
+And if for any reason the pronunciation analysis cannot be completed (e.g., the external service we rely on is unavailable), I should receive a clear message indicating that the accuracy assessment failed.
+
+            TEST CASES TO VERIFY:
+            Positive Test Cases:
+TC-PA-001: Verify that the API correctly processes a high-quality audio submission with perfectly pronounced text.
+
+TC-PA-002: Verify that the API correctly processes audio with minor deviations or a noticeable accent, providing a non-perfect but reasonable score.
+
+Negative & Edge Test Cases:
+TC-PA-003: Verify that the API gracefully handles the scenario where the external pronunciation service is down or unresponsive.
+
+TC-PA-004: Verify that the API handles an invalid or corrupted Base64 audio string.
+
+TC-PA-005: Verify that the API handles an empty Base64 audio string.
+
+TC-PA-006: Verify that the API handles an empty text field.
+
+TC-PA-007: Verify that the API processes audio and text that do not match, returning a low accuracy score.
+
+Data Integrity & Constraints Test Cases:
+TC-PA-008: Test the API's behavior with an audio file that approaches or exceeds expected size limits.
+
+TC-PA-009: Test the API's behavior with a very long text input.
+
+            ADDITIONAL INSTRUCTIONS:
+            
+
+            If you don't have enough context, call the get_project_code_context tool to get more context, don't assume.
+            If you have enough context, provide your final analysis as valid JSON with this structure:
+            {
+                "document": "detailed explanation of what the endpoint does",
+                "requirement_coverage": [
+                    {
+                        "requirement": "exact requirement text",
+                        "coverage_score": "0-100",
+                        "explain": "how the code meets or fails this requirement"
+                    }
+                ],
+                "test_cases": [
+                    {
+                        "test_case": "exact test case text",
+                        "coverage_score": "0-100", 
+                        "explain": "whether this test case is covered by the implementation"
+                    }
+                ],
+                "improvements": [
+                    {
+                        "type": "category",
+                        "reason": "what needs improvement",
+                        "solution": "recommended fix"
+                    }
+                ]
+            }
+
+            Do not assume any code logic, always check the code and use get_project_code_context if any part of the code is not fully implemented.
+            Your response:

@@ -1,0 +1,21 @@
+Project: demo10
+Timestamp: 2025-07-04T07:08:01.355423
+Type: verification_result
+================================================================================
+
+```json
+{
+  "status": "incomplete",
+  "missing_symbols": [
+    "PronunciationServiceImpl.getAccuracy",
+    "PronunciationMapper.toPronunciationAccuracyRequest",
+    "PronunciationMapper.toPronunciationAccuracyResponseDto",
+    "PronunciationFeignClient.getAccuracyFromRecordedAudio",
+    "PronunciationAccuracyRequestDto.validate",
+    "PronunciationService.validateRequest",
+    "CommonExceptionHandler.getErrorCode",
+    "Utils.redactKeys",
+    "BaseService.objectMapper"
+  ]
+}
+```
