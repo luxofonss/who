@@ -17,7 +17,6 @@ from utils.prompt import HYDE_ENHANCE_CODE_DEPENDENCIES
 
 STORAGE_DIR = Path("storage")
 
-
 class LangChainRetriever:
     def __init__(self, project_id: str, *, k: int = 100):
         self.project_id = project_id
@@ -68,19 +67,15 @@ class LangChainRetriever:
         return f"{file_path}::{class_name}::{method_name}::{start_line}"
 
     async def retrieve(self, query: str, user_text: str, top: int, hyde: bool = False) -> List[Document]:
-        logger.info(f"retrieve query: {query}")
         await self._ensure_loaded()
         # turn raw query to embedded query
         query_emb = embed(query)
-        logger.info(f"query_emb: {query_emb}")
 
         # hybrid retrieval using bm25 and faiss (get scores for both)
         bm25_task = asyncio.to_thread(self._bm25_with_scores, query, self.indexer.metadata)
         faiss_task = asyncio.to_thread(self.indexer.search, query_emb, self.k)
         
         bm25_scored, faiss_results_tuple = await asyncio.gather(bm25_task, faiss_task) # async
-        logger.info(f"bm25_scored: {bm25_scored}")
-        logger.info(f"faiss_results_tuple: {faiss_results_tuple}")
         
         faiss_distances, faiss_chunks = faiss_results_tuple
         # Convert FAISS distances to similarity scores (lower distance = higher score)
@@ -143,7 +138,7 @@ class LangChainRetriever:
             key = self._key(c)
             if key in seen:
                 continue  # Skip if we've already processed this chunk
-            full_text = f"# Summary: {c.get('summary', '')}\n\n{c['content']}\n\n[HybridScore: {hybrid_scores.get(self._chunk_id(c), 0):.3f}]"
+            full_text = self._get_full_text(c)
             docs.append(Document(page_content=full_text, metadata=c))
             seen.add(key)
             self._traverse_call_graph(c, docs, seen)
@@ -153,6 +148,12 @@ class LangChainRetriever:
         deduplicated_docs = self._deduplicate_documents(docs)
         logger.debug(f"After document deduplication: {len(deduplicated_docs)} documents")
         return deduplicated_docs
+
+    def _get_full_text(self, c: Dict) -> str:
+        if (c.get("chunk_type") == "method"):
+            return f"# Summary: {c.get('class_name', '')}.{c.get('method_name', '')} {c.get('summary', '')}\n\n{c['content']}"
+        else:
+            return f"# Summary: {c.get('summary', '')}\n\n{c['content']}"
 
     def _traverse_call_graph(self, seed: Dict, docs: List[Document], seen: Set[str]):
         """Recursively traverse transitive dependencies including calls, inheritance, and interface relations."""
@@ -175,10 +176,13 @@ class LangChainRetriever:
                     if related in seen:
                         continue
                     seen.add(related)
-                    d = self.find_chunk_by_symbol_name(related, seed.get("method_name", ""))
-                    logger.info(f"d: {d}")
+                    if seed.get("method_name") and "." not in related:
+                        seen.add(related + "." + seed.get("method_name", ""))
+                    d = self.find_chunk_by_symbol_name(related)
+                    if seed.get("method_name") and "." not in related :
+                        d = d + self.find_chunk_by_symbol_name(related + "." + seed.get("method_name", ""))
                     for dx in d:
-                        full_text = f"# Summary: {dx.get('summary', '')}\n\n{dx['content']}"
+                        full_text = self._get_full_text(dx)
                         docs.append(Document(page_content=full_text, metadata=dx))
                         stack.append(dx)
 
@@ -222,7 +226,6 @@ class LangChainRetriever:
                         for sb_class in sb_classes:
                             found.append(sb_class)
         logger.info(f"Found {len(found)} matches for symbol: {symbol}")
-        logger.info(f"Found: {found}")
         return found
 
     def find_by_symbol_name(self, symbol: str) -> List[Document]:
@@ -245,7 +248,7 @@ class LangChainRetriever:
         for key, chunk in self._chunk_lookup.items():
             # logger.info(f"key: {key}")
             if symbol.lower() in key.lower():
-                full_text = f"# Summary: {chunk.get('summary', '')}\n\n{chunk['content']}"
+                full_text = self._get_full_text(chunk)
                 found.append(Document(page_content=full_text, metadata=chunk))
                 
         logger.debug(f"Found {len(found)} matches for symbol: {symbol}")
@@ -309,9 +312,11 @@ class LangChainRetriever:
             # Use chunk metadata to create document ID
             chunk_id = doc.metadata.get("id")
             if chunk_id not in seen_ids:
+                logger.info(f"Adding document: {doc.metadata.get('class_name')}.{doc.metadata.get('method_name')}")
                 seen_ids.add(chunk_id)
                 unique_docs.append(doc)
             else:
+                logger.info(f"Duplicate document: {doc.metadata.get('class_name')}.{doc.metadata.get('method_name')}")
                 duplicates_count += 1
         
         if duplicates_count > 0:

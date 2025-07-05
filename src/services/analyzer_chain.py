@@ -92,65 +92,26 @@ class AnalyzerChain:
         # Add nodes
         graph.add_node("agent", self._agent_node)
         graph.add_node("use_tool", self._call_tool_node)
-        graph.add_node("verify", self._verify_response_node)
 
-        # Agent: decide whether to use tool or go verify
+        # Agent: decide whether to use tool or end
         graph.add_conditional_edges(
             "agent",
             self._should_use_tool,
             {
                 "use_tool": "use_tool",
-                "end": "verify"
+                "end": END
             }
         )
 
         # Tool: after tool call, go back to agent
         graph.add_edge("use_tool", "agent")
 
-        # Verifier: decide whether to loop back or end
-        def _verify_condition(state: AgentState) -> str:
-            # Check iteration limit
-            if state["iteration_count"] > 3:
-                logger.warning(" Max iterations reached in verify node, forcing end")
-                return "end"
-
-            # Check if no new symbols or chunks were retrieved in the last tool call
-            if state.get("last_tool_call_symbols") and not state.get("new_retrieved_symbols") and not state.get("new_retrieved_chunks"):
-                logger.info(" No new context or symbols retrieved in last tool call, ending workflow")
-                return "end"
-
-            # Check if response is valid JSON
-            response = state["final_response"] or ""
-            if response.strip().startswith("{") and response.strip().endswith("}"):
-                try:
-                    json.loads(response)
-                    return "end"
-                except json.JSONDecodeError:
-                    logger.warning(" Response looks like JSON but is invalid")
-
-            # If final_response is None or verification marked it incomplete, loop back
-            if state["final_response"] is None:
-                return "agent"
-
-            # Default to end if no clear reason to loop
-            logger.info(" No conditions for looping, ending workflow")
-            return "end"
-
-        graph.add_conditional_edges(
-            "verify",
-            _verify_condition,
-            {
-                "agent": "agent",
-                "end": END
-            }
-        )
-
         # Set entry point
         graph.set_entry_point("agent")
 
         # Compile the graph
         self.graph = graph.compile()
-        logger.info(" LangGraph workflow compiled with enhanced verification")
+        logger.info(" LangGraph workflow compiled")
 
     def _find_symbol_context(self, symbol: str, seen_chunks: List[str]) -> Tuple[str, List[str]]:
         logger.info(f" Searching for symbol: '{symbol}'")
@@ -160,14 +121,14 @@ class AnalyzerChain:
             docs = self.retriever.find_by_symbol_name(symbol)
             
             # If no direct match, try a broader search
-            # if not docs:
-            #     logger.debug(f" No direct match for '{symbol}', trying semantic search...")
-            #     docs = self.retriever.retrieve_sync(
-            #         symbol,
-            #         user_text="",
-            #         top=3,
-            #         hyde=False
-            #     )
+            if not docs:
+                logger.debug(f" No direct match for '{symbol}', trying semantic search...")
+                docs = self.retriever.retrieve_sync(
+                    symbol,
+                    user_text="",
+                    top=1,
+                    hyde=False
+                )
             
             if docs:
                 new_chunks = []
@@ -265,13 +226,9 @@ class AnalyzerChain:
             Your response:"""
         
         try:
-            logger.debug(" Calling LLM for agent reasoning...")
             prompt_file = self._write_prompt_to_file(prompt, f"agent_iteration_{state['iteration_count']}")
-            logger.info(f" Prompt saved to file: {prompt_file}")
             response = self.langchain_llm._call(prompt)
-            logger.info(f" Agent response received (length: {len(response)} chars)")
             response_file = self._write_response_to_file(response, state['iteration_count'])
-            logger.info(f" Response saved to file: {response_file}")
             
             return {
                 **state,
@@ -292,14 +249,12 @@ class AnalyzerChain:
     def _should_use_tool(self, state: AgentState) -> str:
         response = state["final_response"] or ""
         iteration = state["iteration_count"]
-        logger.debug(f" Decision time - iteration {iteration}, response length: {len(response)}")
         
         # Check if response is valid JSON (final answer)
         response_clean = response.strip()
         if response_clean.startswith("{") and response_clean.endswith("}"):
             try:
                 json.loads(response_clean)
-                logger.info(" Valid JSON response - ending workflow")
                 return "end"
             except json.JSONDecodeError:
                 logger.warning(" Response looks like JSON but is invalid")
@@ -327,7 +282,6 @@ class AnalyzerChain:
         for pattern in specific_patterns:
             matches = re.findall(pattern, response, re.IGNORECASE)
             if matches:
-                logger.info(f" Found specific symbol references: {matches}")
                 return "use_tool"
 
         logger.info(" No clear need for tool - proceeding to verification")
@@ -449,19 +403,12 @@ class AnalyzerChain:
             raise AnalysisError(f"Invalid input: {str(e)}")
         
         logger.info(f" Starting LangGraph AnalyzerChain for endpoint: {endpoint}")
-        logger.info(f" Requirements: {len(requirements_txt)} chars")
-        logger.info(f" Test cases: {len(testcases_txt)} chars")
-        logger.info(f" User instructions: {len(user_text)} chars")
         
         try:
-            logger.info(" Step 1: Retrieving initial context from vector database...")
             docs = await self.retriever.retrieve(endpoint, user_text, top=1, hyde=False)
             initial_context = "\n\n".join(doc.page_content for doc in docs)
             initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
-            logger.info(f"Retrieved {len(docs)} initial documents ({len(initial_context)} chars total)")
-            logger.debug(f" Ascociated chunk IDs: {initial_chunk_ids}")
-            
-            logger.info(" Step 2: Creating initial state for LangGraph workflow...")
+
             initial_state: AgentState = {
                 "question": f"Analyze the REST endpoint '{endpoint}' according to the requirements and test cases.",
                 "context": initial_context,
@@ -478,7 +425,6 @@ class AnalyzerChain:
                 "new_retrieved_symbols": [],
                 "node_call_count": {}
             }
-            logger.debug(" Initial state created successfully")
             
             logger.info(" Step 3: Starting LangGraph analysis workflow...")
             final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
@@ -504,79 +450,6 @@ class AnalyzerChain:
             except Exception as fallback_error:
                 logger.error(f" Fallback analysis also failed: {str(fallback_error)}")
                 raise AnalysisError(f"Both LangGraph and fallback analysis failed. LangGraph error: {str(e)}, Fallback error: {str(fallback_error)}")
-
-    def _verify_response_node(self, state: AgentState) -> AgentState:
-        """Verify final LLM response before ending."""
-        if state["iteration_count"] > 3:
-            return state
-
-        response = state["final_response"] or ""
-        prompt = f"""
-            You are a verification assistant. A REST API endpoint has been analyzed.
-            Your job is to:
-            1. Review the response and determine if it fully covers the user requirements and test cases.
-            2. List any classes, DTOs, methods, configs, or components in business logic that are referenced in the requirements/test cases but are missing in the context or response.
-            3. If complete, return: {{"status": "complete"}}
-            4. If incomplete, return symbols priority by method first:
-            {{
-                "status": "incomplete",
-                "missing_symbols": ["ClassA", "SomeDto", "MyService.methodX"]
-            }}
-            5. Important: Only get symbols that related to API's business logic in api {state['endpoint']}
-
-            RESPONSE:
-            {response}
-
-            REQUIREMENTS:
-            {state['requirements']}
-
-            TEST CASES:
-            {state['testcases']}
-
-            CONTEXT:
-            {state['context']}
-
-            ALREADY RETRIEVED SYMBOLS:
-            {state['retrieved_symbols']}
-
-            ALREADY SEEN CHUNK IDS:
-            {state['seen_context']}
-            """
-
-        try:
-            self._write_prompt_to_file(prompt, "verification_input")
-            result = self.llm.invoke(prompt)
-            self._write_prompt_to_file(result, "verification_result")
-            parsed = self._parse_json_response(result)
-            parsed = json.loads(parsed)
-
-            if parsed.get("status") == "complete":
-                logger.info(" Verifier accepted final response — ending workflow")
-                return state
-
-            missing_symbols = parsed.get("missing_symbols", [])
-            missing_symbols = [s for s in missing_symbols if s not in state["retrieved_symbols"]]
-            if not missing_symbols:
-                logger.info(" No new missing symbols — ending workflow")
-                return state
-
-            logger.info(f" Verifier found missing symbols: {missing_symbols}")
-            context_add = "\n\n".join([self._find_symbol_context(s, state["seen_context"])[0] for s in missing_symbols])
-            new_chunk_ids = []
-            for s in missing_symbols:
-                _, chunk_ids = self._find_symbol_context(s, state["seen_context"])
-                new_chunk_ids.extend(chunk_ids)
-
-            return {
-                **state,
-                "context": state["context"] + "\n\n" + context_add,
-                "retrieved_symbols": state["retrieved_symbols"] + missing_symbols,
-                "seen_context": state["seen_context"] + new_chunk_ids,
-                "final_response": None,
-            }
-        except Exception as e:
-            logger.warning(f" Verifier failed to parse or reason: {e}")
-            return state
 
     async def _fallback_analysis(
             self,
