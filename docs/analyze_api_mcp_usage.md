@@ -67,6 +67,31 @@ Optional configuration:
 export JIRA_PROJECT_KEYS="PROJ,API,TEST"     # Limit to specific projects
 export JIRA_MAX_RESULTS="50"                 # Max results per request
 export JIRA_EXPAND_FIELDS="description,comments,attachment"  # Fields to expand (comments included by default)
+export JIRA_INCLUDE_COMMITS="true"           # Extract commit information from issues
+export JIRA_USE_BITBUCKET="true"             # Use Bitbucket API for commit retrieval (recommended)
+export JIRA_GIT_REPOS="repo1:/path/to/repo1,repo2:/path/to/repo2"  # Git repository mappings for local fallback
+```
+
+### Bitbucket Configuration (for commit code retrieval)
+
+**Using App Password:**
+```bash
+export BITBUCKET_USERNAME="your-username"
+export BITBUCKET_APP_PASSWORD="your-app-password"
+export BITBUCKET_WORKSPACE="your-workspace"
+```
+
+**Using Access Token:**
+```bash
+export BITBUCKET_USERNAME="your-username"
+export BITBUCKET_ACCESS_TOKEN="your-access-token"
+export BITBUCKET_WORKSPACE="your-workspace"
+```
+
+**Optional Settings:**
+```bash
+export BITBUCKET_REPOSITORIES="repo1,repo2"  # Limit to specific repositories
+export BITBUCKET_MAX_RESULTS="50"            # Max results per request
 ```
 
 ## API Usage
@@ -271,6 +296,173 @@ export JIRA_EXPAND_FIELDS="description,comments,attachment"
 # Exclude comments if needed
 export JIRA_EXPAND_FIELDS="description,attachment"
 ```
+
+## Commit and Code Change Extraction
+
+The system can automatically extract commit information from Jira issues and retrieve the actual code changes, providing complete context for API analysis.
+
+### How It Works
+
+1. **Development Panel Integration**: Extracts commits linked through Jira's development panel
+2. **Comment Scanning**: Scans issue comments for commit hash references as fallback
+3. **Bitbucket API Retrieval**: Fetches commit data and diffs directly from Bitbucket (preferred)
+4. **Local Git Fallback**: Falls back to local repositories if Bitbucket is unavailable
+5. **Diff Analysis**: Includes full commit diffs in the analysis context
+
+### Setup Bitbucket API Access (Recommended)
+
+The preferred method for code retrieval uses Bitbucket's REST API:
+
+#### Step 1: Choose Authentication Method
+
+**Option A: App Password (Recommended for Personal Use)**
+1. Go to https://bitbucket.org/account/settings/app-passwords/
+2. Create a new app password with these permissions:
+   - **Repositories**: Read
+   - **Pull requests**: Read (optional)
+3. Configure environment variables:
+```bash
+export BITBUCKET_USERNAME="your-bitbucket-username"
+export BITBUCKET_APP_PASSWORD="your-app-password"
+export BITBUCKET_WORKSPACE="your-workspace-name"
+export JIRA_USE_BITBUCKET="true"
+```
+
+**Option B: Repository Access Token (For Workspace/Team Use)**
+1. Go to https://bitbucket.org/{your-workspace}/workspace/settings/access-tokens
+2. Create a new repository access token with permissions:
+   - **Repositories**: Read
+3. Configure environment variables:
+```bash
+export BITBUCKET_USERNAME="your-bitbucket-username"
+export BITBUCKET_ACCESS_TOKEN="your-access-token"
+export BITBUCKET_WORKSPACE="your-workspace-name"
+export JIRA_USE_BITBUCKET="true"
+```
+
+#### Authentication Method Comparison
+
+| Feature | App Password | Repository Access Token |
+|---------|-------------|-------------------------|
+| **Scope** | Personal repositories | Workspace repositories |
+| **Management** | Per user account | Per workspace |
+| **Permissions** | User-level access | Repository-level access |
+| **Best For** | Individual developers | Team/organizational use |
+| **Expires** | Can be set to never expire | Can be set to never expire |
+| **Revocation** | User can revoke | Workspace admin can revoke |
+
+#### Benefits of Bitbucket API Integration
+- ✅ **No Local Setup**: No need to clone repositories locally
+- ✅ **Always Up-to-Date**: Fetches latest commit data directly from Bitbucket
+- ✅ **Better Performance**: Faster than local git operations
+- ✅ **Rich Metadata**: Includes author info, file statistics, and formatted diffs
+- ✅ **Cross-Platform**: Works on any system with internet access
+- ✅ **Access Control**: Respects Bitbucket permissions and private repositories
+
+### Setup Local Git Repository Access (Fallback)
+
+Configure local repository paths as fallback when Bitbucket API is unavailable:
+
+```bash
+# Map repository names to local paths
+export JIRA_GIT_REPOS="api-service:/path/to/api-service,frontend:/path/to/frontend-repo,backend:/path/to/backend-repo"
+
+# Enable commit extraction
+export JIRA_INCLUDE_COMMITS="true"
+```
+
+### Repository Path Examples
+
+```bash
+# Windows paths
+export JIRA_GIT_REPOS="api-service:C:/projects/api-service,web-app:C:/projects/web-app"
+
+# Linux/Mac paths
+export JIRA_GIT_REPOS="api-service:/home/user/projects/api-service,web-app:/home/user/projects/web-app"
+
+# Current project (if analyzing the same repo)
+export JIRA_GIT_REPOS="current-project:."
+```
+
+### Commit Information Included
+
+For each commit found in Jira issues:
+
+- **Repository Name**: Which repository the commit belongs to
+- **Commit Hash**: Full SHA hash of the commit
+- **Author Information**: Name and email of the commit author
+- **Commit Message**: Full commit message
+- **Timestamp**: When the commit was made
+- **Files Changed**: Number of files modified
+- **Code Changes**: Complete diff showing all changes
+
+### Sample Output Format
+
+```
+Commits (2 total):
+
+--- Commit 1 ---
+Repository: api-service
+Hash: a1b2c3d4e5f6789012345678901234567890abcd
+Author: John Doe (john.doe@company.com)
+Date: 2024-01-15T14:30:00Z
+Message: Implement user authentication endpoint
+Files Changed: 5
+
+Code Changes (via bitbucket_api):
+Files changed: 5
+```diff
++++ b/src/auth/authentication.py
+@@ -0,0 +1,25 @@
++def authenticate_user(username, password):
++    """Authenticate user credentials"""
++    user = get_user_by_username(username)
++    if user and verify_password(password, user.password_hash):
++        return generate_jwt_token(user)
++    return None
+```
+
+--- Commit 2 ---
+Repository: api-service  
+Hash: f7e8d9c6b5a4321098765432109876543210fedc
+Author: Jane Smith (jane.smith@company.com)
+Date: 2024-01-16T09:15:00Z
+Message: Add input validation for auth endpoint
+Files Changed: 3
+
+Code Changes:
+```diff
++++ b/src/auth/validators.py
+@@ -10,6 +10,12 @@ def validate_login_request(data):
++    if not data.get('username'):
++        raise ValidationError('Username is required')
++    if not data.get('password'):
++        raise ValidationError('Password is required')
+```
+```
+
+### Troubleshooting
+
+**No Commits Found:**
+- Ensure Jira issues have commits linked through development tools (Bitbucket, GitHub, etc.)
+- Check if commit hashes are mentioned in issue comments
+- Verify development panel integration is enabled in Jira
+
+**Code Changes Not Available:**
+- **Bitbucket Issues:**
+  - Verify `BITBUCKET_USERNAME`, `BITBUCKET_APP_PASSWORD`, and `BITBUCKET_WORKSPACE` are correct
+  - Check app password has proper permissions (Repositories: Read)
+  - Ensure repository exists in the specified workspace
+  - Verify commit hash exists in the repository
+- **Local Git Issues:**
+  - Ensure `JIRA_GIT_REPOS` is correctly configured
+  - Verify repository paths exist and are accessible
+  - Check that Git repositories are properly initialized
+  - Ensure the commit exists in the local repository
+
+**Permission Issues:**
+- Verify read access to the configured repository paths
+- Ensure Git is installed and accessible from the application
 
 ## Benefits
 

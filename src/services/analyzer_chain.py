@@ -160,7 +160,7 @@ class AnalyzerChain:
         node_name = "agent"
         state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
 
-        # Build the analysis prompt
+        # Build the analysis  
         prompt = f"""You are an expert software architect analyzing the REST endpoint: {state['endpoint']}
             ANALYSIS STRATEGY:
             1. Review the current context for the endpoint implementation
@@ -197,7 +197,7 @@ class AnalyzerChain:
             If you don't have enough context, call the get_project_code_context tool to get more context, don't assume.
             If you have enough context, provide your final analysis as valid JSON with this structure:
             {{
-                "document": "detailed explanation of what the endpoint does",
+                "document": "very detailed step by step explanation of what the endpoint does, including all the business logic and the configuration logic",
                 "requirement_coverage": [
                     {{
                         "requirement": "exact requirement text",
@@ -218,7 +218,8 @@ class AnalyzerChain:
                         "reason": "what needs improvement",
                         "solution": "recommended fix"
                     }}
-                ]
+                ],
+                "curl_command": "curl command to test the endpoint"
             }}
 
             Do not assume any code logic, always check the code and use get_project_code_context if any part of the code is not fully implemented.
@@ -231,7 +232,7 @@ class AnalyzerChain:
             
             return {
                 **state,
-                "final_response": response,
+                "final_response": response,  
                 "history": state["history"] + [response],
                 "iteration_count": state["iteration_count"] + 1,
                 "node_call_count": state["node_call_count"]

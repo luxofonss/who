@@ -26,6 +26,7 @@ class MCPJiraConfig(BaseModel):
     project_keys: Optional[List[str]] = Field(None, description="Limit to specific projects")
     max_results: int = Field(50, description="Max results per request")
     expand_fields: List[str] = Field(["description", "comments", "attachment"], description="Fields to expand")
+    include_commits: bool = Field(True, description="Whether to retrieve commit information")
     cache_duration: int = Field(3600, description="Cache duration in seconds")
 
 
@@ -161,7 +162,8 @@ class JiraMCPService:
                             'project_name': fields.get('project', {}).get('name', ''),
                             'url': f"{self.config.base_url}/browse/{issue['key']}",
                             'comments': self._extract_comments(fields.get('comment', {})),
-                            'attachments': self._extract_attachments(fields.get('attachment', []))
+                            'attachments': self._extract_attachments(fields.get('attachment', [])),
+                            'commits': await self._extract_commits_from_issue(issue['key'], issue['id']) if self.config.include_commits else []
                         }
                         issues.append(issue_data)
                         
@@ -229,7 +231,7 @@ class JiraMCPService:
                     issue = await response.json()
                     fields = issue.get('fields', {})
                     logger.debug(f"Available fields in Jira response: {list(fields.keys())}")
-                    logger.debug(f"Comment field content: {fields.get('comment', 'NOT FOUND')}")
+                    # logger.debug(f"Comment field content: {fields.get('comment', 'NOT FOUND')}")
                     
                     issue_data = {
                         'key': issue['key'],
@@ -247,7 +249,8 @@ class JiraMCPService:
                         'project_name': fields.get('project', {}).get('name', ''),
                         'url': f"{self.config.base_url}/browse/{issue['key']}",
                         'comments': self._extract_comments(fields.get('comment', {})),
-                        'attachments': self._extract_attachments(fields.get('attachment', []))
+                        'attachments': self._extract_attachments(fields.get('attachment', [])),
+                        'commits': await self._extract_commits_from_issue(issue['key'], issue['id']) if self.config.include_commits else []
                     }
                     
                     # Cache the issue
@@ -319,7 +322,6 @@ class JiraMCPService:
     def _extract_comments(self, comment_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract comments from Jira issue with enhanced details"""
         comments = []
-        logger.debug(f"Comment data received: {comment_data}")
         if comment_data and 'comments' in comment_data:
             for comment in comment_data['comments']:
                 # Extract author information
@@ -381,6 +383,104 @@ class JiraMCPService:
         extract_text_recursive(adf_content)
         return ' '.join(text_parts).strip()
         
+    async def _get_issue_numeric_id(self, issue_key: str) -> Optional[str]:
+        """Get numeric issue ID from issue key"""
+        try:
+            url = urljoin(self.config.base_url, f'/rest/api/2/issue/{issue_key}')
+            params = {'fields': 'id'}  # Only get the ID field for efficiency
+            
+            async with self.session.get(url, params=params) as response:
+                if response.status == 200:
+                    issue_data = await response.json()
+                    issue_id = issue_data.get('id')
+                    logger.debug(f"Got numeric ID for {issue_key}: {issue_id}")
+                    return issue_id
+                else:
+                    logger.warning(f"Failed to get numeric ID for {issue_key}: HTTP {response.status}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error getting numeric ID for {issue_key}: {str(e)}")
+            return None
+        
+    async def _extract_commits_from_issue(self, issue_key: str, issue_id: str = None) -> List[Dict[str, Any]]:
+        """Extract commit information from Jira issue using development panel"""
+        try:
+            commits = []
+            
+            # Get numeric issue ID if not provided
+            if not issue_id:
+                issue_id = await self._get_issue_numeric_id(issue_key)
+                if not issue_id:
+                    logger.warning(f"Could not get numeric ID for {issue_key} - skipping commit extraction")
+                    return []
+            
+            # Try different development panel API endpoints with numeric issue ID
+            # Some Jira instances use different application types
+            api_endpoints = [
+                f'/rest/dev-status/1.0/issue/detail?issueId={issue_id}&applicationType=bitbucket&dataType=repository',
+                f'/rest/dev-status/1.0/issue/detail?issueId={issue_id}&applicationType=stash&dataType=repository',
+                f'/rest/dev-status/1.0/issue/detail?issueId={issue_id}&dataType=repository'
+            ]
+            
+            for endpoint in api_endpoints:
+                url = urljoin(self.config.base_url, endpoint)
+                logger.debug(f"Trying development panel API: {endpoint}")
+                
+                async with self.session.get(url) as response:
+                    if response.status == 200:
+                        dev_data = await response.json()
+                        logger.debug(f"Development data for {issue_key} (ID: {issue_id}): {dev_data}")
+                        
+                        # Extract commit information from development panel
+                        details = dev_data.get('detail', [])
+                        for detail in details:
+                            repositories = detail.get('repositories', [])
+                            for repo in repositories:
+                                repo_name = repo.get('name', '')
+                                repo_commits = repo.get('commits', [])
+                                
+                                for commit in repo_commits:
+                                    commit_info = {
+                                        'repository': repo_name,
+                                        'commit_hash': commit.get('id', ''),
+                                        'message': commit.get('message', ''),
+                                        'author': commit.get('author', {}).get('name', ''),
+                                        'author_email': commit.get('author', {}).get('emailAddress', ''),
+                                        'date': commit.get('authorTimestamp', ''),
+                                        'url': commit.get('url', ''),
+                                        'files_changed': commit.get('fileCount', 0)
+                                    }
+                                    commits.append(commit_info)
+                        
+                        # If we found commits, break from trying other endpoints
+                        if commits:
+                            logger.info(f"Found {len(commits)} commits for {issue_key} (ID: {issue_id}) using endpoint: {endpoint}")
+                            break
+                            
+                    elif response.status == 404:
+                        logger.debug(f"Endpoint {endpoint} returned 404 for {issue_key} (ID: {issue_id})")
+                    elif response.status == 400:
+                        logger.debug(f"Endpoint {endpoint} returned 400 for {issue_key} (ID: {issue_id})")
+                    elif response.status == 403:
+                        logger.debug(f"Endpoint {endpoint} returned 403 for {issue_key} (ID: {issue_id}) - insufficient permissions")
+                    else:
+                        logger.debug(f"Endpoint {endpoint} returned {response.status} for {issue_key} (ID: {issue_id})")
+            
+            if not commits:
+                logger.debug(f"No commits found for {issue_key} (ID: {issue_id}) via development panel - issue may not have linked commits or development integrations may not be configured")
+                    
+            return commits
+            
+        except Exception as e:
+            logger.error(f"Error extracting commits for {issue_key}: {str(e)}")
+            return []
+    
+    async def _extract_commits_from_comments_and_links(self, issue_key: str) -> List[Dict[str, Any]]:
+        """This method is no longer used - commits are in development panel, not comments"""
+        logger.debug(f"Commit extraction from comments disabled for {issue_key} - commits are linked via development panel")
+        return []
+    
     def _extract_attachments(self, attachment_data: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         """Extract attachments from Jira issue"""
         attachments = []
@@ -475,7 +575,7 @@ class JiraMCPConfigBuilder:
         expand_fields = ["description", "comments", "attachment"]
         if os.getenv("JIRA_EXPAND_FIELDS"):
             expand_fields = [s.strip() for s in os.getenv("JIRA_EXPAND_FIELDS").split(",")]
-            
+        
         return MCPJiraConfig(
             base_url=os.getenv("JIRA_BASE_URL", ""),
             username=os.getenv("JIRA_USERNAME", ""),
@@ -483,6 +583,7 @@ class JiraMCPConfigBuilder:
             project_keys=project_keys,
             max_results=int(os.getenv("JIRA_MAX_RESULTS", "50")),
             expand_fields=expand_fields,
+            include_commits=os.getenv("JIRA_INCLUDE_COMMITS", "true").lower() == "true",
             cache_duration=int(os.getenv("JIRA_CACHE_DURATION", "3600"))
         )
         
