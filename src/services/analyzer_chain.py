@@ -125,7 +125,6 @@ class AnalyzerChain:
                 logger.debug(f" No direct match for '{symbol}', trying semantic search...")
                 docs = self.retriever.retrieve_sync(
                     symbol,
-                    user_text="",
                     top=1,
                     hyde=False
                 )
@@ -405,7 +404,7 @@ class AnalyzerChain:
         logger.info(f" Starting LangGraph AnalyzerChain for endpoint: {endpoint}")
         
         try:
-            docs = await self.retriever.retrieve(endpoint, user_text, top=1, hyde=False)
+            docs = await self.retriever.retrieve(endpoint, 1, hyde=False)
             initial_context = "\n\n".join(doc.page_content for doc in docs)
             initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
 

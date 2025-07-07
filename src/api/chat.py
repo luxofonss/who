@@ -3,10 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+from loguru import logger
 
-from services.retriever import LangChainRetriever
-from services.prompt_builder import PromptBuilder
-from adapters.gemini import Gemini
+from services.chat_chain import ChatChain
 from utils.file import read_json, write_json, ensure_dir
 
 router = APIRouter(tags=["chat"])
@@ -16,25 +15,31 @@ STORAGE_DIR = Path("storage")
 
 @router.post("/chat")
 async def chat(project_id: str, message: str):
-    """Conversational endpoint that is aware of the codebase."""
+    """Conversational endpoint that is aware of the codebase using LangGraph."""
     # Validate project exists
     if not (STORAGE_DIR / "metadata" / f"{project_id}.json").exists():
         raise HTTPException(status_code=404, detail="Project not found")
 
+    logger.info(f"💬 Chat request for project {project_id}: {message[:100]}...")
+
+    # Load chat history
     history_path = STORAGE_DIR / "chat_memory" / f"{project_id}.json"
-    history: list[str] = read_json(history_path, default=[])
+    history = read_json(history_path, default=[]) or []
 
-    retriever = LangChainRetriever(project_id)
-    docs = retriever.retrieve(message)
-    context = "\n".join(d.page_content for d in docs)
-
-    prompt = PromptBuilder.build_chat_prompt(history="\n".join(history), context=context, message=message)
-    llm = Gemini()
-    ai_response = llm.invoke(prompt)
+    # Use ChatChain with LangGraph
+    chat_chain = ChatChain(project_id)
+    result = await chat_chain.chat(message, history)
 
     # Update chat history
-    history.extend([f"User: {message}", f"AI: {ai_response}"])
+    history.extend([f"User: {message}", f"AI: {result.response}"])
     ensure_dir(history_path.parent)
     write_json(history_path, history)
 
-    return {"ai_response": ai_response} 
+    logger.info(f"✅ Chat completed using {result.method} method with {result.iteration_count} iterations")
+
+    return {
+        "ai_response": result.response,
+        "method": result.method,
+        "iterations": result.iteration_count,
+        "symbols_retrieved": result.symbols_retrieved
+    } 

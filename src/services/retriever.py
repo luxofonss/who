@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import asyncio
 from pathlib import Path
 from typing import List, Dict, Set
@@ -14,6 +13,7 @@ from utils.file import read_json
 from adapters.gemini import Gemini
 from services.bm25 import bm25_search
 from utils.prompt import HYDE_ENHANCE_CODE_DEPENDENCIES
+from rank_bm25 import BM25Okapi
 
 STORAGE_DIR = Path("storage")
 
@@ -66,10 +66,22 @@ class LangChainRetriever:
         # Create a unique ID combining these fields
         return f"{file_path}::{class_name}::{method_name}::{start_line}"
 
-    async def retrieve(self, query: str, user_text: str, top: int, hyde: bool = False) -> List[Document]:
+    async def retrieve(self, query: str, top: int, hyde: bool = False) -> List[Document]:
         await self._ensure_loaded()
         # turn raw query to embedded query
-        query_emb = embed(query)
+        logger.info(f"query: {query}")
+        
+        # Apply HyDE if enabled
+        if hyde:
+            logger.info("Applying HyDE enhancement")
+            gemini = Gemini()
+            hyde_prompt = HYDE_ENHANCE_CODE_DEPENDENCIES.format(query=query)
+            hyde_response = await asyncio.to_thread(gemini.invoke, hyde_prompt)
+            enhanced_query = f"{query}\n\n{hyde_response}"
+            logger.info(f"HyDE enhanced query: {enhanced_query}")
+            query_emb = embed(enhanced_query)
+        else:
+            query_emb = embed(query)
 
         # hybrid retrieval using bm25 and faiss (get scores for both)
         bm25_task = asyncio.to_thread(self._bm25_with_scores, query, self.indexer.metadata)
@@ -171,7 +183,6 @@ class LangChainRetriever:
 
             for rel in RELATION_TYPES:
                 relates = c.get(rel, [])
-                logger.info(f"Related: {relates}")
                 for related in relates:
                     if related in seen:
                         continue
@@ -254,15 +265,9 @@ class LangChainRetriever:
         logger.debug(f"Found {len(found)} matches for symbol: {symbol}")
         return found
 
-    def retrieve_sync(self, query: str, user_text: str = "", top: int = 5, hyde: bool = False) -> List[Document]:
-        """Blocking wrapper around *retrieve* for non-async callers.
+    def retrieve_sync(self, query: str, top: int = 5, hyde: bool = False) -> List[Document]:
 
-        If called from within a running event loop it schedules the task and
-        waits; otherwise it spins up a new loop with ``asyncio.run``.
-        """
-        import asyncio
-
-        coro = self.retrieve(query, user_text, top, hyde)
+        coro = self.retrieve(query, top, hyde)
 
         try:
             return asyncio.run(coro)
@@ -271,7 +276,6 @@ class LangChainRetriever:
             return loop.run_until_complete(coro)
 
     def _bm25_with_scores(self, query: str, metadata: List[Dict], top_k: int = 100):
-        from rank_bm25 import BM25Okapi
         texts = [f"{c.get('summary','')}\n{c.get('content','')}" for c in metadata]
         tokenised = [t.split() for t in texts]
         bm25 = BM25Okapi(tokenised)

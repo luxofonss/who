@@ -116,7 +116,7 @@ async def reindex(body: ReindexRequest):
 
     meta_for_index = [{k: v for k, v in ch.items()} for ch in chunks]
     indexer = Indexer(body.project_id, index_type="hnsw")
-    # indexer.build_index(vectors, metadata=meta_for_index)
+    indexer.build_index(vectors, metadata=meta_for_index)
     await indexer.save()
 
     meta = {

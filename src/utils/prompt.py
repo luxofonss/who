@@ -24,7 +24,7 @@ Output only the Java code.
 '''
 
 HYDE_ENHANCE_CODE_DEPENDENCIES = '''
-You are an expert Spring Boot backend engineer. Given the following Java code snippet, identify and declare only the **business logic components** that would be necessary to support it.
+You are an expert Spring Boot backend engineer. Given the following description, identify and declare only the **business logic components** that would be necessary to support it.
 Return the following as bullet lists, do not provide comments or explanations.: Classes (e.g. controllers, services, services implement, repositories repository implement, enums, entities, constants, utils, helper)
 Exclude  Configuration classes Security, Spring configurations, or framework setup Any explanation or implementation code, Filter class, Bean Config, HttpServletRequestWrapper, Base Response class, Base Exception class, ExternalExceptionHandler class
 **Output format**: Clean class and method declarations only.

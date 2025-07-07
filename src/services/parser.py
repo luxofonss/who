@@ -9,7 +9,7 @@ from loguru import logger
 from tree_sitter import Language, Parser
 from tree_sitter_languages import get_language
 from utils.constant import JAVA_STANDARD_TYPES, GENERIC_TYPE_VARS
-# from adapters.gemini import Gemini  # Assume your own Gemini interface
+from adapters.gemini import Gemini
 
 JAVA_LANGUAGE: Language = get_language("java")
 _PARSER = Parser()
@@ -438,16 +438,18 @@ def _build_chunk(
 
 def _summarise_chunk(chunk: CodeChunk) -> str:
     # TODO: enable this when we have enough money to call model
-    # prompt = (
-    #     f"Summarise the following Java {chunk.get('chunk_type')} in ONE sentence.\n\n"
-    #     + chunk["content"][:2000]
-    # )
-    # try:
-    #     return Gemini().invoke(prompt).strip()
-    # except Exception as exc:
-    #     logger.error("Gemini summary failed: %s", exc)
-    #     return ""
-    return ""
+    content = chunk.get("content", "")
+    content_preview = str(content)
+    prompt = (
+        f"Summarise the following Java {chunk.get('chunk_type')} in ONE sentence.\n\n"
+        + content_preview
+    )
+    try:
+        return Gemini().invoke(prompt).strip()
+    except Exception as exc:
+        logger.error("Gemini summary failed: %s", exc)
+        return ""
+    # return ""
 
 
 def _populate_called_by(dep_graph: DependencyGraph):

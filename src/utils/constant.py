@@ -17,7 +17,7 @@ JAVA_STANDARD_TYPES = {
     "Duration", "Period", "ZoneId", "ZoneOffset", "DateTimeFormatter", "ChronoUnit",
     "URL", "URI", "HttpURLConnection", "Socket", "ServerSocket", "InetAddress",
     "BigDecimal", "BigInteger", "Math", "RoundingMode",
-     "Connection", "Statement", "PreparedStatement", "ResultSet", "SQLException", "Date", "Time", "Timestamp", "DriverManager",
+    "Connection", "Statement", "PreparedStatement", "ResultSet", "SQLException", "Date", "Time", "Timestamp", "DriverManager",
      
 }
 
