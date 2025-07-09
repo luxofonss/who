@@ -586,6 +586,8 @@ HTML Output:
         logger.info(f" Starting LangGraph AnalyzerChain for endpoint: {endpoint}")
     
         try:
+            # TODO: update to retrieve docs of all endpoints
+            # TODO: use langchain memory to store chat memory so that user can iterate with ai
             docs = await self.retriever.retrieve(endpoint, 1, hyde=False)
             logger.info(f"len of docs: {len(docs)}")
             initial_context = "\n\n".join(doc.page_content for doc in docs)
