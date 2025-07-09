@@ -438,18 +438,18 @@ def _build_chunk(
 
 def _summarise_chunk(chunk: CodeChunk) -> str:
     # TODO: enable this when we have enough money to call model
-    content = chunk.get("content", "")
-    content_preview = str(content)
-    prompt = (
-        f"Summarise the following Java {chunk.get('chunk_type')} in ONE sentence.\n\n"
-        + content_preview
-    )
-    try:
-        return Gemini().invoke(prompt).strip()
-    except Exception as exc:
-        logger.error("Gemini summary failed: %s", exc)
-        return ""
-    # return ""
+    # content = chunk.get("content", "")
+    # content_preview = str(content)
+    # prompt = (
+    #     f"Summarise the following Java {chunk.get('chunk_type')} in ONE sentence.\n\n"
+    #     + content_preview
+    # )
+    # try:
+    #     return Gemini().invoke(prompt).strip()
+    # except Exception as exc:
+    #     logger.error("Gemini summary failed: %s", exc)
+    #     return ""
+    return ""
 
 
 def _populate_called_by(dep_graph: DependencyGraph):

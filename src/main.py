@@ -14,21 +14,33 @@ if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from utils.logger import init_logger
 from api.project import router as project_router
 from api.analyze import router as analyze_router
 from api.chat import router as chat_router
+from api.threads import router as threads_router
 
 # Initialise logging at import time
 logger = init_logger()
 
 app = FastAPI(title="Code Analyzer Demo")
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
 # Register route groups
 app.include_router(project_router)
 app.include_router(analyze_router)
 app.include_router(chat_router)
+app.include_router(threads_router)
 
 
 @app.get("/health")

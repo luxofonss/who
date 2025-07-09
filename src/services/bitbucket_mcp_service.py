@@ -16,6 +16,9 @@ from datetime import datetime
 from urllib.parse import urljoin, urlparse
 from loguru import logger
 from pydantic import BaseModel, Field
+from git import Repo, GitCommandError, InvalidGitRepositoryError
+import shutil
+from pathlib import Path
 
 
 class MCPBitbucketConfig(BaseModel):
@@ -550,6 +553,27 @@ class BitbucketMCPService:
                 "user_preferences": context.user_preferences
             }
         }
+
+    async def clone_repository(self, session_id: str, repository: str, branch: str = "main", target_path: Path = None):
+        if target_path is None:
+            target_path = Path("storage/repos") / repository
+        repo_url = f"https://{self.config.email}:{self.config.app_password or self.config.api_token}@bitbucket.org/{self.config.workspace}/{repository}.git"
+        try:
+            if target_path.exists():
+                try:
+                    repo = Repo(target_path)
+                    repo.git.fetch()
+                    repo.git.checkout(branch)
+                    repo.git.pull()
+                except (GitCommandError, InvalidGitRepositoryError):
+                    shutil.rmtree(target_path)
+                    repo = Repo.clone_from(repo_url, target_path, branch=branch)
+            else:
+                repo = Repo.clone_from(repo_url, target_path, branch=branch)
+            sha = repo.head.commit.hexsha
+            return {"status": "success", "data": {"commit_hash": sha}}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
 
 
 class BitbucketMCPConfigBuilder:

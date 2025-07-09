@@ -1,21 +1,13 @@
-"""
-Jira MCP Service
-
-A Model Context Protocol (MCP) service for retrieving issue information from Atlassian Jira.
-This service implements the MCP standard to provide structured, context-aware access to Jira issues.
-"""
-
 import asyncio
-import aiohttp
-import json
 import os
 import re
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 from datetime import datetime
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 from loguru import logger
 from pydantic import BaseModel, Field
+from atlassian import Jira
 
 
 class MCPJiraConfig(BaseModel):
@@ -41,32 +33,26 @@ class JiraMCPContext:
 
 
 class JiraMCPService:
-    """Main MCP service for Jira integration"""
+    """Main MCP service for Jira integration (using atlassian-python-api)"""
     
     def __init__(self, config: MCPJiraConfig):
         self.config = config
-        self.session = None
+        self.client = Jira(
+            url=self.config.base_url,
+            username=self.config.username,
+            password=self.config.api_token,
+            cloud=True
+        )
         self.contexts: Dict[str, JiraMCPContext] = {}
         
     async def __aenter__(self):
         """Async context manager entry"""
-        await self.initialize_session()
         return self
         
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit"""
-        await self.close_session()
+        pass
         
-    async def initialize_session(self):
-        """Initialize HTTP session"""
-        auth = aiohttp.BasicAuth(self.config.username, self.config.api_token)
-        self.session = aiohttp.ClientSession(auth=auth)
-        
-    async def close_session(self):
-        """Close HTTP session"""
-        if self.session:
-            await self.session.close()
-            
     def get_or_create_context(self, session_id: str) -> JiraMCPContext:
         """Get or create MCP context for session"""
         if session_id not in self.contexts:
@@ -118,168 +104,26 @@ class JiraMCPService:
             
         return " AND ".join(jql_parts) if jql_parts else "project is not empty"
         
-    async def search_issues(self, session_id: str, query: str, project_key: str = None, 
-                           issue_type: str = None, limit: int = None) -> Dict[str, Any]:
+    def search_issues(self, session_id: str, jql: str, limit: int = 50) -> Dict[str, Any]:
         """Search Jira issues using JQL"""
         try:
-            context = self.get_or_create_context(session_id)
-            metadata = self.build_mcp_metadata(session_id)
-            
-            # Build JQL query
-            jql = self._build_jql_query(query, project_key, issue_type)
-            
-            # API parameters
-            params = {
-                'jql': jql,
-                'maxResults': limit or self.config.max_results,
-                'expand': ','.join(self.config.expand_fields),
-                'fields': 'summary,description,issuetype,priority,status,assignee,reporter,created,updated,project,comment,attachment'
-            }
-            
-            # Make API request
-            url = urljoin(self.config.base_url, '/rest/api/2/search')
-            async with self.session.get(url, params=params) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    
-                    # Process results
-                    issues = []
-                    for issue in data.get('issues', []):
-                        fields = issue.get('fields', {})
-                        issue_data = {
-                            'key': issue['key'],
-                            'id': issue['id'],
-                            'summary': fields.get('summary', ''),
-                            'description': fields.get('description', ''),
-                            'issue_type': fields.get('issuetype', {}).get('name', ''),
-                            'priority': fields.get('priority', {}).get('name', ''),
-                            'status': fields.get('status', {}).get('name', ''),
-                            'assignee': fields.get('assignee', {}).get('displayName', 'Unassigned'),
-                            'reporter': fields.get('reporter', {}).get('displayName', ''),
-                            'created': fields.get('created', ''),
-                            'updated': fields.get('updated', ''),
-                            'project_key': fields.get('project', {}).get('key', ''),
-                            'project_name': fields.get('project', {}).get('name', ''),
-                            'url': f"{self.config.base_url}/browse/{issue['key']}",
-                            'comments': self._extract_comments(fields.get('comment', {})),
-                            'attachments': self._extract_attachments(fields.get('attachment', [])),
-                            'commits': await self._extract_commits_from_issue(issue['key'], issue['id']) if self.config.include_commits else []
-                        }
-                        issues.append(issue_data)
-                        
-                        # Cache the issue
-                        context.cached_issues[issue['key']] = issue_data
-                    
-                    # Update context
-                    context.recent_searches.append(query)
-                    context.last_accessed = datetime.now()
-                    
-                    return {
-                        "metadata": metadata,
-                        "tool": "search_issues",
-                        "status": "success",
-                        "data": {
-                            "query": query,
-                            "jql": jql,
-                            "issues": issues,
-                            "total": data.get('total', len(issues))
-                        }
-                    }
-                else:
-                    error_text = await response.text()
-                    return {
-                        "metadata": metadata,
-                        "tool": "search_issues",
-                        "status": "error",
-                        "error": f"HTTP {response.status}: {error_text}"
-                    }
-                    
+            issues = self.client.jql(jql, limit=limit)
+            return {"status": "success", "data": {"issues": issues.get('issues', [])}}
         except Exception as e:
             logger.error(f"Search issues error: {str(e)}")
-            return {
-                "metadata": self.build_mcp_metadata(session_id),
-                "tool": "search_issues",
-                "status": "error",
-                "error": str(e)
-            }
+            return {"status": "error", "error": str(e)}
             
-    async def get_issue_by_key(self, session_id: str, issue_key: str) -> Dict[str, Any]:
+    def get_issue_by_key(self, session_id: str, issue_key: str) -> Dict[str, Any]:
         """Get specific issue by key"""
         try:
-            context = self.get_or_create_context(session_id)
-            metadata = self.build_mcp_metadata(session_id)
-            
-            # Check cache first
-            if issue_key in context.cached_issues:
-                return {
-                    "metadata": metadata,
-                    "tool": "get_issue_by_key",
-                    "status": "success",
-                    "data": {"issue": context.cached_issues[issue_key]}
-                }
-            
-            # API parameters
-            params = {
-                'expand': ','.join(self.config.expand_fields),
-                'fields': 'summary,description,issuetype,priority,status,assignee,reporter,created,updated,project,comment,attachment'
-            }
-            
-            # Make API request
-            url = urljoin(self.config.base_url, f'/rest/api/2/issue/{issue_key}')
-            async with self.session.get(url, params=params) as response:
-                if response.status == 200:
-                    issue = await response.json()
-                    fields = issue.get('fields', {})
-                    logger.debug(f"Available fields in Jira response: {list(fields.keys())}")
-                    # logger.debug(f"Comment field content: {fields.get('comment', 'NOT FOUND')}")
-                    
-                    issue_data = {
-                        'key': issue['key'],
-                        'id': issue['id'],
-                        'summary': fields.get('summary', ''),
-                        'description': fields.get('description', ''),
-                        'issue_type': fields.get('issuetype', {}).get('name', ''),
-                        'priority': fields.get('priority', {}).get('name', ''),
-                        'status': fields.get('status', {}).get('name', ''),
-                        'assignee': fields.get('assignee', {}).get('displayName', 'Unassigned'),
-                        'reporter': fields.get('reporter', {}).get('displayName', ''),
-                        'created': fields.get('created', ''),
-                        'updated': fields.get('updated', ''),
-                        'project_key': fields.get('project', {}).get('key', ''),
-                        'project_name': fields.get('project', {}).get('name', ''),
-                        'url': f"{self.config.base_url}/browse/{issue['key']}",
-                        'comments': self._extract_comments(fields.get('comment', {})),
-                        'attachments': self._extract_attachments(fields.get('attachment', [])),
-                        'commits': await self._extract_commits_from_issue(issue['key'], issue['id']) if self.config.include_commits else []
-                    }
-                    
-                    # Cache the issue
-                    context.cached_issues[issue_key] = issue_data
-                    context.last_accessed = datetime.now()
-                    
-                    return {
-                        "metadata": metadata,
-                        "tool": "get_issue_by_key",
-                        "status": "success",
-                        "data": {"issue": issue_data}
-                    }
-                else:
-                    error_text = await response.text()
-                    return {
-                        "metadata": metadata,
-                        "tool": "get_issue_by_key",
-                        "status": "error",
-                        "error": f"HTTP {response.status}: {error_text}"
-                    }
-                    
+            issue = self.client.issue(issue_key)
+            if issue:
+                return {"status": "success", "data": {"issue": issue}}
+            else:
+                return {"status": "error", "error": f"Issue {issue_key} not found"}
         except Exception as e:
             logger.error(f"Get issue by key error: {str(e)}")
-            return {
-                "metadata": self.build_mcp_metadata(session_id),
-                "tool": "get_issue_by_key",
-                "status": "error",
-                "error": str(e)
-            }
+            return {"status": "error", "error": str(e)}
             
     async def get_issues_by_urls(self, session_id: str, urls: List[str]) -> Dict[str, Any]:
         """Get multiple issues by their URLs"""
@@ -386,35 +230,29 @@ class JiraMCPService:
     async def _get_issue_numeric_id(self, issue_key: str) -> Optional[str]:
         """Get numeric issue ID from issue key"""
         try:
-            url = urljoin(self.config.base_url, f'/rest/api/2/issue/{issue_key}')
-            params = {'fields': 'id'}  # Only get the ID field for efficiency
-            
-            async with self.session.get(url, params=params) as response:
-                if response.status == 200:
-                    issue_data = await response.json()
-                    issue_id = issue_data.get('id')
-                    logger.debug(f"Got numeric ID for {issue_key}: {issue_id}")
-                    return issue_id
-                else:
-                    logger.warning(f"Failed to get numeric ID for {issue_key}: HTTP {response.status}")
-                    return None
-                    
+            issue = self.client.issue(issue_key)
+            if issue:
+                issue_id = issue.get('id')
+                logger.debug(f"Got numeric ID for {issue_key}: {issue_id}")
+                return issue_id
+            else:
+                logger.warning(f"Failed to get numeric ID for {issue_key}: Issue not found")
+                return None
         except Exception as e:
             logger.error(f"Error getting numeric ID for {issue_key}: {str(e)}")
             return None
         
-    async def _extract_commits_from_issue(self, issue_key: str, issue_id: str = None) -> List[Dict[str, Any]]:
+    async def _extract_commits_from_issue(self, issue_key: str, issue_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Extract commit information from Jira issue using development panel"""
         try:
             commits = []
-            
             # Get numeric issue ID if not provided
             if not issue_id:
                 issue_id = await self._get_issue_numeric_id(issue_key)
                 if not issue_id:
                     logger.warning(f"Could not get numeric ID for {issue_key} - skipping commit extraction")
                     return []
-            
+            # Now issue_id is guaranteed to be str
             # Try different development panel API endpoints with numeric issue ID
             # Some Jira instances use different application types
             api_endpoints = [
@@ -424,48 +262,54 @@ class JiraMCPService:
             ]
             
             for endpoint in api_endpoints:
-                url = urljoin(self.config.base_url, endpoint)
-                logger.debug(f"Trying development panel API: {endpoint}")
+                # Fix URL construction to avoid duplication
+                if self.config.base_url.endswith('/'):
+                    url = self.config.base_url + endpoint.lstrip('/')
+                else:
+                    url = self.config.base_url + '/' + endpoint.lstrip('/')
+                logger.debug(f"Trying development panel API: {url}")
+                logger.debug(f"Base URL: {self.config.base_url}")
+                logger.debug(f"Endpoint: {endpoint}")
                 
-                async with self.session.get(url) as response:
-                    if response.status == 200:
-                        dev_data = await response.json()
-                        logger.debug(f"Development data for {issue_key} (ID: {issue_id}): {dev_data}")
-                        
-                        # Extract commit information from development panel
-                        details = dev_data.get('detail', [])
-                        for detail in details:
-                            repositories = detail.get('repositories', [])
-                            for repo in repositories:
-                                repo_name = repo.get('name', '')
-                                repo_commits = repo.get('commits', [])
-                                
-                                for commit in repo_commits:
-                                    commit_info = {
-                                        'repository': repo_name,
-                                        'commit_hash': commit.get('id', ''),
-                                        'message': commit.get('message', ''),
-                                        'author': commit.get('author', {}).get('name', ''),
-                                        'author_email': commit.get('author', {}).get('emailAddress', ''),
-                                        'date': commit.get('authorTimestamp', ''),
-                                        'url': commit.get('url', ''),
-                                        'files_changed': commit.get('fileCount', 0)
-                                    }
-                                    commits.append(commit_info)
-                        
-                        # If we found commits, break from trying other endpoints
-                        if commits:
-                            logger.info(f"Found {len(commits)} commits for {issue_key} (ID: {issue_id}) using endpoint: {endpoint}")
-                            break
+                response = self.client.get(url)
+                if response.status_code == 200:
+                    dev_data = response.json()
+                    logger.debug(f"Development data for {issue_key} (ID: {issue_id}): {dev_data}")
+                    
+                    # Extract commit information from development panel
+                    details = dev_data.get('detail', [])
+                    for detail in details:
+                        repositories = detail.get('repositories', [])
+                        for repo in repositories:
+                            repo_name = repo.get('name', '')
+                            repo_commits = repo.get('commits', [])
                             
-                    elif response.status == 404:
-                        logger.debug(f"Endpoint {endpoint} returned 404 for {issue_key} (ID: {issue_id})")
-                    elif response.status == 400:
-                        logger.debug(f"Endpoint {endpoint} returned 400 for {issue_key} (ID: {issue_id})")
-                    elif response.status == 403:
-                        logger.debug(f"Endpoint {endpoint} returned 403 for {issue_key} (ID: {issue_id}) - insufficient permissions")
-                    else:
-                        logger.debug(f"Endpoint {endpoint} returned {response.status} for {issue_key} (ID: {issue_id})")
+                            for commit in repo_commits:
+                                commit_info = {
+                                    'repository': repo_name,
+                                    'commit_hash': commit.get('id', ''),
+                                    'message': commit.get('message', ''),
+                                    'author': commit.get('author', {}).get('name', ''),
+                                    'author_email': commit.get('author', {}).get('emailAddress', ''),
+                                    'date': commit.get('authorTimestamp', ''),
+                                    'url': commit.get('url', ''),
+                                    'files_changed': commit.get('fileCount', 0)
+                                }
+                                commits.append(commit_info)
+                    
+                    # If we found commits, break from trying other endpoints
+                    if commits:
+                        logger.info(f"Found {len(commits)} commits for {issue_key} (ID: {issue_id}) using endpoint: {endpoint}")
+                        break
+                    
+                elif response.status_code == 404:
+                    logger.debug(f"Endpoint {endpoint} returned 404 for {issue_key} (ID: {issue_id})")
+                elif response.status_code == 400:
+                    logger.debug(f"Endpoint {endpoint} returned 400 for {issue_key} (ID: {issue_id})")
+                elif response.status_code == 403:
+                    logger.debug(f"Endpoint {endpoint} returned 403 for {issue_key} (ID: {issue_id}) - insufficient permissions")
+                else:
+                    logger.debug(f"Endpoint {endpoint} returned {response.status_code} for {issue_key} (ID: {issue_id})")
             
             if not commits:
                 logger.debug(f"No commits found for {issue_key} (ID: {issue_id}) via development panel - issue may not have linked commits or development integrations may not be configured")
@@ -474,6 +318,8 @@ class JiraMCPService:
             
         except Exception as e:
             logger.error(f"Error extracting commits for {issue_key}: {str(e)}")
+            logger.error(f"Base URL: {self.config.base_url}")
+            logger.error(f"Issue ID: {issue_id}")
             return []
     
     async def _extract_commits_from_comments_and_links(self, issue_key: str) -> List[Dict[str, Any]]:

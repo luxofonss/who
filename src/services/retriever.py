@@ -66,7 +66,7 @@ class LangChainRetriever:
         # Create a unique ID combining these fields
         return f"{file_path}::{class_name}::{method_name}::{start_line}"
 
-    async def retrieve(self, query: str, top: int, hyde: bool = False) -> List[Document]:
+    async def retrieve(self, query: str, top: int, hyde: bool = False, method: str = None) -> List[Document]:
         await self._ensure_loaded()
         # turn raw query to embedded query
         logger.info(f"query: {query}")
@@ -90,6 +90,7 @@ class LangChainRetriever:
         bm25_scored, faiss_results_tuple = await asyncio.gather(bm25_task, faiss_task) # async
         
         faiss_distances, faiss_chunks = faiss_results_tuple
+        logger.info(f"first index 0 faiss_results_tuple")
         # Convert FAISS distances to similarity scores (lower distance = higher score)
         logger.info(f"faiss_distances: {faiss_distances}")
         if len(faiss_distances) > 0:
@@ -134,7 +135,7 @@ class LangChainRetriever:
         selected_chunks = [chunk_lookup[cid] for cid in sorted_chunk_ids if cid in chunk_lookup]
 
         logger.debug(f"Hybrid (0.7 FAISS + 0.3 BM25) selected {len(selected_chunks)} chunks")
-
+        logger.info(f"selected_chunks: {selected_chunks}")
         all_candidates = self._deduplicate_chunks(selected_chunks)
         logger.debug(f"After deduplication: {len(all_candidates)} unique chunks")
 
@@ -208,7 +209,7 @@ class LangChainRetriever:
             return []
             
         found = []
-        logger.debug(f"🔍 Finding by symbol name: {symbol}")
+        # logger.debug(f"🔍 Finding by symbol name: {symbol}")
         
         if not hasattr(self, '_chunk_lookup'):
             logger.warning(f"Chunk lookup not available, returning empty results")
@@ -236,7 +237,7 @@ class LangChainRetriever:
                             sb_classes = self.find_chunk_by_symbol_name(sub_class)
                         for sb_class in sb_classes:
                             found.append(sb_class)
-        logger.info(f"Found {len(found)} matches for symbol: {symbol}")
+        # logger.info(f"Found {len(found)} matches for symbol: {symbol}")
         return found
 
     def find_by_symbol_name(self, symbol: str) -> List[Document]:
@@ -250,7 +251,7 @@ class LangChainRetriever:
             return []
             
         found = []
-        logger.debug(f"🔍 Finding by symbol name: {symbol}")
+        # logger.debug(f"🔍 Finding by symbol name: {symbol}")
         
         if not hasattr(self, '_chunk_lookup'):
             logger.warning(f"Chunk lookup not available, returning empty results")
@@ -262,7 +263,7 @@ class LangChainRetriever:
                 full_text = self._get_full_text(chunk)
                 found.append(Document(page_content=full_text, metadata=chunk))
                 
-        logger.debug(f"Found {len(found)} matches for symbol: {symbol}")
+        # logger.debug(f"Found {len(found)} matches for symbol: {symbol}")
         return found
 
     def retrieve_sync(self, query: str, top: int = 5, hyde: bool = False) -> List[Document]:
@@ -316,11 +317,11 @@ class LangChainRetriever:
             # Use chunk metadata to create document ID
             chunk_id = doc.metadata.get("id")
             if chunk_id not in seen_ids:
-                logger.info(f"Adding document: {doc.metadata.get('class_name')}.{doc.metadata.get('method_name')}")
+                # logger.info(f"Adding document: {doc.metadata.get('class_name')}.{doc.metadata.get('method_name')}")
                 seen_ids.add(chunk_id)
                 unique_docs.append(doc)
             else:
-                logger.info(f"Duplicate document: {doc.metadata.get('class_name')}.{doc.metadata.get('method_name')}")
+                # logger.info(f"Duplicate document: {doc.metadata.get('class_name')}.{doc.metadata.get('method_name')}")
                 duplicates_count += 1
         
         if duplicates_count > 0:

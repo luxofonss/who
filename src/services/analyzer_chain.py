@@ -23,25 +23,29 @@ class AgentState(TypedDict):
     context: str
     endpoint: str
     requirements: str
-    testcases: str
     user_text: str
     history: List[str]
     retrieved_symbols: List[str]
     final_response: Optional[str]
+    html_response: Optional[str]
     iteration_count: int
     seen_context: List[str]
     last_tool_call_symbols: List[str]
     new_retrieved_symbols: List[str]
     node_call_count: Dict[str, int]
+    code_commit: str
 
 
 @dataclass
 class AnalysisResult:
     document: str
     requirement_coverage: List[Dict[str, Any]]
-    test_cases: List[Dict[str, Any]]
     improvements: List[Dict[str, str]]
     endpoint: str
+    existed_test_cases: List[Dict[str, Any]] = field(default_factory=list)
+    additional_test_cases: List[Dict[str, Any]] = field(default_factory=list)
+    curl_command: str = ""
+    html_response: str = ""
     raw_response: Optional[str] = None
     analysis_method: str = "langgraph"  # "langgraph" or "fallback"
 
@@ -92,6 +96,7 @@ class AnalyzerChain:
         # Add nodes
         graph.add_node("agent", self._agent_node)
         graph.add_node("use_tool", self._call_tool_node)
+        graph.add_node("format_html", self._format_html_node)
 
         # Agent: decide whether to use tool or end
         graph.add_conditional_edges(
@@ -99,12 +104,16 @@ class AnalyzerChain:
             self._should_use_tool,
             {
                 "use_tool": "use_tool",
+                "format_html": "format_html",
                 "end": END
             }
         )
 
         # Tool: after tool call, go back to agent
         graph.add_edge("use_tool", "agent")
+        
+        # Format HTML: after formatting, end
+        graph.add_edge("format_html", END)
 
         # Set entry point
         graph.set_entry_point("agent")
@@ -156,10 +165,30 @@ class AnalyzerChain:
             logger.error(f" Error retrieving context for symbol '{symbol}': {str(e)}")
             return f"Error retrieving code for symbol: {symbol} - {str(e)}", []
 
+    def _read_api_docs_example(self) -> str:
+        try:
+            with open("api_docs_example.md", "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            logger.warning(f"Could not read api_docs_example.md: {e}")
+            return ""
+
+    def _read_software_testing_guide(self) -> str:
+        try:
+            with open("software_testing_guide.md", "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            logger.warning(f"Could not read software_testing_guide.md: {e}")
+            return ""
+
     def _agent_node(self, state: AgentState) -> AgentState:
         node_name = "agent"
         state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
 
+        # Read API docs example
+        api_docs_example = self._read_api_docs_example()
+        code_commit = state.get("code_commit", "")
+        software_testing_guide = self._read_software_testing_guide()
         # Build the analysis  
         prompt = f"""You are an expert software architect analyzing the REST endpoint: {state['endpoint']}
             ANALYSIS STRATEGY:
@@ -185,19 +214,28 @@ class AnalyzerChain:
             CURRENT CONTEXT:
             {state['context']}
 
-            REQUIREMENTS TO ANALYZE:
+            REQUIREMENTS TO ANALYZE (it may contains test cases, acceptance criteria, etc.):
             {state['requirements']}
-
-            TEST CASES TO VERIFY:
-            {state['testcases']}
 
             ADDITIONAL INSTRUCTIONS:
             {state['user_text']}
 
+            API_DOCS_EXAMPLE:
+            {api_docs_example}
+
+            CODE_COMMIT:
+            {code_commit}
+
+            SOFTWARE_TESTING_GUIDE:
+            {software_testing_guide}
+
+            When generating the "document" field, use the format and style shown in the API_DOCS_EXAMPLE above as a reference.
+            When generating the "test_case" field, use the format and style shown in the SOFTWARE_TESTING_GUIDE above as a reference.
+
             If you don't have enough context, call the get_project_code_context tool to get more context, don't assume.
-            If you have enough context, provide your final analysis as valid JSON with this structure:
+            If you have enough context, provide your final analysis as valid JSON with this structure without any other text or symbols like ```json or ``` or "\n":
             {{
-                "document": "very detailed step by step explanation of what the endpoint does, including all the business logic and the configuration logic",
+                "document": "very detailed step by step explanation of what the endpoint does, including all the business logic and the configuration logic. Then apply the the template in SOFTWARE_TESTING_GUIDE",
                 "requirement_coverage": [
                     {{
                         "requirement": "exact requirement text",
@@ -205,9 +243,16 @@ class AnalyzerChain:
                         "explain": "how the code meets or fails this requirement"
                     }}
                 ],
-                "test_cases": [
+                "existed_test_cases": [
                     {{
-                        "test_case": "exact test case text",
+                        "test_case": "exact test from requirements if included. give the original text, otherwise empty",
+                        "coverage_score": "0-100", 
+                        "explain": "whether this test case is covered by the implementation"
+                    }}
+                ],
+                "additional_test_cases": [
+                    {{
+                        "test_case": "base on requirements and implementation, generate a test case",
                         "coverage_score": "0-100", 
                         "explain": "whether this test case is covered by the implementation"
                     }}
@@ -223,6 +268,7 @@ class AnalyzerChain:
             }}
 
             Do not assume any code logic, always check the code and use get_project_code_context if any part of the code is not fully implemented.
+            Response output in Vietnamese
             Your response:"""
         
         try:
@@ -250,14 +296,28 @@ class AnalyzerChain:
         response = state["final_response"] or ""
         iteration = state["iteration_count"]
         
+        # First try to extract JSON from markdown code blocks
+        response_text = self._parse_json_response(response)
+        response_clean = response_text.strip()
+        
         # Check if response is valid JSON (final answer)
-        response_clean = response.strip()
         if response_clean.startswith("{") and response_clean.endswith("}"):
             try:
                 json.loads(response_clean)
-                return "end"
+                logger.info(" Valid JSON detected - routing to format_html")
+                return "format_html"  # Go to HTML formatting instead of end
             except json.JSONDecodeError:
                 logger.warning(" Response looks like JSON but is invalid")
+        
+        # Also check the original response for JSON
+        original_clean = response.strip()
+        if original_clean.startswith("{") and original_clean.endswith("}"):
+            try:
+                json.loads(original_clean)
+                logger.info(" Valid JSON detected in original response - routing to format_html")
+                return "format_html"
+            except json.JSONDecodeError:
+                logger.warning(" Original response looks like JSON but is invalid")
 
         # Check for explicit tool request
         if "I need to get context for" in response or "get_project_code_context" in response:
@@ -277,7 +337,7 @@ class AnalyzerChain:
         # Narrow down keyword-based tool triggering
         specific_patterns = [
             r"\b(?:need to inspect|examine|check|see)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Entity|Exception))\b",
-            r"\bimplementation of\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Entity|Exception))\b",
+            r"\b(?:implementation of)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Entity|Exception))\b",
         ]
         for pattern in specific_patterns:
             matches = re.findall(pattern, response, re.IGNORECASE)
@@ -387,25 +447,142 @@ class AnalyzerChain:
             "new_retrieved_symbols": new_retrieved
         }
 
+    def _format_html_node(self, state: AgentState) -> AgentState:
+        """Convert JSON response to HTML format using LLM."""
+        node_name = "format_html"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        
+        logger.info(f" 🎨 Format HTML node activated (iteration {state['iteration_count']})")
+        response = state["final_response"] or ""
+        logger.info(f" Processing response: {response[:200]}...")
+        
+        try:
+            # Parse the JSON response
+            response_clean = response.strip()
+            if response_clean.startswith("{") and response_clean.endswith("}"):
+                result_dict = json.loads(response_clean)
+                logger.info(" Parsed JSON directly from response")
+            else:
+                # Try to extract JSON from markdown
+                response_text = self._parse_json_response(response)
+                result_dict = json.loads(response_text)
+                logger.info(" Parsed JSON from markdown code blocks")
+            
+            # Generate HTML using LLM
+            logger.info(f" Generating HTML from JSON with {len(result_dict)} fields")
+            html_content = self._generate_html_with_llm(result_dict)
+            
+            logger.info(f" ✅ HTML generation completed ({len(html_content)} characters)")
+            return {
+                **state,
+                "final_response": response,
+                "html_response": html_content,
+                "iteration_count": state["iteration_count"] + 1,
+                "node_call_count": state["node_call_count"]
+            }
+            
+        except Exception as e:
+            logger.error(f" ❌ Error formatting HTML: {str(e)}")
+            # Return original response with empty HTML if formatting fails
+            return {
+                **state,
+                "final_response": response,
+                "html_response": f"<div class='error'>Error formatting HTML: {str(e)}</div>",
+                "iteration_count": state["iteration_count"] + 1,
+                "node_call_count": state["node_call_count"]
+            }
+
+    def _generate_html_with_llm(self, result_dict: Dict[str, Any]) -> str:
+        """Generate HTML from JSON analysis result using LLM."""
+        try:
+            logger.info(" 🤖 Calling LLM for HTML generation...")
+            
+            # Create a prompt for HTML generation
+            prompt = f"""
+You are an expert web developer. Convert the following API analysis JSON into a beautiful, well-structured HTML report.
+
+JSON Analysis Data:
+{json.dumps(result_dict, indent=2)}
+
+Requirements:
+1. Create semantic HTML5 structure
+2. Use CSS classes for styling (analysis-report, document-section, requirement-coverage-section, etc.)
+3. Color-code coverage scores: green for 80%+, orange for 60-79%, red for <60%
+4. Make it responsive and modern looking
+5. Include all sections: document, requirement coverage, test cases, improvements, curl command
+6. Use proper HTML escaping for special characters
+7. Add appropriate CSS classes for easy styling
+
+Generate only the HTML content (no CSS or JavaScript). The HTML should be ready to be embedded in any web application.
+HTML Output:
+"""
+            
+            logger.info(f" Sending prompt to LLM ({len(prompt)} characters)")
+            
+            # Use the LLM to generate HTML
+            html_response = self.langchain_llm._call(prompt)
+            
+            logger.info(f" Received LLM response ({len(html_response)} characters)")
+            
+            # Clean up the response - extract HTML if it's wrapped in markdown
+            html_content = self._extract_html_from_response(html_response)
+            
+            logger.info(f" Generated HTML response ({len(html_content)} characters)")
+            return html_content
+            
+        except Exception as e:
+            logger.error(f" Error generating HTML with LLM: {str(e)}")
+            # Fallback to basic HTML if LLM fails
+            return ""
+
+    def _extract_html_from_response(self, response: str) -> str:
+        """Extract HTML content from LLM response, handling markdown code blocks."""
+        import re
+        
+        logger.info(f" Extracting HTML from response ({len(response)} characters)")
+        
+        # Try to extract HTML from markdown code blocks
+        html_match = re.search(r"```html\s*([\s\S]+?)\s*```", response)
+        if html_match:
+            logger.info(" Found HTML in ```html code block")
+            return html_match.group(1).strip()
+        
+        # Try without html language specifier
+        html_match = re.search(r"```\s*([\s\S]+?)\s*```", response)
+        if html_match:
+            logger.info(" Found HTML in ``` code block")
+            return html_match.group(1).strip()
+        
+        # If no code blocks, check if response starts with HTML
+        if response.strip().startswith('<'):
+            logger.info(" Response starts with HTML tag")
+            return response.strip()
+        
+        # If all else fails, return the response as-is
+        logger.info(" No HTML code blocks found, returning response as-is")
+        return response.strip()
+
     async def run(
             self,
             *,
             endpoint: str,
             requirements_txt: str,
-            testcases_txt: str,
             user_text: str,
+            code_commit: str = ""
     ) -> Dict[str, Any]:
         """Run the LangGraph analysis chain and return structured results."""
         try:
-            self._validate_inputs(endpoint, requirements_txt, testcases_txt, user_text)
+            self._validate_inputs(endpoint, requirements_txt, user_text)
         except ValueError as e:
             logger.error(f" Input validation failed: {str(e)}")
             raise AnalysisError(f"Invalid input: {str(e)}")
         
         logger.info(f" Starting LangGraph AnalyzerChain for endpoint: {endpoint}")
-        
+    
         try:
+            # TODO: limit only 1 docs
             docs = await self.retriever.retrieve(endpoint, 1, hyde=False)
+            logger.info(f"len of docs: {len(docs)}")
             initial_context = "\n\n".join(doc.page_content for doc in docs)
             initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
 
@@ -414,12 +591,13 @@ class AnalyzerChain:
                 "context": initial_context,
                 "endpoint": endpoint,
                 "requirements": requirements_txt,
-                "testcases": testcases_txt,
                 "user_text": user_text,
+                "code_commit": code_commit,
                 "history": [],
                 "retrieved_symbols": [],
                 "seen_context": initial_chunk_ids,
                 "final_response": None,
+                "html_response": None,
                 "iteration_count": 0,
                 "last_tool_call_symbols": [],
                 "new_retrieved_symbols": [],
@@ -431,7 +609,9 @@ class AnalyzerChain:
                     
             logger.info(" Step 4: Parsing and structuring final response...")
             final_response = final_state.get("final_response", "")
+            html_response = final_state.get("html_response", "")
             result = self._parse_graph_response(final_response, endpoint)
+            result.html_response = html_response  # Add HTML response to the result
             logger.info(f" Analysis complete - method: {result.analysis_method}")
             return result.__dict__
             
@@ -443,7 +623,6 @@ class AnalyzerChain:
                 return await self._fallback_analysis(
                     endpoint=endpoint,
                     requirements_txt=requirements_txt,
-                    testcases_txt=testcases_txt,
                     user_text=user_text,
                     initial_context=initial_context if 'initial_context' in locals() else ""
                 )
@@ -456,7 +635,6 @@ class AnalyzerChain:
             *,
             endpoint: str,
             requirements_txt: str,
-            testcases_txt: str,
             user_text: str,
             initial_context: str
     ) -> Dict[str, Any]:
@@ -467,7 +645,7 @@ class AnalyzerChain:
                 endpoint=endpoint,
                 context=initial_context,
                 requirements=requirements_txt,
-                testcases=testcases_txt,
+                testcases="",  # Empty test cases for fallback
                 user_text=user_text,
             )
             fallback_prompt_file = self._write_prompt_to_file(prompt, "fallback_analysis")
@@ -481,9 +659,12 @@ class AnalyzerChain:
                 return AnalysisResult(
                     document=result_dict.get("document", ""),
                     requirement_coverage=result_dict.get("requirement_coverage", []),
-                    test_cases=result_dict.get("test_cases", []),
                     improvements=result_dict.get("improvements", []),
                     endpoint=endpoint,
+                    existed_test_cases=result_dict.get("existed_test_cases", []),
+                    additional_test_cases=result_dict.get("additional_test_cases", []),
+                    curl_command=result_dict.get("curl_command", ""),
+                    html_response=result_dict.get("html_response", ""),
                     analysis_method="fallback"
                 ).__dict__
             except json.JSONDecodeError:
@@ -491,9 +672,12 @@ class AnalyzerChain:
                 return AnalysisResult(
                     document="Fallback analysis completed but not in JSON format",
                     requirement_coverage=[],
-                    test_cases=[],
                     improvements=[],
                     endpoint=endpoint,
+                    existed_test_cases=[],
+                    additional_test_cases=[],
+                    curl_command="",
+                    html_response="<div class='error'>Fallback analysis failed to return JSON</div>",
                     raw_response=resp,
                     analysis_method="fallback"
                 ).__dict__
@@ -578,13 +762,12 @@ class AnalyzerChain:
         logger.debug(f" Found general class references: {unique_symbols}")
         return unique_symbols
 
-    def _validate_inputs(self, endpoint: str, requirements_txt: str, testcases_txt: str, user_text: str) -> None:
+    def _validate_inputs(self, endpoint: str, requirements_txt: str, user_text: str) -> None:
         """Validate input parameters."""
         if not endpoint or not isinstance(endpoint, str):
             raise ValueError("endpoint must be a non-empty string")
         for param_name, param_value in [
             ("requirements_txt", requirements_txt),
-            ("testcases_txt", testcases_txt), 
             ("user_text", user_text)
         ]:
             if not isinstance(param_value, str):
@@ -592,9 +775,13 @@ class AnalyzerChain:
 
     def _parse_json_response(self, response_text: str) -> str:
         import re
+        match = re.search(r"```json\s*([\s\S]+?)\s*```[\s\n]*", response_text)
+        if match:
+            return match.group(1).strip()
         match = re.search(r"```json\s*([\s\S]+?)\s*```", response_text)
         if match:
             return match.group(1).strip()
+        
         match = re.search(r"```\s*([\s\S]+?)\s*```", response_text)
         if match:
             return match.group(1).strip()
@@ -617,8 +804,12 @@ class AnalyzerChain:
             return AnalysisResult(
                 document=result_dict.get("document", ""),
                 requirement_coverage=result_dict.get("requirement_coverage", []),
-                test_cases=result_dict.get("test_cases", []),
                 improvements=result_dict.get("improvements", []),
+                existed_test_cases=result_dict.get("existed_test_cases", []),
+                additional_test_cases=result_dict.get("additional_test_cases", []),
+                curl_command=result_dict.get("curl_command", ""),
+                html_response=result_dict.get("html_response", ""),
+                raw_response=graph_response,
                 endpoint=endpoint,
                 analysis_method="langgraph"
             )
@@ -627,9 +818,12 @@ class AnalyzerChain:
             return AnalysisResult(
                 document="Analysis completed but not in JSON format",
                 requirement_coverage=[],
-                test_cases=[],
                 improvements=[],
-                endpoint=endpoint,
+                existed_test_cases=[],
+                additional_test_cases=[],
+                curl_command="",
+                html_response="<div class='error'>Failed to parse JSON response</div>",
                 raw_response=graph_response,
+                endpoint=endpoint,
                 analysis_method="langgraph"
             )

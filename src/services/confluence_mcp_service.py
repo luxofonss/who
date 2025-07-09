@@ -1,14 +1,11 @@
-import asyncio
-import aiohttp
-import json
 import os
 import re
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
-from urllib.parse import urljoin, urlparse, parse_qs
 from loguru import logger
 from pydantic import BaseModel, Field
+from atlassian import Confluence
 
 
 class MCPConfluenceConfig(BaseModel):
@@ -34,32 +31,26 @@ class MCPContext:
 
 
 class ConfluenceMCPService:
-    """Main MCP service for Confluence integration"""
+    """Main MCP service for Confluence integration (using atlassian-python-api)"""
     
     def __init__(self, config: MCPConfluenceConfig):
         self.config = config
-        self.session = None
+        self.client = Confluence(
+            url=self.config.base_url,
+            username=self.config.username,
+            password=self.config.api_token,
+            cloud=True
+        )
         self.contexts: Dict[str, MCPContext] = {}
         
     async def __aenter__(self):
         """Async context manager entry"""
-        await self.initialize_session()
         return self
         
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit"""
-        await self.close_session()
+        pass
         
-    async def initialize_session(self):
-        """Initialize HTTP session"""
-        auth = aiohttp.BasicAuth(self.config.username, self.config.api_token)
-        self.session = aiohttp.ClientSession(auth=auth)
-        
-    async def close_session(self):
-        """Close HTTP session"""
-        if self.session:
-            await self.session.close()
-            
     def get_or_create_context(self, session_id: str) -> MCPContext:
         """Get or create MCP context for session"""
         if session_id not in self.contexts:
@@ -107,73 +98,19 @@ class ConfluenceMCPService:
                           limit: int = None, content_type: str = "page") -> Dict[str, Any]:
         """Search Confluence pages using CQL"""
         try:
-            context = self.get_or_create_context(session_id)
-            metadata = self.build_mcp_metadata(session_id)
-            
-            # Build CQL query
             cql = self._build_cql_query(query, space_key, content_type)
-            
-            # API parameters
-            params = {
-                'cql': cql,
-                'limit': limit or self.config.max_results,
-                'expand': 'body.storage,space,version,metadata.labels' if self.config.expand_content else 'space'
+            results = self.client.cql(cql, limit=limit or self.config.max_results, expand='body.storage,space,version,metadata.labels')
+            pages = results.get('results', [])
+            return {
+                "status": "success",
+                "data": {
+                    "pages": pages,
+                    "total": len(pages)
+                }
             }
-            
-            # Make API request
-            url = urljoin(self.config.base_url, '/rest/api/content/search')
-            async with self.session.get(url, params=params) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    
-                    # Process results
-                    pages = []
-                    for result in data.get('results', []):
-                        page_data = {
-                            'id': result['id'],
-                            'title': result['title'],
-                            'space_key': result['space']['key'],
-                            'space_name': result['space']['name'],
-                            'url': urljoin(self.config.base_url, result['_links']['webui']),
-                            'content': result.get('body', {}).get('storage', {}).get('value', '') if self.config.expand_content else '',
-                            'excerpt': result.get('excerpt', ''),
-                            'labels': [label['name'] for label in result.get('metadata', {}).get('labels', {}).get('results', [])],
-                            'version': result.get('version', {}).get('number', 1)
-                        }
-                        pages.append(page_data)
-                        
-                        # Cache the page
-                        context.cached_resources[result['id']] = page_data
-                    
-                    # Update context
-                    context.recent_searches.append(query)
-                    context.last_accessed = datetime.now()
-                    
-                    return {
-                        "metadata": metadata,
-                        "tool": "search_pages",
-                        "status": "success",
-                        "data": {
-                            "query": query,
-                            "cql": cql,
-                            "pages": pages,
-                            "total": len(pages)
-                        }
-                    }
-                else:
-                    error_text = await response.text()
-                    return {
-                        "metadata": metadata,
-                        "tool": "search_pages",
-                        "status": "error",
-                        "error": f"HTTP {response.status}: {error_text}"
-                    }
-                    
         except Exception as e:
             logger.error(f"Search pages error: {str(e)}")
             return {
-                "metadata": self.build_mcp_metadata(session_id),
-                "tool": "search_pages",
                 "status": "error",
                 "error": str(e)
             }
@@ -181,66 +118,20 @@ class ConfluenceMCPService:
     async def get_page_by_id(self, session_id: str, page_id: str) -> Dict[str, Any]:
         """Get specific page by ID"""
         try:
-            context = self.get_or_create_context(session_id)
-            metadata = self.build_mcp_metadata(session_id)
-            
-            # Check cache first
-            if page_id in context.cached_resources:
+            page = self.client.get_page_by_id(page_id, expand='body.storage,space,version,metadata.labels')
+            if page:
                 return {
-                    "metadata": metadata,
-                    "tool": "get_page_by_id",
                     "status": "success",
-                    "data": {"page": context.cached_resources[page_id]}
+                    "data": {"page": page}
                 }
-            
-            # API parameters
-            params = {
-                'expand': 'body.storage,space,version,metadata.labels' if self.config.expand_content else 'space'
-            }
-            
-            # Make API request
-            url = urljoin(self.config.base_url, f'/rest/api/content/{page_id}')
-            logger.info(f"Making Confluence API request to: {url}")
-            async with self.session.get(url, params=params) as response:
-                logger.info(f"Confluence API response status: {response.status}")
-                if response.status == 200:
-                    result = await response.json()
-                    
-                    page_data = {
-                        'id': result['id'],
-                        'title': result['title'],
-                        'space_key': result['space']['key'],
-                        'space_name': result['space']['name'],
-                        'url': urljoin(self.config.base_url, result['_links']['webui']),
-                        'content': result.get('body', {}).get('storage', {}).get('value', '') if self.config.expand_content else '',
-                        'labels': [label['name'] for label in result.get('metadata', {}).get('labels', {}).get('results', [])],
-                        'version': result.get('version', {}).get('number', 1)
-                    }
-                    
-                    # Cache the page
-                    context.cached_resources[page_id] = page_data
-                    context.last_accessed = datetime.now()
-                    
-                    return {
-                        "metadata": metadata,
-                        "tool": "get_page_by_id",
-                        "status": "success",
-                        "data": {"page": page_data}
-                    }
-                else:
-                    error_text = await response.text()
-                    return {
-                        "metadata": metadata,
-                        "tool": "get_page_by_id",
-                        "status": "error",
-                        "error": f"HTTP {response.status}: {error_text}"
-                    }
-                    
+            else:
+                return {
+                    "status": "error",
+                    "error": f"Page {page_id} not found"
+                }
         except Exception as e:
             logger.error(f"Get page by ID error: {str(e)}")
             return {
-                "metadata": self.build_mcp_metadata(session_id),
-                "tool": "get_page_by_id",
                 "status": "error",
                 "error": str(e)
             }
@@ -248,67 +139,20 @@ class ConfluenceMCPService:
     async def get_page_by_title(self, session_id: str, title: str, space_key: str) -> Dict[str, Any]:
         """Get page by title and space"""
         try:
-            metadata = self.build_mcp_metadata(session_id)
-            
-            # API parameters
-            params = {
-                'spaceKey': space_key,
-                'title': title,
-                'expand': 'body.storage,space,version,metadata.labels' if self.config.expand_content else 'space'
-            }
-            
-            # Make API request
-            url = urljoin(self.config.base_url, '/rest/api/content')
-            async with self.session.get(url, params=params) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    results = data.get('results', [])
-                    
-                    if results:
-                        result = results[0]
-                        page_data = {
-                            'id': result['id'],
-                            'title': result['title'],
-                            'space_key': result['space']['key'],
-                            'space_name': result['space']['name'],
-                            'url': urljoin(self.config.base_url, result['_links']['webui']),
-                            'content': result.get('body', {}).get('storage', {}).get('value', '') if self.config.expand_content else '',
-                            'labels': [label['name'] for label in result.get('metadata', {}).get('labels', {}).get('results', [])],
-                            'version': result.get('version', {}).get('number', 1)
-                        }
-                        
-                        # Cache the page
-                        context = self.get_or_create_context(session_id)
-                        context.cached_resources[result['id']] = page_data
-                        context.last_accessed = datetime.now()
-                        
-                        return {
-                            "metadata": metadata,
-                            "tool": "get_page_by_title",
-                            "status": "success",
-                            "data": {"page": page_data}
-                        }
-                    else:
-                        return {
-                            "metadata": metadata,
-                            "tool": "get_page_by_title",
-                            "status": "error",
-                            "error": f"Page not found: {title} in space {space_key}"
-                        }
-                else:
-                    error_text = await response.text()
-                    return {
-                        "metadata": metadata,
-                        "tool": "get_page_by_title",
-                        "status": "error",
-                        "error": f"HTTP {response.status}: {error_text}"
-                    }
-                    
+            page = self.client.get_page_by_title(space_key, title)
+            if page:
+                return {
+                    "status": "success",
+                    "data": {"page": page}
+                }
+            else:
+                return {
+                    "status": "error",
+                    "error": f"Page '{title}' not found in space '{space_key}'"
+                }
         except Exception as e:
             logger.error(f"Get page by title error: {str(e)}")
             return {
-                "metadata": self.build_mcp_metadata(session_id),
-                "tool": "get_page_by_title",
                 "status": "error",
                 "error": str(e)
             }
@@ -476,6 +320,29 @@ class ConfluenceMCPService:
                 "last_accessed": context.last_accessed.isoformat()
             }
         }
+
+    async def update_page_content(self, session_id: str, page_id: str, new_content: str) -> dict:
+        try:
+            page = self.client.get_page_by_id(page_id, expand='body.storage,version')
+            if not page:
+                return {"status": "error", "error": "Page not found"}
+            title = page['title']
+            space = page['space']['key']
+            version = int(page['version']['number']) + 1
+            updated = self.client.update_page(
+                page_id=page_id,
+                title=title,
+                body=new_content,
+                parent_id=None,
+                type='page',
+                representation='storage',
+                minor_edit=False,
+                version=version
+            )
+            return {"status": "success", "data": updated}
+        except Exception as e:
+            logger.error(f"Error updating Confluence page {page_id}: {str(e)}")
+            return {"status": "error", "error": str(e)}
 
 
 class ConfluenceMCPConfigBuilder:

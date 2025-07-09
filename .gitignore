@@ -1,5 +1,7 @@
 .venv/*
-src/models/*
+src/models/codebert/*
+src/models/e5-base-code/*
+src/models/ms-marco-MiniLM-L-6-v2/*
 
 # Environment variables (contains API keys)
 .env

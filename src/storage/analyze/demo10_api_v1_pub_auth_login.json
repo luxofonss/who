@@ -1,9 +1,0 @@
-{
-  "document": "/api/v1/pub/auth/login endpoint is not present in the provided code context. The provided code focuses on quiz functionality, user management, resource handling, and pronunciation accuracy assessment.  There is no authentication logic related to a `/api/v1/pub/auth/login` endpoint.",
-  "requirement_coverage": [],
-  "test_cases": [],
-  "improvements": [],
-  "endpoint": "/api/v1/pub/auth/login",
-  "raw_response": null,
-  "analysis_method": "langgraph"
-}
