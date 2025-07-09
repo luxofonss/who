@@ -332,8 +332,12 @@ async def analyze(
     logger.info(f"Running analysis for endpoint: {api_path}")
     logger.info(f"Method: {api_method}")
     logger.info(f"User query: {request.user_query}")
+    endpoint = {
+        "path": api_path,
+        "method": api_method
+    }
     result = await analyzer.run(
-        endpoint=api_path,
+        endpoint=str,
         requirements_txt=requirements_txt,
         user_text=request.user_query,
         code_commit=code_commit,
