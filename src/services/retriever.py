@@ -66,7 +66,7 @@ class LangChainRetriever:
         # Create a unique ID combining these fields
         return f"{file_path}::{class_name}::{method_name}::{start_line}"
 
-    async def retrieve(self, query: str, top: int, hyde: bool = False, method: str = None) -> List[Document]:
+    async def retrieve(self, query: str, top: int, hyde: bool = False, method: str | None = None) -> List[Document]:
         await self._ensure_loaded()
         # turn raw query to embedded query
         logger.info(f"query: {query}")
@@ -162,6 +162,22 @@ class LangChainRetriever:
         logger.debug(f"After document deduplication: {len(deduplicated_docs)} documents")
         return deduplicated_docs
 
+    async def retrieve_endpoints(self, symbols: List[str]) -> List[str]:
+        await self._ensure_loaded()
+        endpoints = []
+        for symbol in symbols:
+            endpoints.extend(self.find_endpoint_by_symbol_name(symbol))
+        # Remove duplicates based on endpoint path + method combination
+        unique_endpoints = []
+        seen_combinations = set()
+        for endpoint in endpoints:
+            combination = (endpoint.get('path', ''), endpoint.get('method', ''))
+            if combination not in seen_combinations:
+                seen_combinations.add(combination)
+                unique_endpoints.append(endpoint)
+        
+        return unique_endpoints
+
     def _get_full_text(self, c: Dict) -> str:
         if (c.get("chunk_type") == "method"):
             return f"# Summary: {c.get('class_name', '')}.{c.get('method_name', '')} {c.get('summary', '')}\n\n{c['content']}"
@@ -239,6 +255,86 @@ class LangChainRetriever:
                             found.append(sb_class)
         # logger.info(f"Found {len(found)} matches for symbol: {symbol}")
         return found
+
+    def find_endpoint_by_symbol_name(self, symbol: str) -> List[Dict[str, str]]:
+        if not self._loaded:
+            logger.debug(f"Loading index for endpoint search: {symbol}")
+            self._ensure_loaded_sync()
+            
+        if not self._loaded:
+            logger.warning(f"Failed to load index for find_endpoint_by_symbol_name, returning empty results")
+            return []
+            
+        if not hasattr(self, '_chunk_lookup'):
+            logger.warning(f"Chunk lookup not available, returning empty results")
+            return []
+
+        result_endpoints = []
+        visited = set()
+        
+        # Start by finding all chunks that call the target symbol
+        calling_chunks = []
+        for key, chunk in self._chunk_lookup.items():
+            calls = chunk.get('calls', [])
+            # Check if any of the calls match our symbol
+            for call in calls:
+                if symbol in call or call in symbol:
+                    calling_chunks.append(chunk)
+                    break
+        
+        logger.debug(f"Found {len(calling_chunks)} chunks calling symbol: {symbol}")
+        
+        # For each calling chunk, traverse backward to find endpoints
+        for chunk in calling_chunks:
+            self._traverse_to_endpoints(chunk, symbol, visited, result_endpoints)
+        
+        return result_endpoints
+    
+    def _traverse_to_endpoints(self, chunk: Dict, original_symbol: str, visited: set, result_endpoints: List[Dict]):
+        """
+        Recursively traverse backward through the call graph to find endpoints.
+        """
+        chunk_id = chunk.get('id', '')
+        if chunk_id in visited:
+            return
+        visited.add(chunk_id)
+        
+        # Check if this chunk has endpoints
+        endpoints = chunk.get('endpoints', [])
+        if endpoints:
+            for endpoint in endpoints:
+                result_endpoints.append({
+                    'path': endpoint.get('path', ''),
+                    'method': endpoint.get('method', ''),
+                    'calling_method': chunk.get('method_name', ''),
+                    'calling_class': chunk.get('class_name', ''),
+                    'original_symbol': original_symbol
+                })
+            return  # Found endpoints, no need to traverse further
+        
+        # If no endpoints, find chunks that call this chunk
+        chunk_symbol = self._get_chunk_symbol(chunk)
+        if chunk_symbol:
+            for key, other_chunk in self._chunk_lookup.items():
+                calls = other_chunk.get('calls', [])
+                for call in calls:
+                    if chunk_symbol in call or call in chunk_symbol:
+                        self._traverse_to_endpoints(other_chunk, original_symbol, visited, result_endpoints)
+                        break
+    
+    def _get_chunk_symbol(self, chunk: Dict) -> str:
+        """
+        Get the symbol representation of a chunk (class.method or just class)
+        """
+        class_name = chunk.get('class_name', '')
+        method_name = chunk.get('method_name', '')
+        
+        if class_name and method_name:
+            return f"{class_name}.{method_name}"
+        elif class_name:
+            return class_name
+        else:
+            return ''
 
     def find_by_symbol_name(self, symbol: str) -> List[Document]:
         # Ensure the index and chunk lookup are loaded

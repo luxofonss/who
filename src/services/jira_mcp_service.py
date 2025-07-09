@@ -263,54 +263,69 @@ class JiraMCPService:
             
             for endpoint in api_endpoints:
                 # Fix URL construction to avoid duplication
+                # url only need endpoint, no base url
                 if self.config.base_url.endswith('/'):
-                    url = self.config.base_url + endpoint.lstrip('/')
+                    url = endpoint.lstrip('/')
                 else:
-                    url = self.config.base_url + '/' + endpoint.lstrip('/')
+                    url = '/' + endpoint.lstrip('/')
                 logger.debug(f"Trying development panel API: {url}")
                 logger.debug(f"Base URL: {self.config.base_url}")
                 logger.debug(f"Endpoint: {endpoint}")
+                logger.debug(f"Full URL: {url}")
                 
                 response = self.client.get(url)
-                if response.status_code == 200:
-                    dev_data = response.json()
+                
+                try:
+                    dev_data = response
                     logger.debug(f"Development data for {issue_key} (ID: {issue_id}): {dev_data}")
                     
-                    # Extract commit information from development panel
+                    # Check for errors in response
+                    errors = dev_data.get('errors', [])
+                    if errors:
+                        logger.warning(f"Response contains errors: {errors}")
+                    
+                    # Handle the new response format with 'detail' array
                     details = dev_data.get('detail', [])
+                    logger.debug(f"Found {len(details)} detail entries in response")
+                    
                     for detail in details:
                         repositories = detail.get('repositories', [])
+                        logger.debug(f"Found {len(repositories)} repositories in detail")
+                        
                         for repo in repositories:
                             repo_name = repo.get('name', '')
+                            repo_id = repo.get('id', '')
+                            repo_url = repo.get('url', '')
                             repo_commits = repo.get('commits', [])
+                            logger.debug(f"Repository '{repo_name}' (ID: {repo_id}) has {len(repo_commits)} commits")
                             
                             for commit in repo_commits:
                                 commit_info = {
                                     'repository': repo_name,
+                                    'repository_id': repo_id,
+                                    'repository_url': repo_url,
                                     'commit_hash': commit.get('id', ''),
                                     'message': commit.get('message', ''),
                                     'author': commit.get('author', {}).get('name', ''),
                                     'author_email': commit.get('author', {}).get('emailAddress', ''),
                                     'date': commit.get('authorTimestamp', ''),
                                     'url': commit.get('url', ''),
-                                    'files_changed': commit.get('fileCount', 0)
+                                    'files_changed': commit.get('fileCount', 0),
+                                    'merge': commit.get('merge', False),
+                                    'display_id': commit.get('displayId', '')
                                 }
+                                logger.debug(f"Extracted commit: {commit_info}")
                                 commits.append(commit_info)
                     
                     # If we found commits, break from trying other endpoints
                     if commits:
                         logger.info(f"Found {len(commits)} commits for {issue_key} (ID: {issue_id}) using endpoint: {endpoint}")
                         break
-                    
-                elif response.status_code == 404:
-                    logger.debug(f"Endpoint {endpoint} returned 404 for {issue_key} (ID: {issue_id})")
-                elif response.status_code == 400:
-                    logger.debug(f"Endpoint {endpoint} returned 400 for {issue_key} (ID: {issue_id})")
-                elif response.status_code == 403:
-                    logger.debug(f"Endpoint {endpoint} returned 403 for {issue_key} (ID: {issue_id}) - insufficient permissions")
-                else:
-                    logger.debug(f"Endpoint {endpoint} returned {response.status_code} for {issue_key} (ID: {issue_id})")
-            
+                        
+                except Exception as e:
+                    logger.error(f"Error parsing response JSON for {issue_key}: {str(e)}")
+                    logger.error(f"Response text: {response.text}")
+                        
             if not commits:
                 logger.debug(f"No commits found for {issue_key} (ID: {issue_id}) via development panel - issue may not have linked commits or development integrations may not be configured")
                     
@@ -321,11 +336,6 @@ class JiraMCPService:
             logger.error(f"Base URL: {self.config.base_url}")
             logger.error(f"Issue ID: {issue_id}")
             return []
-    
-    async def _extract_commits_from_comments_and_links(self, issue_key: str) -> List[Dict[str, Any]]:
-        """This method is no longer used - commits are in development panel, not comments"""
-        logger.debug(f"Commit extraction from comments disabled for {issue_key} - commits are linked via development panel")
-        return []
     
     def _extract_attachments(self, attachment_data: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         """Extract attachments from Jira issue"""

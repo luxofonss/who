@@ -200,29 +200,129 @@ async def analyze(
                             issue_commits = await jira_service._extract_commits_from_issue(issue_key)
                             if issue_commits:
                                 logger.info(f"Found {len(issue_commits)} commits for {issue_key}")
+                                for commit in issue_commits:
+                                    logger.debug(f"Commit: {commit.get('commit_hash', 'Unknown')} in {commit.get('repository', 'Unknown')}")
                                 commits.extend(issue_commits)
                             else:
                                 logger.info(f"No commits found for {issue_key}")
                         except Exception as e:
                             logger.error(f"Error extracting commits for {issue_key}: {str(e)}")
         
+        # Get diffs for commits using Bitbucket MCP service
+        if commits:
+            try:
+                # Initialize Bitbucket MCP service
+                bitbucket_config = BitbucketMCPConfigBuilder.from_env()
+                
+                # Check if Bitbucket configuration is valid
+                if not bitbucket_config.email or not bitbucket_config.workspace:
+                    logger.warning("Bitbucket configuration incomplete - skipping diff retrieval")
+                    logger.warning(f"Email: {bitbucket_config.email}, Workspace: {bitbucket_config.workspace}")
+                elif not bitbucket_config.app_password and not bitbucket_config.api_token:
+                    logger.warning("Bitbucket authentication not configured - skipping diff retrieval")
+                else:
+                    async with BitbucketMCPService(bitbucket_config) as bitbucket_service:
+                        logger.info(f"Getting diffs for {len(commits)} commits using Bitbucket MCP service")
+                        
+                        for commit in commits:
+                            repository = commit.get('repository', '')
+                            commit_hash = commit.get('commit_hash', '')
+                            
+                            if repository and commit_hash:
+                                logger.info(f"Getting diff for commit {commit_hash} in repository {repository}")
+                                try:
+                                    # Get diff for this commit
+                                    diff_result = await bitbucket_service._get_commit_diff(repository, commit_hash)
+                                    if diff_result['status'] == 'success':
+                                        commit['diff'] = diff_result
+                                        logger.info(f"Successfully retrieved diff for {commit_hash}")
+                                    else:
+                                        logger.warning(f"Failed to get diff for {commit_hash}: {diff_result.get('error', 'Unknown error')}")
+                                        commit['diff'] = {'status': 'error', 'error': diff_result.get('error', 'Unknown error')}
+                                except Exception as e:
+                                    logger.error(f"Error getting diff for commit {commit_hash}: {str(e)}")
+                                    commit['diff'] = {'status': 'error', 'error': str(e)}
+                            else:
+                                logger.warning(f"Missing repository or commit hash for commit: {commit}")
+                                
+            except Exception as e:
+                logger.error(f"Error initializing Bitbucket MCP service: {str(e)}")
+                # Continue without diffs if Bitbucket service fails
+        
         # Format commit content for analysis
         code_commit = ""
+        changed_methods = []  # List to store changed methods
         if commits:
             commit_details = []
             for commit in commits:
+                logger.info(f"Original commit: {commit}")
                 commit_detail = f"Commit: {commit.get('commit_hash', 'Unknown')}\n"
+                commit_detail += f"Display ID: {commit.get('display_id', commit.get('commit_hash', '')[:7])}\n"
                 commit_detail += f"Repository: {commit.get('repository', 'Unknown')}\n"
+                commit_detail += f"Repository ID: {commit.get('repository_id', 'Unknown')}\n"
                 commit_detail += f"Author: {commit.get('author', 'Unknown')}\n"
                 commit_detail += f"Message: {commit.get('message', 'No message')}\n"
                 commit_detail += f"Date: {commit.get('date', 'Unknown')}\n"
                 commit_detail += f"Files Changed: {commit.get('files_changed', 0)}\n"
+                commit_detail += f"Merge Commit: {commit.get('merge', False)}\n"
                 if commit.get('url'):
                     commit_detail += f"URL: {commit.get('url')}\n"
+                
+                # Add diff information if available
+                if commit.get('diff') and commit['diff'].get('status') == 'success':
+                    diff_data = commit['diff']
+                    commit_detail += f"\n=== DIFF INFORMATION ===\n"
+                    commit_detail += f"Total Files Changed: {diff_data.get('total_files', 0)}\n"
+                    
+                    # Add file change details
+                    files_changed = diff_data.get('files_changed', [])
+                    if files_changed:
+                        commit_detail += f"\nFiles Changed:\n"
+                        for file_info in files_changed:
+                            commit_detail += f"- {file_info.get('new_path', file_info.get('old_path', 'Unknown'))}\n"
+                            commit_detail += f"  Status: {file_info.get('status', 'Unknown')}\n"
+                            commit_detail += f"  Additions: {file_info.get('additions', 0)}, Deletions: {file_info.get('deletions', 0)}\n"
+                    
+                    # Add diff text (truncated if too long)
+                    diff_text = diff_data.get('diff_text', '')
+                    logger.info(f"Diff text: {diff_text}")
+                    if diff_text:
+                        # Truncate diff text if it's too long to avoid overwhelming the analysis
+                        max_diff_length = 5000  # Limit to 5000 characters
+                        if len(diff_text) > max_diff_length:
+                            diff_text = diff_text[:max_diff_length] + f"\n... (truncated, total length: {len(diff_data.get('diff_text', ''))} characters)"
+                        commit_detail += f"\nDiff:\n{diff_text}\n"
+                    
+                    # Extract changed methods from diff text
+                    changed_file_paths = [file.get('new_path', file.get('old_path', '')) for file in diff_data.get('files_changed', [])]
+                    for file_path in changed_file_paths:
+                        if file_path:
+                            # Extract methods from diff text for this file
+                            file_changed_methods = bitbucket_service._extract_changed_methods(diff_text, file_path)
+                            changed_methods.extend(file_changed_methods)
+                elif commit.get('diff') and commit['diff'].get('status') == 'error':
+                    commit_detail += f"\nDiff Error: {commit['diff'].get('error', 'Unknown error')}\n"
+                else:
+                    commit_detail += f"\nNo diff information available\n"
+                
                 commit_details.append(commit_detail)
+
             
             code_commit = "\n\n".join(commit_details)
-            logger.info(f"Formatted {len(commits)} commits for analysis")
+            logger.info(f"Code commit: {code_commit}")
+            logger.info(f"Formatted {len(commits)} commits with diffs for analysis")
+            
+            # Remove duplicates from changed_methods based on class and method combination
+            seen_methods = set()
+            deduplicated_methods = []
+            for method_info in changed_methods:
+                method_key = f"{method_info.get('class', '')}.{method_info.get('method', '')}"
+                if method_key not in seen_methods:
+                    seen_methods.add(method_key)
+                    deduplicated_methods.append(method_info)
+            changed_methods = deduplicated_methods
+            
+            logger.info(f"Changed methods (after deduplication): {changed_methods}")
     except Exception as e:
         logger.error(f"Error retrieving MCP content: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error retrieving content from external sources: {str(e)}")
@@ -237,6 +337,7 @@ async def analyze(
         requirements_txt=requirements_txt,
         user_text=request.user_query,
         code_commit=code_commit,
+        changed_methods=changed_methods
     )
 
     # Save chat history

@@ -568,19 +568,24 @@ HTML Output:
             endpoint: str,
             requirements_txt: str,
             user_text: str,
-            code_commit: str = ""
+            code_commit: str = "",
+            changed_methods: List[Dict[str, str]] = []
     ) -> Dict[str, Any]:
         """Run the LangGraph analysis chain and return structured results."""
         try:
-            self._validate_inputs(endpoint, requirements_txt, user_text)
+            self._validate_inputs(requirements_txt, user_text)
         except ValueError as e:
             logger.error(f" Input validation failed: {str(e)}")
             raise AnalysisError(f"Invalid input: {str(e)}")
         
+        # if not endpoint:
+        symbols = [method["class"] + "." + method["method"] for method in changed_methods]
+        endpoints = await self.retriever.retrieve_endpoints(symbols)
+        logger.info(f"Endpoints: {endpoints}")
+        
         logger.info(f" Starting LangGraph AnalyzerChain for endpoint: {endpoint}")
     
         try:
-            # TODO: limit only 1 docs
             docs = await self.retriever.retrieve(endpoint, 1, hyde=False)
             logger.info(f"len of docs: {len(docs)}")
             initial_context = "\n\n".join(doc.page_content for doc in docs)
@@ -762,10 +767,8 @@ HTML Output:
         logger.debug(f" Found general class references: {unique_symbols}")
         return unique_symbols
 
-    def _validate_inputs(self, endpoint: str, requirements_txt: str, user_text: str) -> None:
+    def _validate_inputs(self, requirements_txt: str, user_text: str) -> None:
         """Validate input parameters."""
-        if not endpoint or not isinstance(endpoint, str):
-            raise ValueError("endpoint must be a non-empty string")
         for param_name, param_value in [
             ("requirements_txt", requirements_txt),
             ("user_text", user_text)

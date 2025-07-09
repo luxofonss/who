@@ -1,10 +1,3 @@
-"""
-Bitbucket MCP Service
-
-A Model Context Protocol (MCP) service for retrieving commit information and code changes from Bitbucket.
-This service implements the MCP standard to provide structured, context-aware access to Bitbucket repositories.
-"""
-
 import asyncio
 import aiohttp
 import json
@@ -575,6 +568,21 @@ class BitbucketMCPService:
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
+    def _extract_changed_methods(self, diff_text: str, file_path: str) -> List[Dict[str, str]]:
+        class_name = file_path.split('/')[-1].replace('.java', '')
+        changed_methods = []
+
+        for line in diff_text.splitlines():
+            # Match Java method signatures in added lines
+            match = re.match(r'^\+\s*(public|private|protected)?\s*[\w<>]+\s+(\w+)\s*\(.*\)\s*{?', line)
+            if match:
+                method_name = match.group(2)
+                changed_methods.append({
+                    "class": class_name,
+                    "method": method_name
+                })
+
+        return changed_methods
 
 class BitbucketMCPConfigBuilder:
     """Builder for Bitbucket MCP configuration"""
