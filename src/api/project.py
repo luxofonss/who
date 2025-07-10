@@ -70,6 +70,7 @@ async def create_project(body: CreateProjectRequest, db=Depends(get_db_session))
 
     # Embeddings & FAISS index
     texts = [f"{c.get('summary','')}\n\n{c['content']}\n\n{c['endpoints']}" for c in chunks]
+    
     logger.info(f"Embedding: {texts}")
     vectors = embed_texts(texts)
 

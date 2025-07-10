@@ -71,6 +71,93 @@ class LangChainRetriever:
         # turn raw query to embedded query
         logger.info(f"query: {query}")
         
+        
+        # top_chunks = self._retrieve_from_faiss(query)
+        top_chunks = self._retrieve_from_metadata(query)
+        logger.info(f"query: {str(query)}")
+        logger.info(f"top_chunks: {top_chunks}")
+
+        docs: List[Document] = []
+        seen: Set[str] = set()
+
+        for c in top_chunks:
+            # Handle both Document objects and dictionary chunks
+            if isinstance(c, Document):
+                chunk_metadata = c.metadata
+                if "content" not in chunk_metadata:
+                    logger.info("content not in chunk metadata")
+                    continue
+                key = self._key(chunk_metadata)
+                if key in seen:
+                    logger.info(f"key {key} in seen {seen}")
+                    continue  # Skip if we've already processed this chunk
+                docs.append(c)  # Already a Document object
+                seen.add(key)
+                self._traverse_call_graph(chunk_metadata, docs, seen)
+            else:
+                # Handle dictionary chunks
+                if "content" not in c:
+                    logger.info("content not in c")
+                    continue
+                key = self._key(c)
+                if key in seen:
+                    logger.info(f"key {key} in seen {seen}")
+                    continue  # Skip if we've already processed this chunk
+                full_text = self._get_full_text(c)
+                logger.info(f"full_text: {full_text}")
+                docs.append(Document(page_content=full_text, metadata=c))
+                seen.add(key)
+                self._traverse_call_graph(c, docs, seen)
+
+        # Final deduplication and cleanup
+        logger.debug(f"Before final deduplication: {len(docs)} documents")
+        deduplicated_docs = self._deduplicate_documents(docs)
+        logger.debug(f"After document deduplication: {len(deduplicated_docs)} documents")
+        return deduplicated_docs
+
+    def _retrieve_from_metadata(self, query: str) -> List[Document]:
+        """
+        Retrieve 1 chunk from chunks by endpoints.
+        Query format: "{'path': '/api/v1/quizzes/search2', 'method': 'GET'}"
+        """
+        # Ensure the index is loaded
+        if not self._loaded:
+            self._ensure_loaded_sync()
+            
+        if not self._loaded or not hasattr(self, '_chunk_lookup'):
+            logger.warning("Index not loaded, returning empty results")
+            return []
+        
+        # Parse query to extract path and method from dict format
+        try:
+            import ast
+            query_dict = ast.literal_eval(query)
+            target_path = query_dict.get('path', '')
+            target_method = query_dict.get('method', '').upper()
+        except (ValueError, SyntaxError) as e:
+            logger.warning(f"Invalid query format. Expected dict string, got: {query}. Error: {e}")
+            return []
+        
+        logger.info(f"Searching for endpoint: path='{target_path}', method='{target_method}'")
+        
+        # Search through all chunks
+        for chunk in self.indexer.metadata:
+            endpoints = chunk.get('endpoints', [])
+            
+            # Check if this chunk has the matching endpoint
+            for endpoint in endpoints:
+                endpoint_path = endpoint.get('path', '')
+                endpoint_method = endpoint.get('method', '').upper()
+                
+                if endpoint_path == target_path and endpoint_method == target_method:
+                    logger.info(f"Found matching chunk: {chunk.get('class_name', '')}.{chunk.get('method_name', '')}")
+                    full_text = self._get_full_text(chunk)
+                    return [Document(page_content=full_text, metadata=chunk)]
+        
+        logger.warning(f"No chunk found with endpoint: {target_path} {target_method}")
+        return []
+        
+    async def _retrieve_from_faiss(self, query: str, hyde: bool = False) -> List[Document]:
         # Apply HyDE if enabled
         if hyde:
             logger.info("Applying HyDE enhancement")
@@ -140,29 +227,7 @@ class LangChainRetriever:
         logger.debug(f"After deduplication: {len(all_candidates)} unique chunks")
 
         # 5. Rerank deduplicated results
-        top_chunks = all_candidates
-        logger.info(f"query: {str(query)}")
-        logger.info(f"top_chunks: {top_chunks}")
-
-        docs: List[Document] = []
-        seen: Set[str] = set()
-
-        for c in top_chunks:
-            if "content" not in c:
-                continue
-            key = self._key(c)
-            if key in seen:
-                continue  # Skip if we've already processed this chunk
-            full_text = self._get_full_text(c)
-            docs.append(Document(page_content=full_text, metadata=c))
-            seen.add(key)
-            self._traverse_call_graph(c, docs, seen)
-
-        # Final deduplication and cleanup
-        logger.debug(f"Before final deduplication: {len(docs)} documents")
-        deduplicated_docs = self._deduplicate_documents(docs)
-        logger.debug(f"After document deduplication: {len(deduplicated_docs)} documents")
-        return deduplicated_docs
+        return all_candidates
 
     async def retrieve_endpoints(self, symbols: List[str]) -> List[str]:
         await self._ensure_loaded()
