@@ -141,6 +141,8 @@ class LangChainRetriever:
 
         # 5. Rerank deduplicated results
         top_chunks = all_candidates
+        logger.info(f"query: {str(query)}")
+        logger.info(f"top_chunks: {top_chunks}")
 
         docs: List[Document] = []
         seen: Set[str] = set()
@@ -306,9 +308,6 @@ class LangChainRetriever:
                 result_endpoints.append({
                     'path': endpoint.get('path', ''),
                     'method': endpoint.get('method', ''),
-                    'calling_method': chunk.get('method_name', ''),
-                    'calling_class': chunk.get('class_name', ''),
-                    'original_symbol': original_symbol
                 })
             return  # Found endpoints, no need to traverse further
         

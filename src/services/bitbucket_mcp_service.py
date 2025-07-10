@@ -18,8 +18,8 @@ class MCPBitbucketConfig(BaseModel):
     """Configuration for Bitbucket MCP service"""
     base_url: str = Field(..., description="Bitbucket base URL (e.g., https://api.bitbucket.org/2.0)")
     email: str = Field(..., description="Atlassian account email for authentication")
+    username: str = Field(..., description="Bitbucket username for authentication")
     app_password: Optional[str] = Field(None, description="App password for authentication")
-    api_token: Optional[str] = Field(None, description="API token for authentication") 
     workspace: str = Field(..., description="Bitbucket workspace name")
     repositories: Optional[List[str]] = Field(None, description="Limit to specific repositories")
     max_results: int = Field(50, description="Max results per request")
@@ -27,17 +27,13 @@ class MCPBitbucketConfig(BaseModel):
     
     @classmethod
     def model_validate(cls, values):
-        """Validate that either app_password or api_token is provided"""
+        """Validate that app_password is provided"""
         if isinstance(values, dict):
             app_password = values.get('app_password')
-            api_token = values.get('api_token')
             
-            if not app_password and not api_token:
-                raise ValueError("Either app_password or api_token must be provided")
+            if not app_password:
+                raise ValueError("app_password must be provided")
             
-            if app_password and api_token:
-                raise ValueError("Only one of app_password or api_token should be provided")
-        
         return super().model_validate(values)
 
 
@@ -73,13 +69,9 @@ class BitbucketMCPService:
         """Initialize HTTP session with Basic Auth (email:token or email:app_password)"""
         auth = None
         
-        if self.config.api_token:
-            # Use Basic authentication with email and API token
-            auth = aiohttp.BasicAuth(self.config.email, self.config.api_token)
-            logger.info("🔑 Using Bitbucket API token authentication (Basic Auth)")
-        elif self.config.app_password:
+        if self.config.app_password:
             # Use Basic authentication with email and app password
-            auth = aiohttp.BasicAuth(self.config.email, self.config.app_password)
+            auth = aiohttp.BasicAuth(self.config.username, self.config.app_password)
             logger.info("🔑 Using Bitbucket app password authentication (Basic Auth)")
         
         self.session = aiohttp.ClientSession(auth=auth)
@@ -550,7 +542,12 @@ class BitbucketMCPService:
     async def clone_repository(self, session_id: str, repository: str, branch: str = "main", target_path: Path = None):
         if target_path is None:
             target_path = Path("storage/repos") / repository
-        repo_url = f"https://{self.config.email}:{self.config.app_password or self.config.api_token}@bitbucket.org/{self.config.workspace}/{repository}.git"
+        
+        # URL encode the username and password/token to handle special characters
+        from urllib.parse import quote
+        encoded_username = quote(self.config.username, safe='')
+        encoded_auth = quote(self.config.app_password or '', safe='')
+        repo_url = f"https://{encoded_username}:{encoded_auth}@bitbucket.org/{self.config.workspace}/{repository}.git"
         try:
             if target_path.exists():
                 try:
@@ -599,14 +596,14 @@ class BitbucketMCPConfigBuilder:
         
         # Get authentication credentials
         email = os.getenv("BITBUCKET_EMAIL", "")
+        username = os.getenv("BITBUCKET_USERNAME", "")
         app_password = os.getenv("BITBUCKET_APP_PASSWORD")
-        api_token = os.getenv("BITBUCKET_API_TOKEN")
         
         return MCPBitbucketConfig(
             base_url=base_url,
             email=email,
+            username=username,
             app_password=app_password,
-            api_token=api_token,
             workspace=os.getenv("BITBUCKET_WORKSPACE", ""),
             repositories=repositories,
             max_results=int(os.getenv("BITBUCKET_MAX_RESULTS", "50")),
@@ -621,8 +618,8 @@ class BitbucketMCPConfigBuilder:
 
 def print_bitbucket_environment_status():
     """Print current Bitbucket environment configuration status"""
-    required_vars = ["BITBUCKET_EMAIL", "BITBUCKET_WORKSPACE"]
-    auth_vars = ["BITBUCKET_APP_PASSWORD", "BITBUCKET_API_TOKEN"]
+    required_vars = ["BITBUCKET_EMAIL", "BITBUCKET_USERNAME", "BITBUCKET_WORKSPACE"]
+    auth_vars = ["BITBUCKET_APP_PASSWORD"]
     optional_vars = ["BITBUCKET_BASE_URL", "BITBUCKET_REPOSITORIES", "BITBUCKET_MAX_RESULTS", "BITBUCKET_CACHE_DURATION"]
     
     print("🔧 Bitbucket MCP Service Environment Status")
@@ -635,20 +632,14 @@ def print_bitbucket_environment_status():
         print(f"{status} {var}: {value or 'Not set'}")
     
     # Check authentication (either app password or API token)
-    print("\nAuthentication (choose one):")
+    print("\nAuthentication:")
     app_password = os.getenv("BITBUCKET_APP_PASSWORD")
-    api_token = os.getenv("BITBUCKET_API_TOKEN")
     
     if app_password:
         print("✅ BITBUCKET_APP_PASSWORD: ***")
-        if api_token:
-            print("⚠️ BITBUCKET_API_TOKEN: *** (will be ignored, using app password)")
-    elif api_token:
-        print("✅ BITBUCKET_API_TOKEN: ***")
     else:
         print("❌ BITBUCKET_APP_PASSWORD: Not set")
-        print("❌ BITBUCKET_API_TOKEN: Not set")
-        print("   -> At least one authentication method is required")
+        print("   -> App password is required for authentication")
     
     print("\nOptional variables:")
     for var in optional_vars:
@@ -665,10 +656,11 @@ def print_bitbucket_environment_status():
     print("\n🔑 Option 2: API Token (for scripting and automation)")
     print("1. Go to https://bitbucket.org/account/settings/api")
     print("2. Create API token with 'Repositories: Read' permission")
-    print("3. Set BITBUCKET_EMAIL and BITBUCKET_API_TOKEN")
+    print("3. Set BITBUCKET_EMAIL")
     
-    print("\n💡 Important: Use your Atlassian account email, not username")
-    print("4. Set BITBUCKET_WORKSPACE to your workspace name")
+    print("\n💡 Important: Use your Atlassian account email AND username")
+    print("4. Set BITBUCKET_USERNAME to your Bitbucket username")
+    print("5. Set BITBUCKET_WORKSPACE to your workspace name")
 
 
 if __name__ == "__main__":

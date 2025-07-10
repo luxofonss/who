@@ -337,7 +337,7 @@ async def analyze(
         "method": api_method
     }
     result = await analyzer.run(
-        endpoint=str,
+        endpoint=str(endpoint),
         requirements_txt=requirements_txt,
         user_text=request.user_query,
         code_commit=code_commit,

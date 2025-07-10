@@ -252,7 +252,7 @@ class AnalyzerChain:
                 ],
                 "additional_test_cases": [
                     {{
-                        "test_case": "base on requirements and implementation, generate a test case",
+                        "test_case": "base on requirements and implementation, generate a test case name",
                         "coverage_score": "0-100", 
                         "explain": "whether this test case is covered by the implementation"
                     }}
@@ -582,21 +582,36 @@ HTML Output:
         symbols = [method["class"] + "." + method["method"] for method in changed_methods]
         endpoints = await self.retriever.retrieve_endpoints(symbols)
         logger.info(f"Endpoints: {endpoints}")
+
+        if endpoint and not endpoints:
+            endpoints.append(endpoint)
         
         logger.info(f" Starting LangGraph AnalyzerChain for endpoint: {endpoint}")
     
         try:
             # TODO: update to retrieve docs of all endpoints
             # TODO: use langchain memory to store chat memory so that user can iterate with ai
-            docs = await self.retriever.retrieve(endpoint, 1, hyde=False)
-            logger.info(f"len of docs: {len(docs)}")
+            docs = []
+            endpoint_strs = []
+            for endpt in endpoints:
+                doc = await self.retriever.retrieve(str(endpt), 1 , hyde=False)
+                logger.info(f"endpoint {str(endpt)} docs {len(doc)}")
+                docs.extend(doc)
+                endpoint_strs.append(str(endpt))
+            
+            endpoint_str = str(endpoint_strs)
+            logger.info(f"endpoint_str: {endpoint_str}")
+            
+            logger.info(f"len of docs before deduplicate: {len(docs)}")
+            docs = self.retriever._deduplicate_documents(docs)
+            logger.info(f"len of docs after deduplicate: {len(docs)}")
             initial_context = "\n\n".join(doc.page_content for doc in docs)
             initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
 
             initial_state: AgentState = {
                 "question": f"Analyze the REST endpoint '{endpoint}' according to the requirements and test cases.",
                 "context": initial_context,
-                "endpoint": endpoint,
+                "endpoint": endpoint_str,
                 "requirements": requirements_txt,
                 "user_text": user_text,
                 "code_commit": code_commit,
