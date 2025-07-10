@@ -44,6 +44,7 @@ class AnalysisResult:
     endpoint: str
     existed_test_cases: List[Dict[str, Any]] = field(default_factory=list)
     additional_test_cases: List[Dict[str, Any]] = field(default_factory=list)
+    response_ac: str = ""
     curl_command: str = ""
     html_response: str = ""
     raw_response: Optional[str] = None
@@ -180,6 +181,13 @@ class AnalyzerChain:
         except Exception as e:
             logger.warning(f"Could not read software_testing_guide.md: {e}")
             return ""
+    def _read_response_ac_guide(self) -> str:
+        try:
+            with open("response_ac_guide.md", "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            logger.warning(f"Could not read response_ac_guide.md: {e}")
+            return ""
 
     def _agent_node(self, state: AgentState) -> AgentState:
         node_name = "agent"
@@ -189,10 +197,11 @@ class AnalyzerChain:
         api_docs_example = self._read_api_docs_example()
         code_commit = state.get("code_commit", "")
         software_testing_guide = self._read_software_testing_guide()
+        response_ac_guide = self._read_response_ac_guide()
         # Build the analysis  
         prompt = f"""You are an expert software architect analyzing the REST endpoint: {state['endpoint']}
             ANALYSIS STRATEGY:
-            1. Review the current context for the endpoint implementation
+            1. Review the <current_context> for the endpoint implementation
             2. Get all classes, services, repositories, DTOs, methods and check if they are fully implemented
             3. If you see references to any classes, services, DTOs, or methods that are not fully shown, request more context using the tool
             4. When there are no classes, services, DTOs, or methods that are not fully shown, you have sufficient implementation details, provide your final analysis as JSON
@@ -211,60 +220,65 @@ class AnalyzerChain:
             - "I need to get context for ValidationException"
             - "I need to get context for OrderDto"
 
-            CURRENT CONTEXT:
+            <current_context> start:
             {state['context']}
+            </current_context> end
 
-            REQUIREMENTS TO ANALYZE (it may contains test cases, acceptance criteria, etc.):
+            <requirements> (it may contains test cases, acceptance criteria, etc.):
             {state['requirements']}
+            <requirements/> end
 
-            ADDITIONAL INSTRUCTIONS:
+            <additional_instruction> start:
             {state['user_text']}
+            <additional_instruction/> end
 
-            API_DOCS_EXAMPLE:
-            {api_docs_example}
-
-            CODE_COMMIT:
+            <code_diff_commit> start:
             {code_commit}
+            <code_diff_commit> end
 
-            SOFTWARE_TESTING_GUIDE:
+            <software_testing_guide> start:
             {software_testing_guide}
+            <software_testing_guide/> end
 
-            When generating the "document" field, use the format and style shown in the API_DOCS_EXAMPLE above as a reference.
-            When generating the "test_case" field, use the format and style shown in the SOFTWARE_TESTING_GUIDE above as a reference.
+
+            When generating the "document" field, use the format and style shown in the <api_docs_example/> above as a reference.
+            When generating the "test_case" field, use the format and style shown in the <software_testing_guide/> above as a reference.
 
             If you don't have enough context, call the get_project_code_context tool to get more context, don't assume.
             If you have enough context, provide your final analysis as valid JSON with this structure without any other text or symbols like ```json or ``` or "\n":
             {{
-                "document": "very detailed step by step explanation of what the endpoint does, including all the business logic and the configuration logic. Then apply the the template in SOFTWARE_TESTING_GUIDE",
+                "document": "very detailed step by step explanation of what the endpoint does, including all the business logic and the configuration logic.",
                 "requirement_coverage": [
                     {{
                         "requirement": "exact requirement text",
                         "coverage_score": "0-100",
-                        "explain": "how the code meets or fails this requirement"
+                        "explain": "base on <requirements> and code context in <current_context>, explain how the code meets or fails this requirement. code must match the requirements, all logic, params, request body, etc"
                     }}
                 ],
                 "existed_test_cases": [
                     {{
-                        "test_case": "exact test from requirements if included. give the original text, otherwise empty",
+                        "test_case": "exact test from <requirements> if included. give the original text, otherwise empty",
                         "coverage_score": "0-100", 
-                        "explain": "whether this test case is covered by the implementation"
+                        "explain": "base on testcase, <requirements> and code context in <current_context>, explain whether this test case is covered by the implementation"
                     }}
                 ],
                 "additional_test_cases": [
-                    {{
-                        "test_case": "base on requirements and implementation, generate a test case name",
-                        "coverage_score": "0-100", 
-                        "explain": "whether this test case is covered by the implementation"
-                    }}
-                ],
+                {{
+                    "test_case": "Generate test cases primarily based on the *acceptance criteria and functional requirements*, not solely on the source code. If inconsistencies exist between the requirements and the implementation (e.g., parameter name in requirement is `keyWord`, but the code uses `query`), use the terminology from the *requirement* in test case descriptions. Only reference code to uncover edge cases or unhandled behaviors. Avoid copying implementation-specific terms unless they align with requirements. Apply the formatting rules and test design principles from the SOFTWARE_TESTING_GUIDE above.",
+                    "coverage_score": "0-100",
+                    "explain": "Evaluate whether the generated test case is currently covered by the source code implementation. Clearly explain how the behavior (expected from the test) matches or differs from the actual code logic."
+                }}
+                ]
+
                 "improvements": [
                     {{
                         "type": "category",
-                        "reason": "what needs improvement",
+                        "reason": "base on <requirements> and code context, tell what needs improvement, why?",
                         "solution": "recommended fix"
                     }}
                 ],
-                "curl_command": "curl command to test the endpoint"
+                "curl_command": "curl command to test the endpoint",
+                "response_ac": base on <requirements>, <current_context>, <software_testing_guide>, produce response AC in the following format: {response_ac_guide}
             }}
 
             Do not assume any code logic, always check the code and use get_project_code_context if any part of the code is not fully implemented.
@@ -686,6 +700,7 @@ HTML Output:
                     existed_test_cases=result_dict.get("existed_test_cases", []),
                     additional_test_cases=result_dict.get("additional_test_cases", []),
                     curl_command=result_dict.get("curl_command", ""),
+                    response_ac=result_dict.get("response_ac", ""),
                     html_response=result_dict.get("html_response", ""),
                     analysis_method="fallback"
                 ).__dict__
@@ -699,6 +714,7 @@ HTML Output:
                     existed_test_cases=[],
                     additional_test_cases=[],
                     curl_command="",
+                    response_ac="",
                     html_response="<div class='error'>Fallback analysis failed to return JSON</div>",
                     raw_response=resp,
                     analysis_method="fallback"
@@ -842,6 +858,7 @@ HTML Output:
                 existed_test_cases=[],
                 additional_test_cases=[],
                 curl_command="",
+                response_ac="",
                 html_response="<div class='error'>Failed to parse JSON response</div>",
                 raw_response=graph_response,
                 endpoint=endpoint,

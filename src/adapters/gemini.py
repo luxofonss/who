@@ -7,7 +7,7 @@ running the server:
 
     export GOOGLE_API_KEY="your-secret-key"
 
-The model used is *gemini-1.5-flash* (fast & cost-effective).  Calls are
+The model used is *gemini-2.0-flash* (fast & cost-effective).  Calls are
 synchronous – they run in a background thread when used inside FastAPI so the
 event-loop is not blocked.
 """
@@ -28,7 +28,7 @@ class Gemini:  # pylint: disable=too-few-public-methods
     def __init__(
         self,
         *,
-        model_name: str = "gemini-1.5-flash",
+        model_name: str = "gemini-2.0-flash",
         temperature: float = 0.1,
     ) -> None:
         api_key = os.getenv("GOOGLE_API_KEY")
@@ -71,13 +71,13 @@ class Gemini:  # pylint: disable=too-few-public-methods
 class LangChainGemini(LLM):
     """LangChain-compatible wrapper around the Gemini class."""
     
-    model_name: str = "gemini-1.5-flash"
+    model_name: str = "gemini-2.0-flash"
     temperature: float = 0.1
     
     def __init__(
         self,
         *,
-        model_name: str = "gemini-1.5-flash",
+        model_name: str = "gemini-2.0-flash",
         temperature: float = 0.1,
         **kwargs
     ):

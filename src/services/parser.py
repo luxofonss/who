@@ -257,7 +257,8 @@ def _extract_param_types(method_node, source: str) -> Dict[str, str]:
 def _infer_chunk_type(node, source: str) -> str:
     annotations = [c for c in node.children if c.type == "modifiers"]
     ann_text = "".join(source[c.start_byte:c.end_byte].lower() for c in annotations)
-    if "@controller" in ann_text or "@restController" in ann_text:
+    logger.info(f"ann_text {ann_text}")
+    if "@controller" in ann_text or "@restcontroller" in ann_text:
         return "controller"
     if "@service" in ann_text:
         return "service"

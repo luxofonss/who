@@ -278,6 +278,8 @@ class LangChainRetriever:
                         d = d + self.find_chunk_by_symbol_name(related + "." + seed.get("method_name", ""))
                     for dx in d:
                         full_text = self._get_full_text(dx)
+                        if dx.get("chunk_type") == "controller":
+                            continue
                         docs.append(Document(page_content=full_text, metadata=dx))
                         stack.append(dx)
 
