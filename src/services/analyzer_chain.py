@@ -330,7 +330,7 @@ Provide a JSON response:
 {{
     "missing_test_cases": [
         {{
-            "test_case": "detailed test case description using terminology from requirements. test_case name follow instruction in software_testing_guide",
+            "test_case": "detailed test case description using terminology from requirements. test_case name follow instruction in software_testing_guide. DO NOT include code into testcase name",
             "test_type": "positive/negative/edge/performance/security",
             "category": "functional/integration/unit/performance",
             "priority": "high/medium/low",
@@ -410,7 +410,7 @@ Provide a JSON response:
 {{
     "final_test_cases": [
         {{
-            "test_case": "existing_test_cases + generated_missing_test_cases detailed test case description based on software_testing_guide. testcase name must not contain any code",
+            "test_case": "existing_test_cases + generated_missing_test_cases detailed test case description based on software_testing_guide. testcase name DOES NOT contain any code",
             "test_type": "positive/negative/edge/performance/security",
             "category": "functional/integration/unit/performance", 
             "priority": "high/medium/low",
@@ -611,7 +611,7 @@ Create a final AC list that combines existing and improved additional acceptance
 
 Provide a JSON response:
 {{
-    "final_ac": response in format {response_ac_guide}.detailed_mapping
+    "final_ac": response in format {response_ac_guide}.detailed_mapping. AC MUST NOT depend on code, it must not contain any code
 }}
 
 """
@@ -693,7 +693,7 @@ For each test case, check:
 
 Provide a JSON response in format of {{
         "test_cases": base on final_testcases and code context, commit diff, response in format:  {{
-            "test_case": "existing_test_cases + generated_missing_test_cases detailed test case description based on software_testing_guide",
+            "test_case": "exactly test case from final_testcases",
             "test_type": "positive/negative/edge/performance/security",
             "category": "functional/integration/unit/performance", 
             "priority": "high/medium/low",
@@ -701,10 +701,10 @@ Provide a JSON response in format of {{
             "code_coverage_score": "0-100",
             "explain_coverage": "explain how the test case is covered by the code",
         }},
-        "ac_analysis": analysis from final_ac in format of: {response_ac_guide}
+        "ac_analysis": analysis from final_ac. Only analyze "Code Location",	"Assessment", "Priority", testcase name and other information must be exactly same as final_testcases. AC name and other information must be exactly same as final_ac. Return in format of: {response_ac_guide}.
     }}  
 
-translate and Response in Vietnamese """
+IMPORTANT: Response MUST be in Vietnamese """
         
         try:
             # Call LLM and get response
@@ -742,7 +742,6 @@ translate and Response in Vietnamese """
                 logger.info(
                     f" ✅ Phase 3 completed: Analyzed {len(test_cases)} test cases with "
                     f"avg coverage score: {coverage_metrics['avg_coverage']:.1f}%, "
-                    f"gaps identified: {len(state['additional_coverage']['coverage_gaps'])}"
                 )
                 
             except json.JSONDecodeError as e:
@@ -770,37 +769,6 @@ translate and Response in Vietnamese """
             state["phase_complete"]["phase3_additional_coverage"] = True
             
         return state
-
-    def _extract_coverage_gaps(self, test_cases: List[Dict], ac_analysis: Dict) -> List[Dict]:
-        """Extract coverage gaps from test cases and AC analysis."""
-        gaps = []
-        
-        # Check test cases with low coverage
-        for tc in test_cases:
-            coverage_score = int(tc.get("code_coverage_score", "0").replace("%", ""))
-            if coverage_score < 80:
-                gaps.append({
-                    "type": "test_case",
-                    "item": tc.get("test_case", "Unknown test case"),
-                    "coverage_score": coverage_score,
-                    "reason": tc.get("explain_coverage", "No explanation provided")
-                })
-        
-        # Extract gaps from AC analysis if it has a coverage field
-        if isinstance(ac_analysis, dict):
-            ac_items = ac_analysis.get("items", [])
-            for ac in ac_items:
-                if isinstance(ac, dict) and "coverage_score" in ac:
-                    coverage_score = int(ac.get("coverage_score", "0").replace("%", ""))
-                    if coverage_score < 80:
-                        gaps.append({
-                            "type": "acceptance_criteria",
-                            "item": ac.get("description", "Unknown AC"),
-                            "coverage_score": coverage_score,
-                            "reason": ac.get("coverage_details", "No explanation provided")
-                        })
-        
-        return gaps
 
     def _calculate_coverage_metrics(self, test_cases: List[Dict]) -> Dict[str, float]:
         """Calculate coverage metrics from test cases."""
