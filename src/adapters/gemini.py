@@ -1,17 +1,5 @@
 from __future__ import annotations
 
-"""Google Gemini adapter using the official *google-generativeai* SDK.
-
-Set the environment variable `GOOGLE_API_KEY` with your Gemini API key before
-running the server:
-
-    export GOOGLE_API_KEY="your-secret-key"
-
-The model used is *gemini-2.0-flash* (fast & cost-effective).  Calls are
-synchronous – they run in a background thread when used inside FastAPI so the
-event-loop is not blocked.
-"""
-
 import os
 import json
 from typing import Any, Dict, List, Optional

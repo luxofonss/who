@@ -34,6 +34,24 @@ class AgentState(TypedDict):
     new_retrieved_symbols: List[str]
     node_call_count: Dict[str, int]
     code_commit: str
+    
+    # Multi-phase analysis fields
+    current_phase: str
+    phase_complete: Dict[str, bool]
+    needs_more_context: bool
+    
+    # Phase 1: Test Cases Analysis
+    existing_testcases: List[Dict[str, Any]]
+    generated_missing_testcases: List[Dict[str, Any]]
+    final_testcases: List[Dict[str, Any]]
+    
+    # Phase 2: Acceptance Criteria Analysis
+    current_ac: List[Dict[str, Any]]
+    generated_missing_ac: List[Dict[str, Any]]
+    final_ac: List[Dict[str, Any]]
+    
+    # Phase 3: Coverage Analysis
+    additional_coverage: Dict[str, Any]
 
 
 @dataclass
@@ -94,34 +112,46 @@ class AnalyzerChain:
     def _build_graph(self):
         graph = StateGraph(AgentState)
 
-        # Add nodes
-        graph.add_node("agent", self._agent_node)
-        graph.add_node("use_tool", self._call_tool_node)
-        graph.add_node("format_html", self._format_html_node)
-
-        # Agent: decide whether to use tool or end
-        graph.add_conditional_edges(
-            "agent",
-            self._should_use_tool,
-            {
-                "use_tool": "use_tool",
-                "format_html": "format_html",
-                "end": END
-            }
-        )
-
-        # Tool: after tool call, go back to agent
-        graph.add_edge("use_tool", "agent")
+        # Phase 1: Test Cases Analysis (3 nodes)
+        graph.add_node("extract_existing_testcases", self._extract_existing_testcases_node)
+        graph.add_node("generate_missing_testcases", self._generate_missing_testcases_node)
+        graph.add_node("improve_and_finalize_testcases", self._improve_and_finalize_testcases_node)
         
-        # Format HTML: after formatting, end
-        graph.add_edge("format_html", END)
+        # Phase 2: Acceptance Criteria Analysis (3 nodes)
+        graph.add_node("generate_current_ac", self._generate_current_ac_node)
+        graph.add_node("generate_missing_ac", self._generate_missing_ac_node)
+        graph.add_node("improve_and_finalize_ac", self._improve_and_finalize_ac_node)
+        
+        # Phase 3: Coverage Analysis (1 node)
+        graph.add_node("generate_additional_coverage", self._generate_additional_coverage_node)
+        
+        # Final output formatting
+        graph.add_node("format_output", self._format_output_node)
 
-        # Set entry point
-        graph.set_entry_point("agent")
+        # Phase 1 flow: Test Cases Analysis
+        graph.add_edge("extract_existing_testcases", "generate_missing_testcases")
+        graph.add_edge("generate_missing_testcases", "improve_and_finalize_testcases")
+        
+        # Phase 1 to Phase 2 transition
+        graph.add_edge("improve_and_finalize_testcases", "generate_current_ac")
+        
+        # Phase 2 flow: Acceptance Criteria Analysis
+        graph.add_edge("generate_current_ac", "generate_missing_ac")
+        graph.add_edge("generate_missing_ac", "improve_and_finalize_ac")
+        
+        # Phase 2 to Phase 3 transition
+        graph.add_edge("improve_and_finalize_ac", "generate_additional_coverage")
+        
+        # Phase 3 to final output
+        graph.add_edge("generate_additional_coverage", "format_output")
+        graph.add_edge("format_output", END)
+
+        # Set entry point to Phase 1 Node 1
+        graph.set_entry_point("extract_existing_testcases")
 
         # Compile the graph
         self.graph = graph.compile()
-        logger.info(" LangGraph workflow compiled")
+        logger.info(" 3-Phase LangGraph workflow compiled with 7 nodes")
 
     def _find_symbol_context(self, symbol: str, seen_chunks: List[str]) -> Tuple[str, List[str]]:
         logger.info(f" Searching for symbol: '{symbol}'")
@@ -188,6 +218,819 @@ class AnalyzerChain:
         except Exception as e:
             logger.warning(f"Could not read response_ac_guide.md: {e}")
             return ""
+    
+    def _read_response_(self) -> str:
+        try:
+            with open("response_ac_guide.md", "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            logger.warning(f"Could not read response_ac_guide.md: {e}")
+            return ""
+
+
+
+    def _extract_existing_testcases_node(self, state: AgentState) -> AgentState:
+        """Phase 1 Node 1: Extract existing test cases from requirements"""
+        node_name = "extract_existing_testcases"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "phase1_extract_testcases"
+        
+        logger.info(" 🧪 Phase 1.1: Extracting existing test cases from requirements")
+        
+        prompt = f"""You are Expert Quality Engineer.
+
+Your task is to extract existing test cases from the requirements document.
+
+<requirements>
+{state['requirements']}
+</requirements>
+
+Analyze the requirements and extract any existing test cases that are explicitly mentioned or implied.
+
+Provide a JSON response:
+{{
+    "existing_test_cases": [
+        {{
+            "test_case": "exact test case text from requirements",
+            "test_type": "positive/negative/edge",
+            "coverage_area": "what aspect it tests",
+            "source": "where in requirements this test case is mentioned",
+            "priority": "high/medium/low"
+        }}
+    ]
+}}
+
+If no existing test cases are found, return an empty array.
+
+Response in Vietnamese:"""
+        
+        try:
+            response = self.langchain_llm._call(prompt)
+            response_clean = self._parse_json_response(response)
+            
+            try:
+                result = json.loads(response_clean)
+                state["existing_testcases"] = result.get("existing_test_cases", [])
+                state["phase_complete"]["phase1_extract_testcases"] = True
+                
+                count = len(state["existing_testcases"])
+                logger.info(f" ✅ Phase 1.1 completed: Extracted {count} existing test cases")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f" Failed to parse existing test cases JSON: {e}")
+                state["existing_testcases"] = []
+                state["phase_complete"]["phase1_extract_testcases"] = True
+                
+        except Exception as e:
+            logger.error(f" Error in extracting existing test cases: {e}")
+            state["existing_testcases"] = []
+            state["phase_complete"]["phase1_extract_testcases"] = True
+            
+        return state
+
+    def _generate_missing_testcases_node(self, state: AgentState) -> AgentState:
+        """Phase 1 Node 2: Generate missing test cases based on existing test cases + requirements + software_testing_guide"""
+        node_name = "generate_missing_testcases"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "phase1_generate_missing_testcases"
+        
+        logger.info(" 🔬 Phase 1.2: Generating missing test cases")
+        
+        software_testing_guide = self._read_software_testing_guide()
+        
+        prompt = f"""You are Expert Quality Engineer.
+
+Your task is to generate missing test cases based on existing test cases, requirements, and software testing guide.
+
+<requirements>
+{state['requirements']}
+</requirements>
+
+<existing_test_cases>
+{json.dumps(state.get('existing_testcases', []), indent=2)}
+</existing_test_cases>
+
+<software_testing_guide>
+{software_testing_guide}
+</software_testing_guide>
+
+Analyze the existing test cases and requirements to identify what test cases are missing. Generate additional test cases to fill the gaps.
+
+Focus on:
+- Edge cases not covered by existing tests
+- Error scenarios and exception handling
+- Boundary conditions
+- Integration scenarios
+- Performance considerations
+- Security aspects
+
+Provide a JSON response:
+{{
+    "missing_test_cases": [
+        {{
+            "test_case": "detailed test case description using terminology from requirements",
+            "test_type": "positive/negative/edge/performance/security",
+            "category": "functional/integration/unit/performance",
+            "priority": "high/medium/low",
+            "rationale": "why this test case is important and what gap it fills",
+            "expected_behavior": "what should happen",
+            "relates_to_existing": "which existing test case this relates to or 'none'"
+        }}
+    ]
+}}
+
+Response in Vietnamese:"""
+        
+        try:
+            response = self.langchain_llm._call(prompt)
+            response_clean = self._parse_json_response(response)
+            
+            try:
+                result = json.loads(response_clean)
+                state["generated_missing_testcases"] = result.get("missing_test_cases", [])
+                state["phase_complete"]["phase1_generate_missing_testcases"] = True
+                
+                count = len(state["generated_missing_testcases"])
+                logger.info(f" ✅ Phase 1.2 completed: Generated {count} missing test cases")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f" Failed to parse missing test cases JSON: {e}")
+                state["generated_missing_testcases"] = []
+                state["phase_complete"]["phase1_generate_missing_testcases"] = True
+                
+        except Exception as e:
+            logger.error(f" Error in generating missing test cases: {e}")
+            state["generated_missing_testcases"] = []
+            state["phase_complete"]["phase1_generate_missing_testcases"] = True
+            
+        return state
+
+    def _improve_and_finalize_testcases_node(self, state: AgentState) -> AgentState:
+        """Phase 1 Node 3: Improve additional test cases and return final test cases with type field"""
+        node_name = "improve_and_finalize_testcases"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "phase1_improve_testcases"
+        
+        logger.info(" 🔧 Phase 1.3: Improving and finalizing test cases")
+        
+        software_testing_guide = self._read_software_testing_guide()
+        
+        prompt = f"""You are Expert Quality Engineer.
+
+Your task is to improve the additional test cases from the previous step and create a final comprehensive test cases list.
+
+<current_context>
+{state['context']}
+</current_context>
+
+<code_diff_commit>
+{state['code_commit']}
+</code_diff_commit>
+
+<existing_test_cases>
+{json.dumps(state.get('existing_testcases', []), indent=2)}
+</existing_test_cases>
+
+<generated_missing_test_cases>
+{json.dumps(state.get('generated_missing_testcases', []), indent=2)}
+</generated_missing_test_cases>
+
+<software_testing_guide>
+{software_testing_guide}
+</software_testing_guide>
+
+Improve the additional test cases by:
+1. Using the current code context to make them more specific and implementable
+2. Considering code differences/commits for any specific changes that need testing
+3. Following the software testing guide best practices
+4. Adding implementation details based on actual code structure
+
+Create a final test cases list that combines existing and improved additional test cases.
+
+Provide a JSON response:
+{{
+    "final_test_cases": [
+        {{
+            "test_case": "detailed test case description",
+            "test_type": "positive/negative/edge/performance/security",
+            "category": "functional/integration/unit/performance", 
+            "priority": "high/medium/low",
+            "type": "existing/new",
+            "rationale": "why this test case is important",
+            "expected_behavior": "what should happen",
+        }}
+    ]
+}}
+
+Response in Vietnamese:"""
+        
+        try:
+            response = self.langchain_llm._call(prompt)
+            response_clean = self._parse_json_response(response)
+            
+            try:
+                result = json.loads(response_clean)
+                state["final_testcases"] = result.get("final_test_cases", [])
+                state["phase_complete"]["phase1_improve_testcases"] = True
+                
+                # Count existing vs new
+                existing_count = len([tc for tc in state["final_testcases"] if tc.get("type") == "existing"])
+                new_count = len([tc for tc in state["final_testcases"] if tc.get("type") == "new"])
+                total_count = len(state["final_testcases"])
+                
+                logger.info(f" ✅ Phase 1.3 completed: Finalized {total_count} test cases ({existing_count} existing + {new_count} new)")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f" Failed to parse final test cases JSON: {e}")
+                state["final_testcases"] = []
+                state["phase_complete"]["phase1_improve_testcases"] = True
+                
+        except Exception as e:
+            logger.error(f" Error in improving test cases: {e}")
+            state["final_testcases"] = []
+            state["phase_complete"]["phase1_improve_testcases"] = True
+            
+        return state
+
+    def _generate_current_ac_node(self, state: AgentState) -> AgentState:
+        """Phase 2 Node 1: Generate current AC (acceptance criteria) based on requirements"""
+        node_name = "generate_current_ac"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "phase2_generate_current_ac"
+        
+        logger.info(" 📋 Phase 2.1: Generating current acceptance criteria from requirements")
+        
+        prompt = f"""You are Expert Quality Engineer.
+
+Your task is to generate current acceptance criteria (AC) based on the requirements document.
+
+<requirements>
+{state['requirements']}
+</requirements>
+
+Extract and generate acceptance criteria that are explicitly mentioned or implied in the requirements.
+
+Acceptance criteria should be:
+- Specific and measurable
+- Testable
+- Clear and unambiguous
+- Focused on behavior and outcomes
+
+Provide a JSON response:
+{{
+    "current_ac": [
+        {{
+            "ac_id": "unique identifier for this AC",
+            "title": "short title of the acceptance criteria",
+            "description": "detailed description of the acceptance criteria",
+            "category": "functional/non-functional/security/performance/usability",
+            "priority": "high/medium/low",
+            "source": "where in requirements this AC is derived from",
+            "testable": true/false,
+            "measurable_criteria": "specific measurable criteria if applicable"
+        }}
+    ]
+}}
+
+Response in Vietnamese:"""
+        
+        try:
+            response = self.langchain_llm._call(prompt)
+            response_clean = self._parse_json_response(response)
+            
+            try:
+                result = json.loads(response_clean)
+                state["current_ac"] = result.get("current_ac", [])
+                state["phase_complete"]["phase2_generate_current_ac"] = True
+                
+                count = len(state["current_ac"])
+                logger.info(f" ✅ Phase 2.1 completed: Generated {count} current acceptance criteria")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f" Failed to parse current AC JSON: {e}")
+                state["current_ac"] = []
+                state["phase_complete"]["phase2_generate_current_ac"] = True
+                
+        except Exception as e:
+            logger.error(f" Error in generating current AC: {e}")
+            state["current_ac"] = []
+            state["phase_complete"]["phase2_generate_current_ac"] = True
+            
+        return state
+
+    def _generate_missing_ac_node(self, state: AgentState) -> AgentState:
+        """Phase 2 Node 2: Analyze current requirements and current AC, generate missing AC"""
+        node_name = "generate_missing_ac"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "phase2_generate_missing_ac"
+        
+        logger.info(" 🔍 Phase 2.2: Analyzing and generating missing acceptance criteria")
+        
+        prompt = f"""You are Expert Quality Engineer.
+
+Your task is to analyze current requirements and existing acceptance criteria to identify missing acceptance criteria.
+
+<requirements>
+{state['requirements']}
+</requirements>
+
+<current_ac>
+{json.dumps(state.get('current_ac', []), indent=2)}
+</current_ac>
+
+Analyze the requirements and current AC to identify gaps. Generate missing acceptance criteria that should be added.
+
+Focus on:
+- Functional requirements not covered by current AC
+- Non-functional requirements (performance, security, usability)
+- Edge cases and error scenarios
+- Integration and system requirements
+- Data validation and business rules
+- User experience requirements
+
+Provide a JSON response:
+{{
+    "missing_ac": [
+        {{
+            "ac_id": "unique identifier for this missing AC",
+            "title": "short title of the missing acceptance criteria",
+            "description": "detailed description of the missing acceptance criteria",
+            "category": "functional/non-functional/security/performance/usability",
+            "priority": "high/medium/low",
+            "rationale": "why this AC is missing and important",
+            "gap_analysis": "what gap this AC fills compared to current AC",
+            "related_requirement": "which requirement this AC relates to",
+            "testable": true/false,
+            "measurable_criteria": "specific measurable criteria if applicable"
+        }}
+    ],
+    "gap_summary": "summary of gaps identified in current AC coverage"
+}}
+
+Response in Vietnamese:"""
+        
+        try:
+            response = self.langchain_llm._call(prompt)
+            response_clean = self._parse_json_response(response)
+            
+            try:
+                result = json.loads(response_clean)
+                state["generated_missing_ac"] = result.get("missing_ac", [])
+                state["phase_complete"]["phase2_generate_missing_ac"] = True
+                
+                count = len(state["generated_missing_ac"])
+                logger.info(f" ✅ Phase 2.2 completed: Generated {count} missing acceptance criteria")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f" Failed to parse missing AC JSON: {e}")
+                state["generated_missing_ac"] = []
+                state["phase_complete"]["phase2_generate_missing_ac"] = True
+                
+        except Exception as e:
+            logger.error(f" Error in generating missing AC: {e}")
+            state["generated_missing_ac"] = []
+            state["phase_complete"]["phase2_generate_missing_ac"] = True
+            
+        return state
+
+    def _improve_and_finalize_ac_node(self, state: AgentState) -> AgentState:
+        """Phase 2 Node 3: Improve additional AC and create final AC list"""
+        node_name = "improve_and_finalize_ac"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "phase2_improve_ac"
+        
+        logger.info(" 🔧 Phase 2.3: Improving and finalizing acceptance criteria")
+        
+        software_ac_guide = self._read_response_()
+        
+        prompt = f"""You are Expert Quality Engineer.
+
+Your task is to improve the additional acceptance criteria and create a final comprehensive AC list.
+
+<current_context>
+{state['context']}
+</current_context>
+
+<code_diff_commit>
+{state['code_commit']}
+</code_diff_commit>
+
+<current_ac>
+{json.dumps(state.get('current_ac', []), indent=2)}
+</current_ac>
+
+<generated_missing_ac>
+{json.dumps(state.get('generated_missing_ac', []), indent=2)}
+</generated_missing_ac>
+
+<final_testcases>
+{json.dumps(state.get('final_testcases', []), indent=2)}
+</final_testcases>
+
+<software_ac_guide>
+{software_ac_guide}
+</software_ac_guide>
+
+Improve the additional acceptance criteria by:
+1. Using the current code context to make them more specific and implementable
+2. Considering code differences/commits for any specific changes
+3. Following the software AC guide best practices
+4. Ensuring alignment with the final test cases from Phase 1
+5. Adding technical implementation details based on actual code structure
+
+Create a final AC list that combines existing and improved additional acceptance criteria.
+
+Provide a JSON response:
+{{
+    "final_ac": [
+        {{
+            "ac_id": "unique identifier for this AC",
+            "title": "short title of the acceptance criteria",
+            "description": "detailed description of the acceptance criteria",
+            "category": "functional/non-functional/security/performance/usability",
+            "priority": "high/medium/low",
+            "type": "existing/new",
+            "implementation_notes": "specific implementation details based on code",
+            "testable": true/false,
+            "measurable_criteria": "specific measurable criteria",
+            "related_testcases": ["list of related test case IDs from Phase 1"],
+            "technical_requirements": "technical implementation requirements"
+        }}
+    ],
+    "ac_summary": {{
+        "total_ac": "number",
+        "existing_ac": "number", 
+        "new_ac": "number",
+        "coverage_assessment": "overall AC coverage assessment"
+    }}
+}}
+
+Response in Vietnamese:"""
+        
+        try:
+            response = self.langchain_llm._call(prompt)
+            response_clean = self._parse_json_response(response)
+            
+            try:
+                result = json.loads(response_clean)
+                state["final_ac"] = result.get("final_ac", [])
+                state["phase_complete"]["phase2_improve_ac"] = True
+                
+                # Count existing vs new
+                existing_count = len([ac for ac in state["final_ac"] if ac.get("type") == "existing"])
+                new_count = len([ac for ac in state["final_ac"] if ac.get("type") == "new"])
+                total_count = len(state["final_ac"])
+                
+                logger.info(f" ✅ Phase 2.3 completed: Finalized {total_count} acceptance criteria ({existing_count} existing + {new_count} new)")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f" Failed to parse final AC JSON: {e}")
+                state["final_ac"] = []
+                state["phase_complete"]["phase2_improve_ac"] = True
+                
+        except Exception as e:
+            logger.error(f" Error in improving AC: {e}")
+            state["final_ac"] = []
+            state["phase_complete"]["phase2_improve_ac"] = True
+            
+        return state
+
+    def _generate_additional_coverage_node(self, state: AgentState) -> AgentState:
+        """Phase 3: Analyze code coverage of test cases and AC from previous phases"""
+        node_name = "generate_additional_coverage"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "phase3_additional_coverage"
+        
+        logger.info(" 📊 Phase 3: Analyzing code coverage of test cases and AC")
+        
+        response_ac_guide = self._read_response_ac_guide()
+        
+        prompt = f"""You are Expert Quality Engineer.
+
+Your task is to analyze whether the test cases and acceptance criteria from previous phases are covered by the current code implementation.
+
+<current_context>
+{state['context']}
+</current_context>
+
+<code_diff_commit>
+{state['code_commit']}
+</code_diff_commit>
+
+<final_testcases>
+{json.dumps(state.get('final_testcases', []), indent=2)}
+</final_testcases>
+
+<final_ac>
+{json.dumps(state.get('final_ac', []), indent=2)}
+</final_ac>
+
+<response_ac_guide>
+{response_ac_guide}
+</response_ac_guide>
+
+Analyze the current code implementation to determine:
+1. Whether each test case can be executed against the current code
+2. Whether each acceptance criteria is supported by the current code implementation
+3. What code changes or additions are needed to support the test cases and AC
+4. Which test cases and AC are fully covered, partially covered, or not covered at all
+
+For each test case, check:
+- Does the code have the required methods/endpoints?
+- Are the input parameters supported?
+- Are the expected behaviors implemented?
+- Are error scenarios handled?
+
+Provide a JSON response in format of {{
+        "existed_testcase": "existed testcase analyze",
+        "additional_testcase": "additional testcase analyze",
+        "ac_analysis": <response_ac_guide>
+    }}  
+
+Response in Vietnamese:"""
+        
+        try:
+            response = self.langchain_llm._call(prompt)
+            response_clean = self._parse_json_response(response)
+            
+            try:
+                result = json.loads(response_clean)
+                state["additional_coverage"] = result.get("additional_coverage", {})
+                state["phase_complete"]["phase3_additional_coverage"] = True
+                
+                gap_count = len(state["additional_coverage"].get("coverage_gaps", []))
+                logger.info(f" ✅ Phase 3 completed: Generated additional coverage analysis with {gap_count} coverage gaps identified")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f" Failed to parse additional coverage JSON: {e}")
+                state["additional_coverage"] = {"error": f"JSON parsing failed: {e}"}
+                state["phase_complete"]["phase3_additional_coverage"] = True
+                
+        except Exception as e:
+            logger.error(f" Error in generating additional coverage: {e}")
+            state["additional_coverage"] = {"error": f"Analysis failed: {e}"}
+            state["phase_complete"]["phase3_additional_coverage"] = True
+            
+        return state
+
+    def _analyze_coverage_node(self, state: AgentState) -> AgentState:
+        """Phase 3: Analyze requirements and test case coverage"""
+        node_name = "analyze_coverage"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "coverage_analysis"
+        
+        logger.info(" 📊 Phase 3: Analyzing requirements and test case coverage")
+
+        software_testing_guide = self._read_software_testing_guide()
+        
+        prompt = f"""You are analyzing how well the code implementation covers the requirements and test cases.
+
+<current_context>
+{state['context']}
+</current_context>
+
+<requirements>
+{state['requirements']}
+</requirements>
+
+<current_testcases_analysis>
+{json.dumps(state.get('current_testcases_analysis', {}), indent=2)}
+</current_testcases_analysis>
+
+<requirements_based_testcases>
+{json.dumps(state.get('generated_testcases', []), indent=2)}
+</requirements_based_testcases>
+
+<code_based_testcases>
+{json.dumps(state.get('generated_code_testcases', []), indent=2)}
+</code_based_testcases>
+
+<software_testing_guide>
+{software_testing_guide}
+</software_testing_guide>
+
+Phase 3 Task: Analyze requirements coverage and test case coverage against the actual implementation.
+
+Provide a JSON response:
+{{
+    "requirement_coverage": [
+        {{
+            "requirement": "exact requirement text",
+            "coverage_score": "0-100",
+            "implementation_status": "fully_implemented/partially_implemented/not_implemented",
+            "code_evidence": "specific code that implements this requirement",
+            "gaps": ["what's missing in implementation"],
+            "explain": "detailed explanation of coverage"
+        }}
+    ],
+    "test_case_coverage": [
+        {{
+            "test_case": "test case description",
+            "coverage_score": "0-100",
+            "implementation_support": "how well code supports this test",
+            "explain": "explanation of test coverage by implementation"
+        }}
+    ],
+    "overall_coverage_score": "0-100",
+    "coverage_summary": "summary of overall coverage analysis"
+}}
+
+Response in Vietnamese:"""
+        
+        try:
+            response = self.langchain_llm._call(prompt)
+            response_clean = self._parse_json_response(response)
+            
+            try:
+                coverage_analysis = json.loads(response_clean)
+                state["coverage_analysis"] = coverage_analysis
+                state["phase_complete"]["coverage_analysis"] = True
+                logger.info(" ✅ Phase 3 completed: Coverage analysis")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f" Failed to parse coverage analysis JSON: {e}")
+                state["coverage_analysis"] = {"error": f"JSON parsing failed: {e}"}
+                state["phase_complete"]["coverage_analysis"] = True
+                
+        except Exception as e:
+            logger.error(f" Error in coverage analysis: {e}")
+            state["coverage_analysis"] = {"error": f"Analysis failed: {e}"}
+            state["phase_complete"]["coverage_analysis"] = True
+            
+        return state
+
+
+
+    def _generate_missing_testcase_base_on_code_node(self, state: AgentState) -> AgentState:
+        """Phase 2: Generate missing test cases based on code logic"""
+        node_name = "generate_missing_testcase_base_on_code"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "generate_code_testcases"
+        
+        logger.info(" 🔬 Phase 2: Generating test cases based on code logic")
+        
+        software_testing_guide = self._read_software_testing_guide()
+        
+        prompt = f"""You are generating test cases specifically based on code logic and implementation details.
+
+<current_context>
+{state['context']}
+</current_context>
+
+<requirements>
+{state['requirements']}
+</requirements>
+
+<current_testcases_analysis>
+{json.dumps(state.get('current_testcases_analysis', {}), indent=2)}
+</current_testcases_analysis>
+
+<existing_generated_testcases>
+{json.dumps(state.get('generated_testcases', []), indent=2)}
+</existing_generated_testcases>
+
+<software_testing_guide>
+{software_testing_guide}
+</software_testing_guide>
+
+Phase 2 Task: Generate additional test cases that focus specifically on code logic, edge cases, and implementation-specific scenarios.
+
+Focus on:
+- Code paths and branching logic
+- Exception handling and error conditions
+- Input validation and boundary conditions
+- Null/empty value handling
+- Data type conversions and validations
+- Security vulnerabilities in the code
+- Performance edge cases
+- Integration points and dependencies
+- Database transaction scenarios
+- Concurrency and threading issues
+
+Analyze the actual code implementation to identify:
+- Conditional statements (if/else, switch)
+- Loop conditions and iterations
+- Try-catch blocks and exception scenarios
+- Method parameters and return types
+- Database queries and potential failures
+- External service calls and timeouts
+- Authentication and authorization checks
+
+Provide a JSON response:
+{{
+    "code_based_test_cases": [
+        {{
+            "test_case": "detailed test case based on specific code logic or implementation detail",
+            "test_type": "positive/negative/edge/boundary/exception/security/performance",
+            "code_trigger": "specific code path, method, or condition that triggers this scenario",
+            "implementation_detail": "specific implementation aspect being tested",
+            "priority": "high/medium/low",
+            "rationale": "why this test case is important based on the code",
+            "expected_behavior": "what should happen based on code logic",
+            "test_data": "specific test data or conditions needed",
+            "coverage_score": "0-100",
+            "explain": "how current implementation handles this scenario"
+        }}
+    ],
+    "code_complexity_areas": ["areas of code that are complex and need thorough testing"],
+    "potential_bugs": ["potential issues identified in the code that need test coverage"],
+    "missing_validations": ["input validations or checks that should be tested"]
+}}
+
+Response in Vietnamese:"""
+        
+        try:
+            response = self.langchain_llm._call(prompt)
+            response_clean = self._parse_json_response(response)
+            
+            try:
+                code_testcases_result = json.loads(response_clean)
+                state["generated_code_testcases"] = code_testcases_result.get("code_based_test_cases", [])
+                state["phase_complete"]["generate_code_testcases"] = True
+                logger.info(f" ✅ Phase 2 completed: Generated {len(state['generated_code_testcases'])} code-based test cases")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f" Failed to parse code test cases JSON: {e}")
+                state["generated_code_testcases"] = []
+                state["phase_complete"]["generate_code_testcases"] = True
+                
+        except Exception as e:
+            logger.error(f" Error in generating code test cases: {e}")
+            state["generated_code_testcases"] = []
+            state["phase_complete"]["generate_code_testcases"] = True
+            
+        return state
+
+    def _generate_improvements_node(self, state: AgentState) -> AgentState:
+        """Phase 4: Generate improvement suggestions and ACs"""
+        node_name = "generate_improvements"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "generate_improvements"
+        
+        logger.info(" 🔧 Phase 4: Generating improvements and ACs")
+        
+        response_ac_guide = self._read_response_ac_guide()
+        
+        prompt = f"""You are generating improvement suggestions and acceptance criteria based on the comprehensive analysis.
+
+<current_context>
+{state['context']}
+</current_context>
+
+<requirements>
+{state['requirements']}
+</requirements>
+
+<coverage_analysis>
+{json.dumps(state.get('coverage_analysis', {}), indent=2)}
+</coverage_analysis>
+
+<response_ac_guide>
+{response_ac_guide}
+</response_ac_guide>
+
+Phase 4 Task: Generate improvement suggestions and acceptance criteria.
+
+Provide a JSON response:
+{{
+    "improvements": [
+        {{
+            "type": "security/performance/maintainability/functionality/testing",
+            "priority": "high/medium/low",
+            "current_issue": "what's wrong or missing",
+            "reason": "why this improvement is needed",
+            "solution": "recommended fix or enhancement",
+            "impact": "expected impact of the improvement"
+        }}
+    ],
+    "response_ac": "acceptance criteria based on requirements and analysis following the AC guide format",
+    "curl_command": "curl command to test the endpoint",
+    "implementation_recommendations": ["high-level recommendations for implementation"]
+}}
+
+Response in Vietnamese:"""
+        
+        try:
+            response = self.langchain_llm._call(prompt)
+            response_clean = self._parse_json_response(response)
+            
+            try:
+                improvements_result = json.loads(response_clean)
+                state["improvements_analysis"] = improvements_result
+                state["phase_complete"]["generate_improvements"] = True
+                logger.info(" ✅ Phase 4 completed: Generated improvements and ACs")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f" Failed to parse improvements JSON: {e}")
+                state["improvements_analysis"] = {"error": f"JSON parsing failed: {e}"}
+                state["phase_complete"]["generate_improvements"] = True
+                
+        except Exception as e:
+            logger.error(f" Error in generating improvements: {e}")
+            state["improvements_analysis"] = {"error": f"Analysis failed: {e}"}
+            state["phase_complete"]["generate_improvements"] = True
+            
+        return state
 
     def _agent_node(self, state: AgentState) -> AgentState:
         node_name = "agent"
@@ -306,6 +1149,153 @@ class AnalyzerChain:
                 "node_call_count": state["node_call_count"]
             }
 
+
+
+    def _format_output_node(self, state: AgentState) -> AgentState:
+        """Final Phase: Format final output into JSON + HTML"""
+        node_name = "format_output"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        state["current_phase"] = "format_output"
+        
+        logger.info(" 🎨 Final Phase: Formatting comprehensive output")
+        
+        # Collect all analysis results from 3 phases
+        analysis_results = {
+            "endpoint": state["endpoint"],
+            "phase1_testcases": {
+                "existing_testcases": state.get("existing_testcases", []),
+                "generated_missing_testcases": state.get("generated_missing_testcases", []),
+                "final_testcases": state.get("final_testcases", [])
+            },
+            "phase2_acceptance_criteria": {
+                "current_ac": state.get("current_ac", []),
+                "generated_missing_ac": state.get("generated_missing_ac", []),
+                "final_ac": state.get("final_ac", [])
+            },
+            "phase3_coverage_analysis": state.get("additional_coverage", {}),
+            "summary": {
+                "total_testcases": len(state.get("final_testcases", [])),
+                "total_ac": len(state.get("final_ac", [])),
+                "analysis_method": "3-phase-langgraph"
+            }
+        }
+        
+        # Format comprehensive document
+        comprehensive_doc = self._build_comprehensive_document(state)
+        analysis_results["comprehensive_document"] = comprehensive_doc
+        
+        # Convert to JSON string
+        json_response = json.dumps(analysis_results, indent=2, ensure_ascii=False)
+        
+        # Generate HTML response
+        html_content = self._generate_html_with_llm(analysis_results)
+        
+        state["final_response"] = json_response
+        state["html_response"] = html_content
+        state["phase_complete"]["format_output"] = True
+        
+        logger.info(" ✅ Final Phase completed: Comprehensive output formatted")
+        
+        return state
+
+    def _build_comprehensive_document(self, state: AgentState) -> str:
+        """Build comprehensive document from all analysis phases"""
+        coverage_analysis = state.get("coverage_analysis", {})
+        testcases_analysis = state.get("current_testcases_analysis", {})
+        
+        document_parts = []
+        
+        # Add coverage summary
+        if coverage_analysis.get("coverage_summary"):
+            document_parts.append(f"## Phân tích Coverage\n{coverage_analysis['coverage_summary']}")
+        
+        # Add test cases quality assessment
+        if testcases_analysis.get("test_quality_assessment"):
+            document_parts.append(f"## Đánh giá chất lượng Test Cases\n{testcases_analysis['test_quality_assessment']}")
+        
+        # Add detailed context information
+        document_parts.append(f"## Mô tả chi tiết\n")
+        document_parts.append("Endpoint này được phân tích với các thành phần sau:")
+        document_parts.append(f"- Endpoint: {state['endpoint']}")
+        document_parts.append(f"- Context length: {len(state['context'])} characters")
+        
+        # Add requirements summary if available
+        if state.get('requirements'):
+            requirements_summary = state['requirements'][:200] + "..." if len(state['requirements']) > 200 else state['requirements']
+            document_parts.append(f"- Requirements: {requirements_summary}")
+        
+        return "\n\n".join(document_parts)
+
+    def _generate_html_with_llm(self, result_dict: Dict[str, Any]) -> str:
+        """Generate HTML from JSON analysis result using LLM."""
+        try:
+            logger.info(" 🤖 Calling LLM for HTML generation...")
+            
+            # Create a prompt for HTML generation
+            prompt = f"""
+You are an expert web developer. Convert the following API analysis JSON into a beautiful, well-structured HTML report.
+
+JSON Analysis Data:
+{json.dumps(result_dict, indent=2)}
+
+Requirements:
+1. Create semantic HTML5 structure
+2. Use CSS classes for styling (analysis-report, document-section, requirement-coverage-section, etc.)
+3. Color-code coverage scores: green for 80%+, orange for 60-79%, red for <60%
+4. Make it responsive and modern looking
+5. Include all sections: document, requirement coverage, test cases, improvements, curl command
+6. Use proper HTML escaping for special characters
+7. Add appropriate CSS classes for easy styling
+
+Generate only the HTML content (no CSS or JavaScript). The HTML should be ready to be embedded in any web application.
+HTML Output:
+"""
+            
+            logger.info(f" Sending prompt to LLM ({len(prompt)} characters)")
+            
+            # Use the LLM to generate HTML
+            html_response = self.langchain_llm._call(prompt)
+            
+            logger.info(f" Received LLM response ({len(html_response)} characters)")
+            
+            # Clean up the response - extract HTML if it's wrapped in markdown
+            html_content = self._extract_html_from_response(html_response)
+            
+            logger.info(f" Generated HTML response ({len(html_content)} characters)")
+            return html_content
+            
+        except Exception as e:
+            logger.error(f" Error generating HTML with LLM: {str(e)}")
+            # Fallback to basic HTML if LLM fails
+            return ""
+
+    def _extract_html_from_response(self, response: str) -> str:
+        """Extract HTML content from LLM response, handling markdown code blocks."""
+        import re
+        
+        logger.info(f" Extracting HTML from response ({len(response)} characters)")
+        
+        # Try to extract HTML from markdown code blocks
+        html_match = re.search(r"```html\s*([\s\S]+?)\s*```", response)
+        if html_match:
+            logger.info(" Found HTML in ```html code block")
+            return html_match.group(1).strip()
+        
+        # Try without html language specifier
+        html_match = re.search(r"```\s*([\s\S]+?)\s*```", response)
+        if html_match:
+            logger.info(" Found HTML in ``` code block")
+            return html_match.group(1).strip()
+        
+        # If no code blocks, check if response starts with HTML
+        if response.strip().startswith('<'):
+            logger.info(" Response starts with HTML tag")
+            return response.strip()
+        
+        # If all else fails, return the response as-is
+        logger.info(" No HTML code blocks found, returning response as-is")
+        return response.strip()
+
     def _should_use_tool(self, state: AgentState) -> str:
         response = state["final_response"] or ""
         iteration = state["iteration_count"]
@@ -381,200 +1371,9 @@ class AnalyzerChain:
                 logger.debug(f" Skipping already retrieved symbol: {symbol}")
         return "\n\n".join(new_context_parts), new_retrieved, new_chunk_ids
 
-    def _call_tool_node(self, state: AgentState) -> AgentState:
-        """Tool calling node - intelligently extract symbols from context and agent response."""
-        logger.info(" Tool node activated - extracting symbols to fetch")
-        response = state["final_response"] or ""
-        current_context = state["context"]
-        already_retrieved = state["retrieved_symbols"]
-        seen_chunks = state.get("seen_context", [])
-        symbols = []
 
-        explicit_patterns = [
-            r"I need to get context for ([A-Za-z][A-Za-z0-9_]*)",
-            r"get_project_code_context\([\"']([^\"']+)[\"']\)",
-            r"(?:context for|details about|information on) ([A-Za-z][A-Za-z0-9_]*)",
-        ]
-        for pattern in explicit_patterns:
-            matches = re.findall(pattern, response, re.IGNORECASE)
-            if matches:
-                flattened_matches = []
-                for match in matches:
-                    if isinstance(match, tuple):
-                        flattened_matches.extend([m for m in match if m])
-                    else:
-                        flattened_matches.append(match)
-                symbols.extend(flattened_matches)
-                logger.info(f" Found explicit symbol requests: {flattened_matches}")
 
-        symbols = [s for s in symbols if s not in already_retrieved]
-        if not symbols:
-            logger.info(" Looking for symbols mentioned in 'need more context' statements...")
-            inspection_patterns = [
-                r"(?:need to inspect|we need to inspect|inspect)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                r"(?:need to examine|we need to examine|examine)\s+`([A-Za-z][A-Za-z0-9_]*)`", 
-                r"(?:implementation of|depends on the implementation of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                r"(?:structure of|details of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                r"(?:need to check|we need to check|check)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                r"(?:need to see|we need to see|see)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                r"(?:requires inspection of|inspection of)\s+`([A-Za-z][A-Za-z0-9_]*)`",
-                r"(?:need to inspect|we need to inspect|inspect)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
-                r"(?:implementation of|depends on the implementation of)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
-                r"(?:structure of|details of)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Response|Request|Entity|Exception))",
-            ]
-            for pattern in inspection_patterns:
-                matches = re.findall(pattern, response, re.IGNORECASE)
-                if matches:
-                    symbols.extend(matches)
-                    logger.info(f" Found symbols in inspection context: {matches}")
-        if not symbols:
-            logger.info(" No explicit requests - analyzing context for missing implementations...")
-            symbols = self._extract_missing_symbols(current_context, already_retrieved)
-        if not symbols:
-            logger.info(" Scanning for any class/service references...")
-            symbols = self._find_any_symbols(current_context, already_retrieved)
 
-        if not symbols:
-            logger.warning(" No symbols identified - ending tool usage")
-            return {
-                **state,
-                "final_response": None,
-                "last_tool_call_symbols": [],
-                "new_retrieved_symbols": []
-            }
-
-        symbols = [s for s in symbols if s not in already_retrieved][:10]
-        logger.info(f" Found {len(symbols)} symbols to investigate: {symbols}")
-        new_context, new_retrieved, new_chunk_ids = self._get_context_for_symbols(symbols, already_retrieved, seen_chunks)
-        updated_context = state["context"]
-        if new_context:
-            updated_context += "\n\n" + new_context
-            logger.info(f" Added {len(new_retrieved)} new context sections, {len(new_chunk_ids)} new chunks")
-        
-        return {
-            **state,
-            "context": updated_context,
-            "retrieved_symbols": state["retrieved_symbols"] + new_retrieved,
-            "seen_context": state["seen_context"] + new_chunk_ids,
-            "final_response": None,
-            "last_tool_call_symbols": symbols,
-            "new_retrieved_symbols": new_retrieved
-        }
-
-    def _format_html_node(self, state: AgentState) -> AgentState:
-        """Convert JSON response to HTML format using LLM."""
-        node_name = "format_html"
-        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
-        
-        logger.info(f" 🎨 Format HTML node activated (iteration {state['iteration_count']})")
-        response = state["final_response"] or ""
-        logger.info(f" Processing response: {response[:200]}...")
-        
-        try:
-            # Parse the JSON response
-            response_clean = response.strip()
-            if response_clean.startswith("{") and response_clean.endswith("}"):
-                result_dict = json.loads(response_clean)
-                logger.info(" Parsed JSON directly from response")
-            else:
-                # Try to extract JSON from markdown
-                response_text = self._parse_json_response(response)
-                result_dict = json.loads(response_text)
-                logger.info(" Parsed JSON from markdown code blocks")
-            
-            # Generate HTML using LLM
-            logger.info(f" Generating HTML from JSON with {len(result_dict)} fields")
-            html_content = self._generate_html_with_llm(result_dict)
-            
-            logger.info(f" ✅ HTML generation completed ({len(html_content)} characters)")
-            return {
-                **state,
-                "final_response": response,
-                "html_response": html_content,
-                "iteration_count": state["iteration_count"] + 1,
-                "node_call_count": state["node_call_count"]
-            }
-            
-        except Exception as e:
-            logger.error(f" ❌ Error formatting HTML: {str(e)}")
-            # Return original response with empty HTML if formatting fails
-            return {
-                **state,
-                "final_response": response,
-                "html_response": f"<div class='error'>Error formatting HTML: {str(e)}</div>",
-                "iteration_count": state["iteration_count"] + 1,
-                "node_call_count": state["node_call_count"]
-            }
-
-    def _generate_html_with_llm(self, result_dict: Dict[str, Any]) -> str:
-        """Generate HTML from JSON analysis result using LLM."""
-        try:
-            logger.info(" 🤖 Calling LLM for HTML generation...")
-            
-            # Create a prompt for HTML generation
-            prompt = f"""
-You are an expert web developer. Convert the following API analysis JSON into a beautiful, well-structured HTML report.
-
-JSON Analysis Data:
-{json.dumps(result_dict, indent=2)}
-
-Requirements:
-1. Create semantic HTML5 structure
-2. Use CSS classes for styling (analysis-report, document-section, requirement-coverage-section, etc.)
-3. Color-code coverage scores: green for 80%+, orange for 60-79%, red for <60%
-4. Make it responsive and modern looking
-5. Include all sections: document, requirement coverage, test cases, improvements, curl command
-6. Use proper HTML escaping for special characters
-7. Add appropriate CSS classes for easy styling
-
-Generate only the HTML content (no CSS or JavaScript). The HTML should be ready to be embedded in any web application.
-HTML Output:
-"""
-            
-            logger.info(f" Sending prompt to LLM ({len(prompt)} characters)")
-            
-            # Use the LLM to generate HTML
-            html_response = self.langchain_llm._call(prompt)
-            
-            logger.info(f" Received LLM response ({len(html_response)} characters)")
-            
-            # Clean up the response - extract HTML if it's wrapped in markdown
-            html_content = self._extract_html_from_response(html_response)
-            
-            logger.info(f" Generated HTML response ({len(html_content)} characters)")
-            return html_content
-            
-        except Exception as e:
-            logger.error(f" Error generating HTML with LLM: {str(e)}")
-            # Fallback to basic HTML if LLM fails
-            return ""
-
-    def _extract_html_from_response(self, response: str) -> str:
-        """Extract HTML content from LLM response, handling markdown code blocks."""
-        import re
-        
-        logger.info(f" Extracting HTML from response ({len(response)} characters)")
-        
-        # Try to extract HTML from markdown code blocks
-        html_match = re.search(r"```html\s*([\s\S]+?)\s*```", response)
-        if html_match:
-            logger.info(" Found HTML in ```html code block")
-            return html_match.group(1).strip()
-        
-        # Try without html language specifier
-        html_match = re.search(r"```\s*([\s\S]+?)\s*```", response)
-        if html_match:
-            logger.info(" Found HTML in ``` code block")
-            return html_match.group(1).strip()
-        
-        # If no code blocks, check if response starts with HTML
-        if response.strip().startswith('<'):
-            logger.info(" Response starts with HTML tag")
-            return response.strip()
-        
-        # If all else fails, return the response as-is
-        logger.info(" No HTML code blocks found, returning response as-is")
-        return response.strip()
 
     async def run(
             self,
@@ -637,7 +1436,26 @@ HTML Output:
                 "iteration_count": 0,
                 "last_tool_call_symbols": [],
                 "new_retrieved_symbols": [],
-                "node_call_count": {}
+                "node_call_count": {},
+                "current_phase": "phase1_extract_testcases",
+                "phase_complete": {
+                    "phase1_extract_testcases": False,
+                    "phase1_generate_missing_testcases": False,
+                    "phase1_improve_testcases": False,
+                    "phase2_generate_current_ac": False,
+                    "phase2_generate_missing_ac": False,
+                    "phase2_improve_ac": False,
+                    "phase3_additional_coverage": False,
+                    "format_output": False
+                },
+                "existing_testcases": [],
+                "generated_missing_testcases": [],
+                "final_testcases": [],
+                "current_ac": [],
+                "generated_missing_ac": [],
+                "final_ac": [],
+                "additional_coverage": {},
+                "needs_more_context": False
             }
             
             logger.info(" Step 3: Starting LangGraph analysis workflow...")
@@ -702,6 +1520,7 @@ HTML Output:
                     curl_command=result_dict.get("curl_command", ""),
                     response_ac=result_dict.get("response_ac", ""),
                     html_response=result_dict.get("html_response", ""),
+                    raw_response=resp,
                     analysis_method="fallback"
                 ).__dict__
             except json.JSONDecodeError:
@@ -844,6 +1663,7 @@ HTML Output:
                 existed_test_cases=result_dict.get("existed_test_cases", []),
                 additional_test_cases=result_dict.get("additional_test_cases", []),
                 curl_command=result_dict.get("curl_command", ""),
+                response_ac=result_dict.get("response_ac", ""),
                 html_response=result_dict.get("html_response", ""),
                 raw_response=graph_response,
                 endpoint=endpoint,
