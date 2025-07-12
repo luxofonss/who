@@ -625,8 +625,8 @@ async def analyze(
             message_id=assistant_message_id,
             thread_id=thread_id,
             role="assistant",
-            content=result,
-            analysis_result=result
+            content=result.get("markdown_response", ""),
+            analysis_result=result.get("json", "")
         )
         db.add(assistant_chat)
         

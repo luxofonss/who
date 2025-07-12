@@ -6,7 +6,7 @@
   },
   "detailed_mapping": [
     {
-      "id": "Unique identifier for the acceptance criteria, e.g., AC1, AC2, AC_AI_Suggest1",
+      "id": "Unique identifier for the acceptance criteria, e.g., AC1, AC2, AC_AI_Suggest_1",
       "ac_description": "Description of the acceptance criteria (AC) or requirement, derived from:
         - Business requirements: Explicit requirements from {requirements} or Jira documentation.
         - AI-suggested ACs: System-generated criteria to enhance feature completeness, stability, and user experience, based on:

@@ -214,6 +214,14 @@ class AnalyzerChain:
         """Read response acceptance criteria guide item file"""
         return read_file("response_ac_guide_item.md")
 
+    def _read_final_response_ac(self) -> str:
+        """Read final response template file"""
+        return read_file("final_response_ac.txt")
+    
+    def _read_final_test_response(self) -> str:
+        """Read final test response template file"""
+        return read_file("final_test_response.txt")
+
     def _extract_existing_testcases_node(self, state: AgentState) -> AgentState:
         """Phase 1 Node 1: Extract existing test cases from requirements"""
         node_name = "extract_existing_testcases"
@@ -792,17 +800,17 @@ IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in En
         }
         
         # Format comprehensive document
-        comprehensive_doc = self._build_comprehensive_document(state)
-        analysis_results["comprehensive_document"] = comprehensive_doc
+        # comprehensive_doc = self._build_comprehensive_document(state)
+        # analysis_results["comprehensive_document"] = comprehensive_doc
         
         # Convert to JSON string
         json_response = json.dumps(analysis_results, indent=2, ensure_ascii=False)
         
         # Generate HTML response
-        # html_content = self._generate_html_with_llm(analysis_results)
+        html_content = self._generate_html_with_llm(json_response)
         
         state["final_response"] = json_response
-        # state["html_response"] = html_content
+        state["html_response"] = html_content
         state["phase_complete"]["format_output"] = True
         
         # Write analysis results to files
@@ -858,29 +866,23 @@ IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in En
         
         return "\n\n".join(document_parts)
 
-    def _generate_html_with_llm(self, result_dict: Dict[str, Any]) -> str:
+    def _generate_html_with_llm(self, response: str) -> str:
         """Generate HTML from JSON analysis result using LLM."""
         try:
             logger.info(" 🤖 Calling LLM for HTML generation...")
             
             # Create a prompt for HTML generation
             prompt = f"""
-You are an expert web developer. Convert the following API analysis JSON into a beautiful, well-structured HTML report.
+You are an Data Analyst. Convert the following JSON into a beautiful, well-structured Markdown report.
 
 JSON Analysis Data:
-{json.dumps(result_dict, indent=2)}
+{response}
 
-Requirements:
-1. Create semantic HTML5 structure
-2. Use CSS classes for styling (analysis-report, document-section, requirement-coverage-section, etc.)
-3. Color-code coverage scores: green for 80%+, orange for 60-79%, red for <60%
-4. Make it responsive and modern looking
-5. Include all sections: document, requirement coverage, test cases, improvements, curl command
-6. Use proper HTML escaping for special characters
-7. Add appropriate CSS classes for easy styling
+Format: 
+{self._read_final_test_response()}
 
-Generate only the HTML content (no CSS or JavaScript). The HTML should be ready to be embedded in any web application.
-HTML Output:
+{self._read_final_response_ac()}
+
 """
             
             logger.info(f" Sending prompt to LLM ({len(prompt)} characters)")
@@ -1091,9 +1093,14 @@ HTML Output:
             final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
                     
             logger.info(" Step 4: Parsing and structuring final response...")
-            final_analysis_result = final_state.get("final_analysis_result", "")
+
+            result = {
+                "markdown_response": final_state.get("html_response", ""),
+                "json_response": final_state.get("final_analysis_result", ""),
+            }
+            # final_analysis_result = final_state.get("final_analysis_result", "")
             logger.info(f" Analysis complete - returning final response")
-            return final_analysis_result
+            return result
             
         except AnalysisError:
             raise

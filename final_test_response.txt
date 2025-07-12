@@ -1,0 +1,17 @@
+Use this template to structure your testcase coverage response
+Analyze base on final_testcases and code context, commit diff to complete this table:
+# Test Cases Analysis
+
+| Test Case | Test Type | Category | Priority | Type | Code Coverage Score | Explain Coverage |
+|-----------|-----------|----------|----------|------|-------------------|------------------|
+| [FILL] | [FILL] | [FILL] | [FILL] | [FILL] | [FILL] | [FILL] |
+
+**Instructions:**
+- Replace [FILL] with appropriate values
+- Test Type: positive, negative, edge, performance, security
+- Category: functional, integration, unit, performance
+- Priority: high, medium, low
+- Type: existing, new
+- Code Coverage Score: analyze and choose a number from 0% to 100%. "0%: No logic for test case. 1 to 49%: Some logic, lacks key checks. 50 to 79%: Handles most requirements, misses critical checks. 80 to 99%: Meets most requirements, minor gaps. 100%: Fully meets all requirements with checks and error handling. 
+- Explain Coverage": explain how the test case is covered by the code
+

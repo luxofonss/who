@@ -1,0 +1,47 @@
+Please analyze the provided requirements, code context, and test cases. Structure your response using markdown tables in the following format:
+
+# Requirements Analysis Report
+
+## 📋 Analysis Metadata
+| Field | Value |
+|-------|-------|
+| Jira Task ID |Jira task ID related to the analysis, e.g., SCRUM-1 |
+| Git Commit IDs |List of Git commit IDs analyzed, e.g., a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6 |
+| Analysis Date |Date and time of analysis (ISO 8601), e.g., 2025-07-12T07:45:00+07:00" |
+
+## 🎯 Detailed Mapping
+| ID | AC Description | Status | Test Case Name | Code Location | Assessment | Priority |
+|----|----------------|--------|----------------|---------------|------------|----------|
+|Unique identifier for the acceptance criteria, e.g., AC1, AC2, AC_AI_Suggest_1| Description of the acceptance criteria (AC) or requirement, derived from:- Business requirements: Explicit requirements from {requirements} or Jira documentation.- AI-suggested ACs: System-generated criteria to enhance feature completeness, stability, and user experience, based on:- Industry standards and API design best practices (e.g., RESTful principles, HTTP status codes, error handling, input validation, pagination, filtering, sorting, authentication, authorization).- Patterns from similar APIs in the ecosystem or related projects, identifying common use cases, error scenarios, and features like search, logging, or monitoring.- Edge cases and usage scenarios inferred from {requirements} and {current_context}, ensuring robustness and security (e.g., empty data, oversized inputs, invalid values, injection attacks).|Status of the acceptance criteria, indicating origin and clarity:- 'Đã định nghĩa': AC explicitly defined in {requirements} or Jira.- 'Đề xuất': AI-suggested AC to address gaps or enhancements, requiring BA review.- 'Cần làm rõ': AC needs stakeholder clarification (e.g., BA/PO) due to ambiguous requirements in {requirements}, test cases in {existing_test_cases} without clear ACs, or code in {code_diff_commit} without defined requirements.|Must be exactly field "test_case" of the test case from {final_testcases} linked to this acceptance criteria. If none related then left empty|Codebase location (e.g., ClassName.java:LineNumber or class/method) in {current_context} or {code_diff_commit} implementing this acceptance criteria. Blank if not fully covered|Evaluation of acceptance criteria fulfillment, guiding actions for BA, Dev, and Tester: - 'Đạt yêu cầu': AC fully implemented in {current_context} or {code_diff_commit} with complete coverage in {existing_test_cases}.- 'Chưa có code': No implementation in {current_context} or {code_diff_commit} (Dev action needed).- 'Chưa có testcase': No test case in {existing_test_cases} or {generated_missing_test_cases} (Tester action needed).- 'Testcase chưa đủ': Test cases in {existing_test_cases} only partially cover the AC (Tester must expand).- 'Code chưa đủ': Code in {current_context} or {code_diff_commit} partially implements the AC (Dev must complete).- 'BA cần xem xét': AC or scenarios need BA clarification due to gaps in {requirements}, {existing_test_cases}, or {code_diff_commit}.|Action priority: 'High', 'Medium', 'Low', or 'N/A' (if 'Đạt yêu cầu'), e.g., N/A|
+
+Do mathematic calcuation for those below fields:
+## 📊 Coverage Overview
+| Metric | Value |
+|--------|-------|
+| Total Acceptance Criteria |Total number of acceptance criteria identified |
+| Fully Covered |Number of acceptance criteria with 'Đạt yêu cầu' assessment |
+| Partially Covered |Number of acceptance criteria with 'Testcase chưa đủ' or 'Code chưa đủ' assessment |
+| Not Covered |Number of acceptance criteria with 'Chưa có code' or 'Chưa có testcase' assessment |
+| Requirement Coverage |Percentage of acceptance criteria with 'Đã định nghĩa' status |
+| Code Coverage |Percentage of 'Đã định nghĩa' acceptance criteria with 'Đạt yêu cầu' or 'Code chưa đủ' assessment |
+| Test Case Coverage |Percentage of 'Đã định nghĩa' acceptance criteria with 'Đạt yêu cầu' or 'Testcase chưa đủ' assessment |
+| Overall Assessment | Overall quality evaluation: 'Satisfactory' or 'Not Satisfactory |
+| Quality Score | Quality score (0-100), based on coverage metrics |
+
+## 📈 Visual Summary Data
+
+### Coverage Distribution
+| Type | Count |
+|------|-------|
+| Fully Covered |Number of fully covered acceptance criteria |
+| Partially Covered |Number of partially covered acceptance criteria |
+| Not Covered |Number of uncovered acceptance criteria |
+
+### Progress Metrics
+| Metric | Percentage |
+|--------|------------|
+| Requirement | Percentage of requirement coverage |
+| Code | Percentage of code coverage|
+| Test Case | Percentage of test case coverage |
+
+Analyze the data and provide comprehensive coverage of all acceptance criteria.
