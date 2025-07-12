@@ -13,7 +13,7 @@ from langchain_core.tools import Tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolExecutor
 
-from adapters.gemini import Gemini, LangChainGemini
+from adapters.model_factory import ModelFactory
 from services.retriever import LangChainRetriever
 from services.prompt_builder import PromptBuilder
 from utils.file import read_file, write_analysis_results
@@ -83,8 +83,8 @@ class AnalyzerChain:
         
         self.project_id = project_id
         self.retriever = LangChainRetriever(project_id)
-        self.llm = Gemini(temperature=0)  # For fallback analysis
-        self.langchain_llm = LangChainGemini(temperature=0)  # For LangGraph agent
+        self.llm = ModelFactory.create_llm()  # For fallback analysis
+        self.langchain_llm = ModelFactory.create_langchain_llm()  # For LangGraph agent
         
         # Create tool and graph
         self._setup_langgraph()
@@ -247,7 +247,7 @@ Provide a JSON response:
 }}
 
 If no existing test cases are found, return an empty array.
-Response in Vietnamese
+Response in Vietnamese. Do not translate English keyword. for example fields in request body or params, etc
 """
         
         try:
@@ -322,7 +322,7 @@ Provide a JSON response:
         }}
     ]
 }}
-Response in Vietnamese
+Response in Vietnamese.  Do not translate English keyword. for example fields in request body or params, etc
 """
         
         try:
@@ -397,7 +397,7 @@ Provide a JSON response:
         }}
     ]
 }}
-Response in Vietnamese
+Response in Vietnamese. Do not translate English keyword. for example fields in request body or params, etc.
 
 """
         
@@ -458,7 +458,7 @@ Provide a JSON response:
     "current_ac": list of AC in format {response_ac_guide_item}
 }}
 
-Response in Vietnamese
+Response in Vietnamese  Do not translate English keyword. for example fields in request body or params, etc
 
 """
         
@@ -521,7 +521,7 @@ Provide a JSON response:
     "missing_ac": list of AC in format {response_ac_guide_item}
 }}
 
-Response in Vietnamese
+Response in Vietnamese  Do not translate English keyword. for example fields in request body or params, etc
 
 """
         
@@ -597,7 +597,7 @@ Provide a JSON response:
     "final_ac": response in format {response_ac_guide_item}. AC MUST NOT depend on code, it must not contain any code
 }}
 
-Response in Vietnamese
+Response in Vietnamese  Do not translate English keyword. for example fields in request body or params, etc
 
 """
         
@@ -689,7 +689,7 @@ Provide a JSON response in format of {{
         "ac_analysis": analysis from final_ac. Only analyze "Code Location",	"Assessment", "Priority", testcase and other information must be exactly same as field "testcase" inin final_testcases. AC name and other information must be exactly same as final_ac. Return in format of: {response_ac_guide}.
     }}  
 
-IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in English, you can translate it to Vietnamese with full context and information"""
+IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in English, you can translate it to Vietnamese with full context and information.  Do not translate English keyword. for example fields in request body or params, etc"""
         
         try:
             # Call LLM and get response
@@ -1002,10 +1002,6 @@ HTML Output:
             else:
                 logger.debug(f" Skipping already retrieved symbol: {symbol}")
         return "\n\n".join(new_context_parts), new_retrieved, new_chunk_ids
-
-
-
-
 
     async def run(
             self,

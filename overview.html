@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Case Coverage Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #2563eb;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="text-3xl font-bold text-center mb-8">Test Case Coverage Dashboard</h1>
+
+    <!-- Coverage Distribution Pie Chart -->
+    <div class="chart-container">
+        <h2 class="text-xl font-semibold mb-4">Coverage Distribution</h2>
+        <canvas id="coveragePieChart"></canvas>
+    </div>
+
+    <!-- Progress Metrics Bar Chart -->
+    <div class="chart-container">
+        <h2 class="text-xl font-semibold mb-4">Progress Metrics</h2>
+        <canvas id="progressBarChart"></canvas>
+    </div>
+
+    <!-- Test Cases Table -->
+    <div class="chart-container">
+        <h2 class="text-xl font-semibold mb-4">Test Cases Details</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Test Case</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Priority</th>
+                <th>Code Coverage</th>
+                <th>Explanation</th>
+            </tr>
+            </thead>
+            <tbody id="testCasesTable">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // JSON data embedded directly for simplicity
+    fetch('test.json')
+            .then(response => response.json())
+            .then(jsonData => {
+                // Initialize Pie Chart for Coverage Distribution
+    const coverageData = jsonData.ac_analysis.coverage_overview.visual_summary_data.coverage_distribution;
+    const pieChart = new Chart(document.getElementById('coveragePieChart'), {
+        type: 'pie',
+        data: {
+            labels: ['Fully Covered', 'Partially Covered', 'Not Covered'],
+            datasets: [{
+                data: [coverageData.fully_covered, coverageData.partially_covered, coverageData.not_covered],
+                backgroundColor: ['#22c55e', '#facc15', '#ef4444'],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Coverage Distribution'
+                }
+            }
+        }
+    });
+
+    // Initialize Bar Chart for Progress Metrics
+    const progressData = jsonData.ac_analysis.coverage_overview.visual_summary_data.progress_metrics;
+    const barChart = new Chart(document.getElementById('progressBarChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Requirement', 'Code', 'Test Case'],
+            datasets: [{
+                label: 'Coverage (%)',
+                data: [progressData.requirement, progressData.code, progressData.test_case],
+                backgroundColor: ['#2563eb', '#7c3aed', '#db2777'],
+                borderColor: '#fff',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Percentage (%)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: 'Progress Metrics'
+                }
+            }
+        }
+    });
+
+    // Populate Test Cases Table
+    const tableBody = document.getElementById('testCasesTable');
+    jsonData.test_cases_coverage.forEach(test => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${test.test_case}</td>
+            <td>${test.test_type}</td>
+            <td>${test.category}</td>
+            <td>${test.priority}</td>
+            <td>${test.code_coverage_score}</td>
+            <td>${test.explain_coverage}</td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+            })
+            .catch(error => console.error('Error fetching or parsing test.json:', error));
+
+
+</script>
+</body>
+</html>

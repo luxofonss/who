@@ -239,3 +239,8 @@ def _write_to_file(content: str, prefix: str, path: PathLike) -> str:
         logger.error(f"Failed to write to file: {e}")
         logger.error(f"Path: {path}, Prefix: {prefix}, Content length: {len(content)}")
         return ""
+
+def _split_csv_field(field):
+    if not field:
+        return []
+    return [x.strip() for x in field.split(",") if x.strip()]

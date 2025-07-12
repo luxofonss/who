@@ -103,6 +103,8 @@ class LangChainGemini(LLM):
         logger.info(f" Prompt saved to: {prompt_file}")
 
         response = self._gemini.invoke(prompt)
+
+        logger.info(f" Response: {response}")
         
         # Handle stop words if provided
         if stop:
