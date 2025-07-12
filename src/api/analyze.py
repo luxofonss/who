@@ -288,7 +288,7 @@ async def analyze(
                     logger.info(f"Diff text: {diff_text}")
                     if diff_text:
                         # Truncate diff text if it's too long to avoid overwhelming the analysis
-                        max_diff_length = 5000  # Limit to 5000 characters
+                        max_diff_length = 50000  # Limit to 50000 characters (increased from 5000)
                         if len(diff_text) > max_diff_length:
                             diff_text = diff_text[:max_diff_length] + f"\n... (truncated, total length: {len(diff_data.get('diff_text', ''))} characters)"
                         commit_detail += f"\nDiff:\n{diff_text}\n"

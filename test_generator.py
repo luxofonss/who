@@ -92,8 +92,8 @@ class TestGenerator:
         knowledge_path = "knowledge_testing.txt"
         knowledge_content = ""
         try:
-            with open(knowledge_path, "r", encoding="utf-8") as f:
-                knowledge_content = f.read()
+            from src.utils.file import read_file
+            knowledge_content = read_file(knowledge_path)
         except Exception:
             pass  # Nếu không có file thì bỏ qua
 

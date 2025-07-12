@@ -16,6 +16,7 @@ from langgraph.prebuilt import ToolExecutor
 from adapters.gemini import Gemini, LangChainGemini
 from services.retriever import LangChainRetriever
 from services.prompt_builder import PromptBuilder
+from utils.file import read_file, write_analysis_results
 
 
 class AgentState(TypedDict):
@@ -124,7 +125,7 @@ class AnalyzerChain:
         graph.add_node("improve_and_finalize_ac", self._improve_and_finalize_ac_node)
         
         # Phase 3: Coverage Analysis (1 node)
-        graph.add_node("generate_additional_coverage", self._generate_additional_coverage_node)
+        graph.add_node("generate_final_response", self._generate_final_response)
         
         # Final output formatting
         graph.add_node("format_output", self._format_output_node)
@@ -141,10 +142,10 @@ class AnalyzerChain:
         graph.add_edge("generate_missing_ac", "improve_and_finalize_ac")
         
         # Phase 2 to Phase 3 transition
-        graph.add_edge("improve_and_finalize_ac", "generate_additional_coverage")
+        graph.add_edge("improve_and_finalize_ac", "generate_final_response")
         
         # Phase 3 to final output
-        graph.add_edge("generate_additional_coverage", "format_output")
+        graph.add_edge("generate_final_response", "format_output")
         graph.add_edge("format_output", END)
 
         # Set entry point to Phase 1 Node 1
@@ -198,37 +199,20 @@ class AnalyzerChain:
             return f"Error retrieving code for symbol: {symbol} - {str(e)}", []
 
     def _read_api_docs_example(self) -> str:
-        try:
-            with open("api_docs_example.md", "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception as e:
-            logger.warning(f"Could not read api_docs_example.md: {e}")
-            return ""
+        """Read API documentation example file"""
+        return read_file("api_docs_example.md")
 
     def _read_software_testing_guide(self) -> str:
-        try:
-            with open("software_testing_guide.md", "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception as e:
-            logger.warning(f"Could not read software_testing_guide.md: {e}")
-            return ""
+        """Read software testing guide file"""
+        return read_file("software_testing_guide.md")
+
     def _read_response_ac_guide(self) -> str:
-        try:
-            with open("response_ac_guide.md", "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception as e:
-            logger.warning(f"Could not read response_ac_guide.md: {e}")
-            return ""
-    
-    def _read_response_(self) -> str:
-        try:
-            with open("response_ac_guide.md", "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception as e:
-            logger.warning(f"Could not read response_ac_guide.md: {e}")
-            return ""
+        """Read response acceptance criteria guide file"""
+        return read_file("response_ac_guide.md")
 
-
+    def _read_response_ac_guide_item(self) -> str:
+        """Read response acceptance criteria guide item file"""
+        return read_file("response_ac_guide_item.md")
 
     def _extract_existing_testcases_node(self, state: AgentState) -> AgentState:
         """Phase 1 Node 1: Extract existing test cases from requirements"""
@@ -330,7 +314,7 @@ Provide a JSON response:
 {{
     "missing_test_cases": [
         {{
-            "test_case": "detailed test case description using terminology from requirements. test_case name follow instruction in software_testing_guide. DO NOT include code into testcase name",
+            "test_case": "detailed test case description using terminology from requirements. test_case name follow instruction in software_testing_guide.",
             "test_type": "positive/negative/edge/performance/security",
             "category": "functional/integration/unit/performance",
             "priority": "high/medium/low",
@@ -375,49 +359,44 @@ Provide a JSON response:
         software_testing_guide = self._read_software_testing_guide()
         
         prompt = f"""You are Expert Quality Engineer.
-
 Your task is to improve the additional test cases from the previous step and create a final comprehensive test cases list.
 
-<current_context>
-{state['context']}
-</current_context>
+<current_context> {state['context']} </current_context>
 
-<code_diff_commit>
-{state['code_commit']}
-</code_diff_commit>
+ {state['requirements']}
 
-<existing_test_cases>
-{json.dumps(state.get('existing_testcases', []), indent=2)}
-</existing_test_cases>
+<code_diff_commit> {state['code_commit']} </code_diff_commit>
 
-<generated_missing_test_cases>
-{json.dumps(state.get('generated_missing_testcases', []), indent=2)}
-</generated_missing_test_cases>
+<existing_test_cases> {json.dumps(state.get('existing_testcases', []), indent=2)} </existing_test_cases>
 
-<software_testing_guide>
-{software_testing_guide}
-</software_testing_guide>
+<generated_missing_test_cases> {json.dumps(state.get('generated_missing_testcases', []), indent=2)} </generated_missing_test_cases>
 
-Improve the generated_missing_test_cases test cases by:
-1. Using the current code context to make them more specific and implementable
-2. Considering code code_diff_commit and current_context for any specific changes that need testing. if has then add new test cases to generated_missing_test_cases
-3. Following the software_testing_guide best practices
-4. Adding implementation details based on actual code structure
+Improve the generated_missing_test_cases by:
 
-Create a final test cases list that combines existing and improved additional test cases. Do not change current existing_test_cases
+- Using the current code context to make test cases more specific and implementable, without including any code snippets or specific class/enum names in test case descriptions.
+- Considering code_diff_commit and current_context for any specific changes that need testing. If new scenarios are identified, add new test cases to generated_missing_test_cases.
+- Following software_testing_guide best practices for clear, concise, and independent test case design.
+- Adding implementation details based on the functionality described in the code structure, focusing on behavior and expected outcomes rather than code-specific references.
+
+Create a final test cases list that combines existing and improved additional test cases. Do not modify the existing_test_cases.
+The code in current_context and code_diff_commit is only additional data to inform the improvement of additional test cases to cover all scenarios. Test case names and descriptions must:
+- Focus on functionality, behavior, or user scenarios.
+- Avoid including any code, class names, enum names, or implementation-specific details.
+- Be written in a way that is independent of the code structure.
 
 Provide a JSON response:
 {{
     "final_test_cases": [
         {{
-            "test_case": "existing_test_cases + generated_missing_test_cases detailed test case description based on software_testing_guide. testcase name DOES NOT contain any code",
+            "test_case": "Detailed description of the test case focusing on functionality or behavior, based on software_testing_guide, without referencing code, class names, or enums.",
             "test_type": "positive/negative/edge/performance/security",
-            "category": "functional/integration/unit/performance", 
+            "category": "functional/integration/unit/performance",
             "priority": "high/medium/low",
-            "type": "existing/new",
+            "type": "existing/new"
         }}
     ]
 }}
+Response in Vietnamese
 
 """
         
@@ -456,7 +435,7 @@ Provide a JSON response:
         state["current_phase"] = "phase2_generate_current_ac"
         
         logger.info(" 📋 Phase 2.1: Generating current acceptance criteria from requirements")
-        response_ac_guide = self._read_response_ac_guide()
+        response_ac_guide_item = self._read_response_ac_guide_item()
         prompt = f"""You are Expert Quality Engineer and Business Analyst.
 
 Your task is to generate current acceptance criteria (AC) based on the requirements document.
@@ -475,8 +454,10 @@ Acceptance criteria should be:
 
 Provide a JSON response:
 {{
-    "current_ac": list of AC in format {response_ac_guide}.detailed_mapping.detailed_mapping
+    "current_ac": list of AC in format {response_ac_guide_item}
 }}
+
+Response in Vietnamese
 
 """
         
@@ -511,7 +492,7 @@ Provide a JSON response:
         state["current_phase"] = "phase2_generate_missing_ac"
         
         logger.info(" 🔍 Phase 2.2: Analyzing and generating missing acceptance criteria")
-        response_ac_guide = self._read_response_ac_guide()
+        response_ac_guide_item = self._read_response_ac_guide_item()
         prompt = f"""You are Expert Quality Engineer.
 
 Your task is to analyze current requirements and existing acceptance criteria to identify missing acceptance criteria.
@@ -536,8 +517,10 @@ Focus on:
 
 Provide a JSON response:
 {{
-    "missing_ac": list of AC in format {response_ac_guide}.detailed_mapping
+    "missing_ac": list of AC in format {response_ac_guide_item}
 }}
+
+Response in Vietnamese
 
 """
         
@@ -573,8 +556,7 @@ Provide a JSON response:
         
         logger.info(" 🔧 Phase 2.3: Improving and finalizing acceptance criteria")
         
-        software_ac_guide = self._read_response_()
-        response_ac_guide = self._read_response_ac_guide()
+        response_ac_guide_item = self._read_response_ac_guide_item()
         
         prompt = f"""You are Expert Quality Engineer and Business Analyst
 
@@ -611,8 +593,10 @@ Create a final AC list that combines existing and improved additional acceptance
 
 Provide a JSON response:
 {{
-    "final_ac": response in format {response_ac_guide}.detailed_mapping. AC MUST NOT depend on code, it must not contain any code
+    "final_ac": response in format {response_ac_guide_item}. AC MUST NOT depend on code, it must not contain any code
 }}
+
+Response in Vietnamese
 
 """
         
@@ -644,9 +628,9 @@ Provide a JSON response:
             
         return state
 
-    def _generate_additional_coverage_node(self, state: AgentState) -> AgentState:
+    def _generate_final_response(self, state: AgentState) -> AgentState:
         """Phase 3: Analyze code coverage of test cases and AC from previous phases"""
-        node_name = "generate_additional_coverage"
+        node_name = "generate_final_response"
         state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
         state["current_phase"] = "phase3_additional_coverage"
         
@@ -698,13 +682,13 @@ Provide a JSON response in format of {{
             "category": "functional/integration/unit/performance", 
             "priority": "high/medium/low",
             "type": "existing/new",
-            "code_coverage_score": "0-100",
+            "code_coverage_score": "0%: No logic for test case. 1 to 49%: Some logic, lacks key checks. 50 to 79%: Handles most requirements, misses critical checks. 80 to 99%: Meets most requirements, minor gaps. 100%: Fully meets all requirements with checks and error handling. ",
             "explain_coverage": "explain how the test case is covered by the code",
         }},
-        "ac_analysis": analysis from final_ac. Only analyze "Code Location",	"Assessment", "Priority", testcase name and other information must be exactly same as final_testcases. AC name and other information must be exactly same as final_ac. Return in format of: {response_ac_guide}.
+        "ac_analysis": analysis from final_ac. Only analyze "Code Location",	"Assessment", "Priority", testcase and other information must be exactly same as field "testcase" inin final_testcases. AC name and other information must be exactly same as final_ac. Return in format of: {response_ac_guide}.
     }}  
 
-IMPORTANT: Response MUST be in Vietnamese """
+IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in English, you can translate it to Vietnamese with full context and information"""
         
         try:
             # Call LLM and get response
@@ -792,123 +776,6 @@ IMPORTANT: Response MUST be in Vietnamese """
             "max_coverage": max(coverage_scores)
         }
 
-    def _agent_node(self, state: AgentState) -> AgentState:
-        node_name = "agent"
-        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
-
-        # Read API docs example
-        api_docs_example = self._read_api_docs_example()
-        code_commit = state.get("code_commit", "")
-        software_testing_guide = self._read_software_testing_guide()
-        response_ac_guide = self._read_response_ac_guide()
-        # Build the analysis  
-        prompt = f"""You are an expert software architect analyzing the REST endpoint: {state['endpoint']}
-            ANALYSIS STRATEGY:
-            1. Review the <current_context> for the endpoint implementation
-            2. Get all classes, services, repositories, DTOs, methods and check if they are fully implemented
-            3. If you see references to any classes, services, DTOs, or methods that are not fully shown, request more context using the tool
-            4. When there are no classes, services, DTOs, or methods that are not fully shown, you have sufficient implementation details, provide your final analysis as JSON
-            5. Do not assume that you have enough context, always check the code and use get_project_code_context if any part of the code is not fully implemented.
-
-            WHEN TO USE get_project_code_context TOOL:
-            - When you see class/interface names without their implementation
-            - When service methods are referenced but not shown
-            - When DTO/model classes are mentioned but structure is unclear
-            - When exception handling classes are referenced
-            - When you need to understand dependencies or business logic
-
-            To use the tool, respond with: "I need to get context for [exact_class_or_method_name]"
-            Examples:
-            - "I need to get context for UserService"
-            - "I need to get context for ValidationException"
-            - "I need to get context for OrderDto"
-
-            <current_context> start:
-            {state['context']}
-            </current_context> end
-
-            <requirements> (it may contains test cases, acceptance criteria, etc.):
-            {state['requirements']}
-            <requirements/> end
-
-            <additional_instruction> start:
-            {state['user_text']}
-            <additional_instruction/> end
-
-            <code_diff_commit> start:
-            {code_commit}
-            <code_diff_commit> end
-
-            <software_testing_guide> start:
-            {software_testing_guide}
-            <software_testing_guide/> end
-
-
-            When generating the "document" field, use the format and style shown in the <api_docs_example/> above as a reference.
-            When generating the "test_case" field, use the format and style shown in the <software_testing_guide/> above as a reference.
-
-            If you don't have enough context, call the get_project_code_context tool to get more context, don't assume.
-            If you have enough context, provide your final analysis as valid JSON with this structure without any other text or symbols like ```json or ``` or "\n":
-            {{
-                "document": "very detailed step by step explanation of what the endpoint does, including all the business logic and the configuration logic.",
-                "requirement_coverage": [
-                    {{
-                        "requirement": "exact requirement text",
-                        "coverage_score": "0-100",
-                        "explain": "base on <requirements> and code context in <current_context>, explain how the code meets or fails this requirement. code must match the requirements, all logic, params, request body, etc"
-                    }}
-                ],
-                "existed_test_cases": [
-                    {{
-                        "test_case": "exact test from <requirements> if included. give the original text, otherwise empty",
-                        "coverage_score": "0-100", 
-                        "explain": "base on testcase, <requirements> and code context in <current_context>, explain whether this test case is covered by the implementation"
-                    }}
-                ],
-                "additional_test_cases": [
-                {{
-                    "test_case": "Generate test cases primarily based on the *acceptance criteria and functional requirements*, not solely on the source code. If inconsistencies exist between the requirements and the implementation (e.g., parameter name in requirement is `keyWord`, but the code uses `query`), use the terminology from the *requirement* in test case descriptions. Only reference code to uncover edge cases or unhandled behaviors. Avoid copying implementation-specific terms unless they align with requirements. Apply the formatting rules and test design principles from the SOFTWARE_TESTING_GUIDE above.",
-                    "coverage_score": "0-100",
-                    "explain": "Evaluate whether the generated test case is currently covered by the source code implementation. Clearly explain how the behavior (expected from the test) matches or differs from the actual code logic."
-                }}
-                ]
-
-                "improvements": [
-                    {{
-                        "type": "category",
-                        "reason": "base on <requirements> and code context, tell what needs improvement, why?",
-                        "solution": "recommended fix"
-                    }}
-                ],
-                "curl_command": "curl command to test the endpoint",
-                "response_ac": base on <requirements>, <current_context>, <software_testing_guide>, produce response AC in the following format: {response_ac_guide}.detailed_mapping
-            }}
-
-            Do not assume any code logic, always check the code and use get_project_code_context if any part of the code is not fully implemented.
-            Response output in Vietnamese
-            Your response:"""
-        
-        try:
-            response = self.langchain_llm._call(prompt)
-            
-            return {
-                **state,
-                "final_response": response,  
-                "history": state["history"] + [response],
-                "iteration_count": state["iteration_count"] + 1,
-                "node_call_count": state["node_call_count"]
-            }
-        except Exception as e:
-            logger.error(f" Agent node error: {str(e)}")
-            return {
-                **state,
-                "final_response": f"Error in agent reasoning: {str(e)}",
-                "iteration_count": state["iteration_count"] + 1,
-                "node_call_count": state["node_call_count"]
-            }
-
-
-
     def _format_output_node(self, state: AgentState) -> AgentState:
         """Final Phase: Format final output into JSON + HTML"""
         node_name = "format_output"
@@ -931,11 +798,32 @@ IMPORTANT: Response MUST be in Vietnamese """
         json_response = json.dumps(analysis_results, indent=2, ensure_ascii=False)
         
         # Generate HTML response
-        html_content = self._generate_html_with_llm(analysis_results)
+        # html_content = self._generate_html_with_llm(analysis_results)
         
         state["final_response"] = json_response
-        state["html_response"] = html_content
+        # state["html_response"] = html_content
         state["phase_complete"]["format_output"] = True
+        
+        # Write analysis results to files
+        logger.info(" 💾 Writing analysis results to files...")
+        try:
+            written_files = write_analysis_results(
+                state_data=dict(state),
+                project_id=self.project_id,
+                endpoint=state["endpoint"],
+                base_dir="storage/analyze"
+            )
+            
+            if written_files:
+                logger.info(" ✅ Analysis results written to files:")
+                for file_type, file_path in written_files.items():
+                    logger.info(f"   - {file_type.upper()}: {file_path}")
+                
+            else:
+                logger.warning(" ⚠️ No files were written")
+                
+        except Exception as e:
+            logger.error(f" ❌ Error writing analysis results to files: {e}")
         
         logger.info(" ✅ Final Phase completed: Comprehensive output formatted")
         
@@ -964,7 +852,7 @@ IMPORTANT: Response MUST be in Vietnamese """
         
         # Add requirements summary if available
         if state.get('requirements'):
-            requirements_summary = state['requirements'][:200] + "..." if len(state['requirements']) > 200 else state['requirements']
+            requirements_summary = state['requirements'][:2000] + "..." if len(state['requirements']) > 2000 else state['requirements']
             document_parts.append(f"- Requirements: {requirements_summary}")
         
         return "\n\n".join(document_parts)
@@ -1198,6 +1086,7 @@ HTML Output:
                 "generated_missing_ac": [],
                 "final_ac": [],
                 "additional_coverage": {},
+                "final_analysis_result": {},
                 "needs_more_context": False
             }
             
@@ -1205,12 +1094,9 @@ HTML Output:
             final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
                     
             logger.info(" Step 4: Parsing and structuring final response...")
-            final_response = final_state.get("final_response", "")
-            html_response = final_state.get("html_response", "")
-            result = self._parse_graph_response(final_response, endpoint)
-            result.html_response = html_response  # Add HTML response to the result
-            logger.info(f" Analysis complete - method: {result.analysis_method}")
-            return result.__dict__
+            final_analysis_result = final_state.get("final_analysis_result", "")
+            logger.info(f" Analysis complete - returning final response")
+            return final_analysis_result
             
         except AnalysisError:
             raise
@@ -1281,45 +1167,6 @@ HTML Output:
             logger.error(f" Fallback analysis execution failed: {str(e)}")
             raise AnalysisError(f"Fallback analysis failed: {str(e)}")
 
-    def clear_cache(self) -> None:
-        """Clear any cached resources (LangGraph doesn't require caching)."""
-        logger.info("🧹 LangGraph resources cleared (no caching needed)")
-
-    def _extract_missing_symbols(self, context: str, already_retrieved: List[str]) -> List[str]:
-        """Extract symbols that are referenced but not fully implemented in context."""
-        import re
-        symbols = []
-        patterns = [
-            r"(\w+(?:Service|Repository|Controller|Dto|Entity|Exception))\b(?!\s*\{)",
-            r"new\s+(\w+(?:Service|Repository|Controller|Dto|Entity|Exception))\b",
-            r"\b(\w+(?:Service|Repository|Controller|Dto|Entity|Exception))\.\w+\b",
-        ]
-        for pattern in patterns:
-            matches = re.findall(pattern, context)
-            for match in matches:
-                symbol = match if isinstance(match, str) else match[0]
-                if (symbol and symbol not in already_retrieved and len(symbol) > 3 and
-                    symbol not in ['String', 'List', 'Map', 'Set', 'Boolean', 'Integer', 'Long', 'Date', 'Time']):
-                    symbols.append(symbol)
-        unique_symbols = list(dict.fromkeys(symbols))[:3]
-        logger.debug(f" Extracted potential symbols: {unique_symbols}")
-        return unique_symbols
-
-    def _find_any_symbols(self, context: str, already_retrieved: List[str]) -> List[str]:
-        """Find any class names that might be worth investigating."""
-        import re
-        symbols = []
-        class_pattern = r'\b([A-Z][A-Za-z0-9]*(?:Service|Repository|Controller|Dto|Entity|Exception))\b(?!\s*\{)'
-        matches = re.findall(class_pattern, context, re.IGNORECASE)
-        for match in matches:
-            if (len(match) > 0 and
-                match not in already_retrieved and
-                match not in ['String', 'Object', 'List', 'Map', 'Set', 'Boolean', 'Integer', 'Long', 'Date', 'Time']):
-                symbols.append(match)
-        unique_symbols = list(dict.fromkeys(symbols))[:2]
-        logger.debug(f" Found general class references: {unique_symbols}")
-        return unique_symbols
-
     def _validate_inputs(self, requirements_txt: str, user_text: str) -> None:
         """Validate input parameters."""
         for param_name, param_value in [
@@ -1350,7 +1197,9 @@ HTML Output:
         """Parse LangGraph response and create structured result."""
         response_text = graph_response.strip()
         response_text = self._parse_json_response(response_text)
-        json_match = re.search(r'\{.*?"document".*?\}', response_text, re.DOTALL)
+        
+        # Use greedy matching to capture the full JSON response
+        json_match = re.search(r'\{.*"document".*\}', response_text, re.DOTALL)
         if json_match and not response_text.strip().startswith('{'):
             response_text = json_match.group(0)
         

@@ -1,0 +1,28 @@
+Analysis Report
+==================================================
+Project ID: onestudy-server-scrum6
+Endpoint: ["{'path': '/api/v1/quizzes/simple-create', 'method': 'POST'}"]
+Analysis Date: 2025-07-12 09:42:55
+Timestamp: 20250712_094255
+
+Phase Completion Status:
+  - phase1_extract_testcases: ✅ Completed
+  - phase1_generate_missing_testcases: ✅ Completed
+  - phase1_improve_testcases: ✅ Completed
+  - phase2_generate_current_ac: ✅ Completed
+  - phase2_generate_missing_ac: ✅ Completed
+  - phase2_improve_ac: ✅ Completed
+  - phase3_additional_coverage: ✅ Completed
+  - format_output: ✅ Completed
+
+Generated Missing Test Cases: 12
+Final Test Cases: 12
+Current Acceptance Criteria: 18
+Generated Missing AC: 10
+Final Acceptance Criteria: 28
+
+Final Analysis Result:
+
+Context Length: 143233 characters
+Requirements Length: 2302 characters
+  (truncated in summary)
