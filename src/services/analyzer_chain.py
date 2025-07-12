@@ -300,10 +300,10 @@ Your task is to generate missing test cases based on existing_test_cases, requir
 {software_testing_guide}
 </software_testing_guide>
 
-Analyze the existing test cases and requirements to identify what test cases are missing. Generate additional test cases to fill the gaps.
+Analyze the existing_test_cases and requirements to identify what test cases are missing. Generate additional test cases to fill the gaps.
 
 Focus on:
-- Edge cases not covered by existing tests
+- Edge cases not covered by existing_test_cases
 - Error scenarios and exception handling
 - Boundary conditions
 - Integration scenarios
@@ -314,7 +314,7 @@ Provide a JSON response:
 {{
     "missing_test_cases": [
         {{
-            "test_case": "detailed test case description using terminology from requirements. test_case name follow instruction in software_testing_guide.",
+            "test_case": "detailed test case description using terminology from requirements. test_case name follow instruction in software_testing_guide. ",
             "test_type": "positive/negative/edge/performance/security",
             "category": "functional/integration/unit/performance",
             "priority": "high/medium/low",
@@ -322,6 +322,7 @@ Provide a JSON response:
         }}
     ]
 }}
+Response in Vietnamese
 """
         
         try:

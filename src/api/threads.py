@@ -266,4 +266,52 @@ async def get_thread_chat_history(
         raise
     except Exception as e:
         logger.error(f"Error getting chat history for thread {thread_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+@router.get("/threads/{thread_id}/messages")
+async def get_latest_messages(
+    thread_id: str,
+    limit: int = 10,
+    offset: int = 0,
+    db: Session = Depends(get_db_session)
+):
+    """Get latest messages for a specific thread with pagination"""
+    try:
+        # Verify thread exists
+        thread = db.query(ProjectThread).filter(ProjectThread.thread_id == thread_id).first()
+        if not thread:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        
+        # Get latest messages ordered by creation time (newest first)
+        messages = db.query(ChatHistory).filter(
+            ChatHistory.thread_id == thread_id
+        ).order_by(ChatHistory.created_at.desc()).offset(offset).limit(limit).all()
+        
+        # Get total count for pagination
+        total = db.query(ChatHistory).filter(ChatHistory.thread_id == thread_id).count()
+        
+        # Calculate pagination info
+        has_next = (offset + limit) < total
+        has_previous = offset > 0
+        total_pages = (total + limit - 1) // limit  # Ceiling division
+        current_page = (offset // limit) + 1
+        
+        return {
+            "thread_id": thread_id,
+            "messages": [message.to_dict() for message in messages],
+            "pagination": {
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "current_page": current_page,
+                "total_pages": total_pages,
+                "has_next": has_next,
+                "has_previous": has_previous
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting latest messages for thread {thread_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}") 
