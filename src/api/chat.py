@@ -13,7 +13,7 @@ router = APIRouter(tags=["chat"])
 STORAGE_DIR = Path("storage")
 
 
-@router.post("/chat")
+@router.post("/api/v1/chat")
 async def chat(project_id: str, message: str):
     """Conversational endpoint that is aware of the codebase using LangGraph."""
     # Validate project exists

@@ -242,7 +242,7 @@ class UpdateThreadRequest(BaseModel):
 class ChatMessageRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000, description="User message to send to the AI")
 
-@router.post("/threads")
+@router.post("/api/v1/threads")
 async def create_thread(
     request: CreateThreadRequest,
     db: Session = Depends(get_db_session)
@@ -291,7 +291,7 @@ async def create_thread(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
-@router.put("/threads/{thread_id}")
+@router.put("/api/v1/threads/{thread_id}")
 async def update_thread(
     thread_id: str,
     request: UpdateThreadRequest,
@@ -339,7 +339,7 @@ async def update_thread(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
-@router.get("/threads")
+@router.get("/api/v1/threads")
 async def list_threads(
     project_id: Optional[str] = None,
     is_active: Optional[bool] = True,
@@ -373,7 +373,7 @@ async def list_threads(
         logger.error(f"Error listing threads: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
-@router.get("/threads/{thread_id}")
+@router.get("/api/v1/threads/{thread_id}")
 async def get_thread(
     thread_id: str,
     db: Session = Depends(get_db_session)
@@ -421,7 +421,7 @@ async def delete_thread(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
-@router.get("/projects/{project_id}/threads")
+@router.get("/api/v1/projects/{project_id}/threads")
 async def get_threads_by_project(
     project_id: str,
     db: Session = Depends(get_db_session)
@@ -434,7 +434,7 @@ async def get_threads_by_project(
         logger.error(f"Error getting threads for project {project_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
-@router.get("/threads/{thread_id}/messages")
+@router.get("/api/v1/threads/{thread_id}/messages")
 async def get_messages(
     thread_id: str,
     limit: int = 10,
@@ -482,7 +482,7 @@ async def get_messages(
         logger.error(f"Error getting latest messages for thread {thread_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
-@router.post("/threads/{thread_id}/messages")
+@router.post("/api/v1/threads/{thread_id}/messages")
 async def send_message(
     thread_id: str,
     request: ChatMessageRequest,
@@ -667,7 +667,7 @@ async def handle_chat_request(thread_id: str, message: str, db: Session):
 
 
 # Keep the original analyze endpoint as a backup or for direct API calls
-@router.post("/threads/{thread_id}/analyze")
+@router.post("/api/v1/threads/{thread_id}/analyze")
 async def analyze(
     thread_id: str,
     request: AnalyzeRequest,
@@ -678,7 +678,7 @@ async def analyze(
 
 
 # Alternative implementation with more flexible prefix detection
-@router.post("/threads/{thread_id}/messages")
+@router.post("/api/v1/threads/{thread_id}/messages")
 async def send_message_alternative(
     thread_id: str,
     request: ChatMessageRequest,

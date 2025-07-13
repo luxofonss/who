@@ -26,7 +26,7 @@ class CreateProjectRequest(BaseModel):
     branch: str = "main"
 
 
-@router.post("/create-project")
+@router.post("/api/v1/create-project")
 async def create_project(body: CreateProjectRequest, db=Depends(get_db_session)):
     # Use Bitbucket MCP service to pull repo
     config = BitbucketMCPConfigBuilder.from_env()
@@ -92,7 +92,7 @@ class ReindexRequest(BaseModel):
     project_id: str
 
 
-@router.post("/reindex")
+@router.post("/api/v1/reindex")
 async def reindex(body: ReindexRequest):
     repo_path = STORAGE_DIR / "repos" / body.project_id
     if not repo_path.exists():
@@ -120,7 +120,7 @@ async def reindex(body: ReindexRequest):
     return {"status": "reindexed", "changed_files": changed_files}
 
 
-@router.get("/projects")
+@router.get("/api/v1/projects")
 async def get_projects(db=Depends(get_db_session)):
     projects = db.query(Project).all()
     return {"projects": [p.to_dict() for p in projects]} 

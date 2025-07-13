@@ -27,7 +27,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY src/ ./src/
 COPY *.md ./
-COPY create_tables.py ./
 
 # Create necessary directories
 RUN mkdir -p storage/repos storage/metadata storage/indexes storage/merkle storage/analyze logs
