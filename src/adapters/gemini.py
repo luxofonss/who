@@ -31,7 +31,7 @@ class Gemini:  # pylint: disable=too-few-public-methods
         self._model = genai.GenerativeModel(model_name)
         self._generation_cfg: Dict[str, Any] = {
             "temperature": temperature,
-            "max_output_tokens": 8192,  # Increase max output tokens for longer responses
+            "max_output_tokens": 16384 ,
             "candidate_count": 1,
         }
         self.model_name = model_name

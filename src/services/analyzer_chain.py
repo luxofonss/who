@@ -393,6 +393,12 @@ The code in current_context and code_diff_commit is only additional data to info
 - Avoid including any code, class names, enum names, or implementation-specific details.
 - Be written in a way that is independent of the code structure.
 
+DO NOT:
+- Do not deleting test cases just because the code doesn't implement those features
+- Do not modifying expected behavior to align with current code implementation
+- Do not overlooking requirements when they differ from the code
+- Do not assuming the existing code logic is correct
+
 Provide a JSON response:
 {{
     "final_test_cases": [
@@ -405,7 +411,7 @@ Provide a JSON response:
         }}
     ]
 }}
-Response in Vietnamese. Do not translate English keyword. for example fields in request body or params, etc.
+Response in Vietnamese. Do not translate English keyword
 
 """
         
@@ -878,7 +884,8 @@ You are an Data Analyst. Convert the following JSON into a beautiful, well-struc
 JSON Analysis Data:
 {response}
 
-Format: 
+Test case must be analyze first, then analyze Acceptance Criteria (AC)
+Here is response structure:
 {self._read_final_test_response()}
 
 {self._read_final_response_ac()}
@@ -893,117 +900,15 @@ Format:
             logger.info(f" Received LLM response ({len(html_response)} characters)")
             
             # Clean up the response - extract HTML if it's wrapped in markdown
-            html_content = self._extract_html_from_response(html_response)
+            # html_content = self._extract_html_from_response(html_response)
             
-            logger.info(f" Generated HTML response ({len(html_content)} characters)")
-            return html_content
+            # logger.info(f" Generated HTML response ({len(html_content)} characters)")
+            return html_response
             
         except Exception as e:
             logger.error(f" Error generating HTML with LLM: {str(e)}")
             # Fallback to basic HTML if LLM fails
             return ""
-
-    def _extract_html_from_response(self, response: str) -> str:
-        """Extract HTML content from LLM response, handling markdown code blocks."""
-        import re
-        
-        logger.info(f" Extracting HTML from response ({len(response)} characters)")
-        
-        # Try to extract HTML from markdown code blocks
-        html_match = re.search(r"```html\s*([\s\S]+?)\s*```", response)
-        if html_match:
-            logger.info(" Found HTML in ```html code block")
-            return html_match.group(1).strip()
-        
-        # Try without html language specifier
-        html_match = re.search(r"```\s*([\s\S]+?)\s*```", response)
-        if html_match:
-            logger.info(" Found HTML in ``` code block")
-            return html_match.group(1).strip()
-        
-        # If no code blocks, check if response starts with HTML
-        if response.strip().startswith('<'):
-            logger.info(" Response starts with HTML tag")
-            return response.strip()
-        
-        # If all else fails, return the response as-is
-        logger.info(" No HTML code blocks found, returning response as-is")
-        return response.strip()
-
-    def _should_use_tool(self, state: AgentState) -> str:
-        response = state["final_response"] or ""
-        iteration = state["iteration_count"]
-        
-        # First try to extract JSON from markdown code blocks
-        response_text = self._parse_json_response(response)
-        response_clean = response_text.strip()
-        
-        # Check if response is valid JSON (final answer)
-        if response_clean.startswith("{") and response_clean.endswith("}"):
-            try:
-                json.loads(response_clean)
-                logger.info(" Valid JSON detected - routing to format_html")
-                return "format_html"  # Go to HTML formatting instead of end
-            except json.JSONDecodeError:
-                logger.warning(" Response looks like JSON but is invalid")
-        
-        # Also check the original response for JSON
-        original_clean = response.strip()
-        if original_clean.startswith("{") and original_clean.endswith("}"):
-            try:
-                json.loads(original_clean)
-                logger.info(" Valid JSON detected in original response - routing to format_html")
-                return "format_html"
-            except json.JSONDecodeError:
-                logger.warning(" Original response looks like JSON but is invalid")
-
-        # Check for explicit tool request
-        if "I need to get context for" in response or "get_project_code_context" in response:
-            logger.info(" Agent explicitly requested tool usage")
-            return "use_tool"
-
-        # Stop if max iterations reached
-        if iteration >= 5:
-            logger.warning(f" Max iterations ({iteration}) reached, forcing end")
-            return "end"
-
-        # Check if no new symbols or chunks were retrieved in the last tool call
-        if state.get("last_tool_call_symbols") and not state.get("new_retrieved_symbols") and not state.get("new_retrieved_chunks"):
-            logger.info(" No new context retrieved in last tool call - ending workflow")
-            return "end"
-
-        # Narrow down keyword-based tool triggering
-        specific_patterns = [
-            r"\b(?:need to inspect|examine|check|see)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Entity|Exception))\b",
-            r"\b(?:implementation of)\s+([A-Z][A-Za-z0-9]*(?:Dto|Service|Controller|Repository|Entity|Exception))\b",
-        ]
-        for pattern in specific_patterns:
-            matches = re.findall(pattern, response, re.IGNORECASE)
-            if matches:
-                return "use_tool"
-
-        logger.info(" No clear need for tool - proceeding to verification")
-        return "end"
-
-    def _get_context_for_symbols(self, symbols: List[str], already_retrieved: List[str], seen_chunks: List[str]) -> Tuple[str, List[str], List[str]]:
-        """Fetch and return new context, retrieved symbols, and new chunk IDs."""
-        new_context_parts = []
-        new_retrieved = []
-        new_chunk_ids = []
-        for symbol in symbols:
-            if symbol not in already_retrieved:
-                logger.info(f" Fetching context for: {symbol}")
-                context, chunk_ids = self._find_symbol_context(symbol, seen_chunks)
-                if "No code found" not in context and "Error retrieving code" not in context:
-                    new_context_parts.append(context)
-                    new_retrieved.append(symbol)
-                    new_chunk_ids.extend(chunk_ids)
-                    logger.info(f" Successfully retrieved context for: {symbol} (chunks: {chunk_ids})")
-                else:
-                    logger.warning(f" No context found for: {symbol}")
-            else:
-                logger.debug(f" Skipping already retrieved symbol: {symbol}")
-        return "\n\n".join(new_context_parts), new_retrieved, new_chunk_ids
 
     async def run(
             self,

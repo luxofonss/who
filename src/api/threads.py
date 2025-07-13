@@ -20,6 +20,7 @@ from services.confluence_mcp_service import ConfluenceMCPService, ConfluenceMCPC
 from services.jira_mcp_service import JiraMCPService, JiraMCPConfigBuilder
 from services.bitbucket_mcp_service import BitbucketMCPService, BitbucketMCPConfigBuilder
 from models import get_db_session, Project, ProjectThread, ChatHistory
+from .analyze import AnalyzeRequest
 
 logger = init_logger()
 
@@ -487,7 +488,7 @@ async def send_message(
     request: ChatMessageRequest,
     db: Session = Depends(get_db_session)
 ):
-    """Send a chat message to a thread and get AI response using ChatChain"""
+    """Send a chat message to a thread and get AI response using ChatChain or AnalyzerChain"""
     try:
         # Verify thread exists and is active
         thread = db.query(ProjectThread).filter(ProjectThread.thread_id == thread_id).first()
@@ -504,88 +505,33 @@ async def send_message(
         
         logger.info(f"💬 Chat message request for thread {thread_id}: {request.message[:100]}...")
         
-        # Get chat history for this thread
-        history_messages = db.query(ChatHistory).filter(
-            ChatHistory.thread_id == thread_id
-        ).order_by(ChatHistory.created_at.asc()).limit(20).all()
+        # Check if message starts with @analyze
+        is_analyze_request = request.message.strip().lower().startswith("@analyze")
         
-        # Convert to ChatChain format (list of strings)
-        history = []
-        for msg in history_messages:
-            if msg.role == "user":
-                history.append(f"User: {msg.content}")
-            elif msg.role == "assistant":
-                history.append(f"AI: {msg.analysis_result}")
+        if is_analyze_request:
+            # Extract the actual query by removing @analyze prefix
+            user_query = request.message.strip()[8:].strip()  # Remove "@analyze" and trim
+            logger.info(f"🔍 Detected analyze request: {user_query[:100]}...")
+            
+            # Use analyze logic
+            result = await handle_analyze_request(thread_id, user_query, db)
+            
+        else:
+            # Use regular chat logic
+            result = await handle_chat_request(thread_id, request.message, db)
         
-        # Use ChatChain to get AI response
-        context_data = await get_thread_context_and_requirements(thread_id, db)
-        requirements = context_data["requirements_txt"]
-        code_commit = context_data["code_commit"]
-        api_path = context_data["api_path"]
-        api_method = context_data["api_method"]
-        endpoint = {
-            "path": api_path,
-            "method": api_method
-        }
-
-        chat_chain = ChatChain(thread.project_id)
-        result = await chat_chain.chat(
-                request.message,
-                history,
-                str(endpoint),
-                requirements, 
-                code_commit, 
-                changed_methods=context_data["changed_methods"])
-
-        # Generate unique message IDs
-        user_message_id = f"msg_{uuid.uuid4().hex[:8]}"
-        ai_message_id = f"msg_{uuid.uuid4().hex[:8]}"
-        
-        # Save user message to database
-        user_message = ChatHistory(
-            message_id=user_message_id,
-            thread_id=thread_id,
-            role="user",
-            content=request.message
-        )
-        db.add(user_message)
-        
-        # Save AI response to database
-        ai_message = ChatHistory(
-            message_id=ai_message_id,
-            thread_id=thread_id,
-            role="assistant",
-            content=result.response,
-            analysis_result= ""
-        )
-        db.add(ai_message)
-        
-        # Update thread's last activity
-        thread.last_activity = datetime.now(timezone.utc)
-        
-        db.commit()
-        
-        logger.info(f"✅ Chat message processed using {result.method} method with {result.iteration_count} iterations")
-        
-        return result.response
+        return result
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error processing chat message for thread {thread_id}: {str(e)}")
+        logger.error(f"Error processing message for thread {thread_id}: {str(e)}")
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
 
-class AnalyzeRequest(BaseModel):
-    user_query: str = Field(..., description="User query for analysis")
-
-@router.post("/threads/{thread_id}/analyze")
-async def analyze(
-    thread_id: str,
-    request: AnalyzeRequest,
-    db: Session = Depends(get_db_session)
-):
+async def handle_analyze_request(thread_id: str, user_query: str, db: Session):
+    """Handle analyze request logic"""
     # Get thread context and requirements using reusable function
     context_data = await get_thread_context_and_requirements(thread_id, db)
     
@@ -593,28 +539,30 @@ async def analyze(
     analyzer = AnalyzerChain(context_data["project"].project_id)
     logger.info(f"Running analysis for endpoint: {context_data['api_path']}")
     logger.info(f"Method: {context_data['api_method']}")
-    logger.info(f"User query: {request.user_query}")
+    logger.info(f"User query: {user_query}")
+    
     endpoint = {
         "path": context_data["api_path"],
         "method": context_data["api_method"]
     }
+    
     result = await analyzer.run(
         endpoint=str(endpoint),
         requirements_txt=context_data["requirements_txt"],
-        user_text=request.user_query,
+        user_text=user_query,
         code_commit=context_data["code_commit"],
         changed_methods=context_data["changed_methods"]
     )
 
     # Save chat history
     try:
-        # Save user message
+        # Save user message (with original @analyze prefix)
         user_message_id = f"msg_{uuid.uuid4().hex[:8]}"
         user_chat = ChatHistory(
             message_id=user_message_id,
             thread_id=thread_id,
             role="user",
-            content=request.user_query,
+            content=f"@analyze {user_query}",  # Keep original format
             analysis_result=None
         )
         db.add(user_chat)
@@ -626,7 +574,7 @@ async def analyze(
             thread_id=thread_id,
             role="assistant",
             content=result.get("markdown_response", ""),
-            analysis_result=result.get("json", "")
+            analysis_result=result.get("json_response", "")
         )
         db.add(assistant_chat)
         
@@ -635,16 +583,160 @@ async def analyze(
         context_data["thread"].last_activity = datetime.now(timezone.utc)
         
         db.commit()
-        logger.info(f"Saved chat history for thread {thread_id}")
+        logger.info(f"Saved analyze chat history for thread {thread_id}")
         
     except Exception as e:
-        logger.error(f"Error saving chat history: {str(e)}")
+        logger.error(f"Error saving analyze chat history: {str(e)}")
         db.rollback()
-        # Continue without failing the analysis
 
     return result
 
 
+async def handle_chat_request(thread_id: str, message: str, db: Session):
+    """Handle regular chat request logic"""
+    # Get chat history for this thread
+    history_messages = db.query(ChatHistory).filter(
+        ChatHistory.thread_id == thread_id
+    ).order_by(ChatHistory.created_at.asc()).limit(20).all()
+    
+    # Convert to ChatChain format (list of strings)
+    history = []
+    for msg in history_messages:
+        if msg.role == "assistant" and msg.analysis_result:
+            history.append(f"AI: {msg.analysis_result}")
+        else:
+            history.append(f"{msg.role}: {msg.content}")
+        
+    
+    # Use ChatChain to get AI response
+    context_data = await get_thread_context_and_requirements(thread_id, db)
+    requirements = context_data["requirements_txt"]
+    code_commit = context_data["code_commit"]
+    api_path = context_data["api_path"]
+    api_method = context_data["api_method"]
+    endpoint = {
+        "path": api_path,
+        "method": api_method
+    }
+
+    chat_chain = ChatChain(context_data["project"].project_id)
+    result = await chat_chain.chat(
+        message,
+        history,
+        str(endpoint),
+        requirements, 
+        code_commit, 
+        changed_methods=context_data["changed_methods"]
+    )
+
+    # Generate unique message IDs
+    user_message_id = f"msg_{uuid.uuid4().hex[:8]}"
+    ai_message_id = f"msg_{uuid.uuid4().hex[:8]}"
+    
+    # Save user message to database
+    user_message = ChatHistory(
+        message_id=user_message_id,
+        thread_id=thread_id,
+        role="user",
+        content=message
+    )
+    db.add(user_message)
+    
+    # Save AI response to database
+    ai_message = ChatHistory(
+        message_id=ai_message_id,
+        thread_id=thread_id,
+        role="assistant",
+        content=result.response,
+        analysis_result=""
+    )
+    db.add(ai_message)
+    
+    # Update thread's last activity
+    thread = db.query(ProjectThread).filter(ProjectThread.thread_id == thread_id).first()
+    thread.last_activity = datetime.now(timezone.utc)
+    
+    db.commit()
+    
+    logger.info(f"✅ Chat message processed using {result.method} method with {result.iteration_count} iterations")
+    final_response = {
+                "markdown_response": result.response,
+                "json_response": "",
+            }
+    return final_response
+
+
+# Keep the original analyze endpoint as a backup or for direct API calls
+@router.post("/threads/{thread_id}/analyze")
+async def analyze(
+    thread_id: str,
+    request: AnalyzeRequest,
+    db: Session = Depends(get_db_session)
+):
+    """Direct analyze endpoint (can be deprecated if not needed)"""
+    return await handle_analyze_request(thread_id, request.user_query, db)
+
+
+# Alternative implementation with more flexible prefix detection
+@router.post("/threads/{thread_id}/messages")
+async def send_message_alternative(
+    thread_id: str,
+    request: ChatMessageRequest,
+    db: Session = Depends(get_db_session)
+):
+    """Alternative implementation with flexible command detection"""
+    try:
+        # Verify thread exists and is active
+        thread = db.query(ProjectThread).filter(ProjectThread.thread_id == thread_id).first()
+        if not thread:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        
+        if not thread.is_active:
+            raise HTTPException(status_code=400, detail="Thread is not active")
+        
+        # Verify project exists
+        project = db.query(Project).filter(Project.project_id == thread.project_id).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        logger.info(f"💬 Chat message request for thread {thread_id}: {request.message[:100]}...")
+        
+        # More flexible command detection
+        message_lower = request.message.strip().lower()
+        
+        # Check for various analyze patterns
+        analyze_patterns = ["@analyze", "/analyze", "analyze:", "!analyze"]
+        is_analyze_request = any(message_lower.startswith(pattern) for pattern in analyze_patterns)
+        
+        if is_analyze_request:
+            # Extract the actual query by removing command prefix
+            for pattern in analyze_patterns:
+                if message_lower.startswith(pattern):
+                    user_query = request.message.strip()[len(pattern):].strip()
+                    break
+            
+            logger.info(f"🔍 Detected analyze request: {user_query[:100]}...")
+            
+            # Validate that there's actually a query after the command
+            if not user_query:
+                raise HTTPException(status_code=400, detail="Please provide a query after @analyze command")
+            
+            # Use analyze logic
+            result = await handle_analyze_request(thread_id, user_query, db)
+            
+        else:
+            # Use regular chat logic
+            result = await handle_chat_request(thread_id, request.message, db)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing message for thread {thread_id}: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+        
 
 async def retrieve_confluence_content(confluence_urls: list[str], session_id: str) -> str:
     """Retrieve content from Confluence URLs using MCP service"""

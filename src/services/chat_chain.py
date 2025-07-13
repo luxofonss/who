@@ -27,6 +27,12 @@ class ChatState(TypedDict):
     user_message: str
     code_commit: str
     requirements: str
+    # New fields for context detection
+    needs_requirements: bool
+    needs_code_context: bool
+    needs_commit_history: bool
+    needs_conversation_history: bool
+    context_analysis: str
 
 
 @dataclass
@@ -62,7 +68,7 @@ class ChatChain:
     def _setup_langgraph(self):
         logger.info("🔧 Setting up LangGraph components for chat...")
         
-        # Create tool executor
+        # Create tool and graph
         self._build_graph()
         logger.info("✅ LangGraph chat setup complete")
 
@@ -70,42 +76,166 @@ class ChatChain:
         graph = StateGraph(ChatState)
 
         # Add nodes
+        graph.add_node("context_detector", self._context_detector_node)
         graph.add_node("chat_agent", self._chat_agent_node)
 
         # Set entry point
-        graph.set_entry_point("chat_agent")
+        graph.set_entry_point("context_detector")
+        
+        # Add edges
+        graph.add_edge("context_detector", "chat_agent")
 
         # Compile the graph
         self.graph = graph.compile()
         logger.info("✅ LangGraph chat workflow compiled")
 
+    def _context_detector_node(self, state: ChatState) -> ChatState:
+        """Analyze user question to determine which context elements are needed."""
+        node_name = "context_detector"
+        state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
+        
+        logger.info(f"🔍 Analyzing question for context requirements: {state['question'][:100]}...")
+        
+        detection_prompt = f"""
+        Analyze the following user question to determine which types of context information are needed to provide a comprehensive answer.
+
+        User Question: "{state['question']}"
+
+        Available Context Types:
+        1. Business Requirements - Contains project specifications, business rules, functional requirements
+        2. Code Context - Contains current codebase, implementation details, API documentation
+        3. Commit History - Contains recent code changes, git diffs, what was modified
+        4. Conversation History - Contains previous messages and context from this chat session
+
+        Instructions:
+        - Analyze the question carefully to understand what information is needed
+        - Determine which context types are ESSENTIAL for answering the question
+        - Be selective - only include context that directly helps answer the question
+        - Provide a brief explanation for your decision
+
+        Respond in the following JSON format:
+        {{
+            "needs_requirements": true/false,
+            "needs_code_context": true/false, 
+            "needs_commit_history": true/false,
+            "needs_conversation_history": true/false,
+            "reasoning": "Brief explanation of why each context type is or isn't needed"
+        }}
+
+        Examples:
+        - "What are the business rules for user authentication?" → needs_requirements: true, others: false
+        - "How does the login function work?" → needs_code_context: true, others: false  
+        - "What changed in the last commit?" → needs_commit_history: true, others: false
+        - "Continue our previous discussion about the API" → needs_conversation_history: true, others: false
+        - "Does the current implementation match the requirements?" → needs_requirements: true, needs_code_context: true
+        """
+        
+        try:
+            response = self.langchain_llm._call(detection_prompt)
+            
+            # Extract JSON from response
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                analysis = json.loads(json_match.group())
+                
+                logger.info(f"📊 Context analysis result: {analysis.get('reasoning', 'No reasoning provided')}")
+                
+                return {
+                    **state,
+                    "needs_requirements": analysis.get("needs_requirements", False),
+                    "needs_code_context": analysis.get("needs_code_context", False),
+                    "needs_commit_history": analysis.get("needs_commit_history", False),
+                    "needs_conversation_history": analysis.get("needs_conversation_history", False),
+                    "context_analysis": analysis.get("reasoning", ""),
+                    "iteration_count": state["iteration_count"] + 1,
+                    "node_call_count": state["node_call_count"]
+                }
+            else:
+                logger.warning("⚠️ Could not parse context analysis JSON, using fallback")
+                # Fallback: include all context if analysis fails
+                return {
+                    **state,
+                    "needs_requirements": True,
+                    "needs_code_context": True,
+                    "needs_commit_history": True,
+                    "needs_conversation_history": True,
+                    "context_analysis": "Failed to parse analysis, including all context as fallback",
+                    "iteration_count": state["iteration_count"] + 1,
+                    "node_call_count": state["node_call_count"]
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Context detector node error: {str(e)}")
+            # Fallback: include all context if detection fails
+            return {
+                **state,
+                "needs_requirements": True,
+                "needs_code_context": True,
+                "needs_commit_history": True,
+                "needs_conversation_history": True,
+                "context_analysis": f"Error in analysis: {str(e)}, including all context as fallback",
+                "iteration_count": state["iteration_count"] + 1,
+                "node_call_count": state["node_call_count"]
+            }
+
     def _chat_agent_node(self, state: ChatState) -> ChatState:
+        """Generate response using only the selected context elements."""
         node_name = "chat_agent"
         state["node_call_count"][node_name] = state["node_call_count"].get(node_name, 0) + 1
 
-        # Build the chat prompt
+        # Build context sections based on detection results
+        context_sections = []
+        
+        if state.get("needs_requirements", False):
+            logger.info(f"Need requirements")
+            context_sections.append(f"Project Requirements:\n{state['requirements']}")
+            
+        if state.get("needs_code_context", False):
+            logger.info(f"Need code context")
+            context_sections.append(f"Code Context:\n{state['context']}")
+            
+        if state.get("needs_commit_history", False):
+            logger.info(f"Need commit history")
+            context_sections.append(f"Recent Code Changes:\n{state['code_commit']}")
+            
+        logger.info(f"Need conversation history")
         history_text = "\n".join(state["history"]) if state["history"] else "No previous conversation."
+        context_sections.append(f"Conversation History:\n{history_text}")
+        
+        # Build the optimized prompt
+        selected_context = "\n\n".join(context_sections) if context_sections else "No additional context selected for this question."
         
         prompt = f"""
         You are Expert Software Engineer and Quantity Engineer
         You are helping a user to answer question: {state['question']}
 
         Instructions:
-        - If additional information or context about code elements, requirements, or other details is needed to answer the question accurately,  ask user to provide more information.
+        - If additional information or context about code elements, requirements, or other details is needed to answer the question accurately, ask user to provide more information.
         - Ensure the response is clear, concise, focused, and adheres to the provided requirements.
         - Respond entirely in Vietnamese, using professional, clear, and technical language suitable for a software engineering context.
-        - Prioritize accuracy and alignment with the provided Interaction history and project requirements.
+        - Prioritize accuracy and alignment with the provided context.
 
-        Provided Information:
-        - Interaction history: {history_text}
-        - Project requirements: {state['requirements']}
-        - Code context: {state['context']}
-        - Code commit history: {state['code_commit']}
-        
-    """
+        Context Analysis: {state.get('context_analysis', 'No analysis available')}
+
+        Relevant Information:
+        {selected_context}
+        """
             
         try:
             response = self.langchain_llm._call(prompt)
+            
+            # Log which context was used
+            used_context = []
+            if state.get("needs_requirements", False):
+                used_context.append("requirements")
+            if state.get("needs_code_context", False):
+                used_context.append("code_context")
+            if state.get("needs_commit_history", False):
+                used_context.append("commit_history")
+            if state.get("needs_conversation_history", False):
+                used_context.append("conversation_history")
+                
+            logger.info(f"📝 Response generated using context: {', '.join(used_context) if used_context else 'none'}")
             
             return {
                 **state,
@@ -121,8 +251,6 @@ class ChatChain:
                 "iteration_count": state["iteration_count"] + 1,
                 "node_call_count": state["node_call_count"]
             }
-
-
 
     async def chat(self,
             message: str, 
@@ -176,7 +304,13 @@ class ChatChain:
                 "last_tool_call_symbols": [],
                 "new_retrieved_symbols": [],
                 "node_call_count": {},
-                "user_message": message
+                "user_message": message,
+                # Initialize new context detection fields
+                "needs_requirements": False,
+                "needs_code_context": False,
+                "needs_commit_history": False,
+                "needs_conversation_history": False,
+                "context_analysis": ""
             }
 
             logger.info(" Step 3: Starting LangGraph analysis workflow...")
@@ -193,33 +327,4 @@ class ChatChain:
             
         except Exception as e:
             logger.error(f"❌ Chat chain failed: {str(e)}")
-            # Fallback to simple response
-            try:
-                return await self._fallback_chat(message, history, initial_context if 'initial_context' in locals() else "")
-            except Exception as fallback_error:
-                logger.error(f"❌ Fallback chat also failed: {str(fallback_error)}")
-                raise ChatError(f"Both LangGraph and fallback chat failed. Error: {str(e)}")
-
-    async def _fallback_chat(self, message: str, history: List[str], initial_context: str) -> ChatResult:
-        """Fallback to simple chat if LangGraph fails."""
-        logger.info("🔄 Using fallback chat method")
-        try:
-            history_text = "\n".join(history) if history else ""
-            prompt = PromptBuilder.build_chat_prompt(
-                history=history_text,
-                context=initial_context,
-                message=message
-            )
-            
-            response = await asyncio.to_thread(self.llm.invoke, prompt)
-            
-            return ChatResult(
-                response=response,
-                context_used=initial_context,
-                symbols_retrieved=[],
-                iteration_count=1,
-                method="fallback"
-            )
-        except Exception as e:
-            logger.error(f"❌ Fallback chat execution failed: {str(e)}")
-            raise ChatError(f"Fallback chat failed: {str(e)}")
+            raise ChatError(f"LangGraph chat failed. Error: {str(e)}")
