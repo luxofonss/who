@@ -1,4 +1,4 @@
-MATCH (endpoint:EndpointNode {class_name: "QuizController", method_name: "createQuiz"})
+MATCH (endpoint:EndpointNode {class_name: "PronunciationController", method_name: "getAccuracy"})
 
 CALL apoc.path.expandConfig(endpoint, {
   relationshipFilter: "CALL>|IMPLEMENTED_BY>|EXTENDED_BY>|USE>",
@@ -21,7 +21,8 @@ WITH endpoint, path, node_list, rel_list,
           THEN node_list[i+1]
           WHEN type(rel_list[i]) IN ['IMPLEMENTED_BY', 'EXTENDED_BY']
                AND node_list[i+1].method_name IS NOT NULL
-               AND node_list[i+1].method_name = node_list[i].method_name
+               AND node_list[i].method_name IS NOT NULL
+               AND toString(node_list[i+1].method_name) = toString(node_list[i].method_name)
           THEN node_list[i+1]
           WHEN type(rel_list[i]) = 'USE'
                AND node_list[i+1].method_name IS NULL
@@ -30,7 +31,6 @@ WITH endpoint, path, node_list, rel_list,
         END
      ] AS filtered_nodes
 
-
-RETURN endpoint, path, collect(DISTINCT filtered_nodes) AS visited_nodes_per_path
-
+RETURN endpoint, path, 
+       [node IN filtered_nodes WHERE node IS NOT NULL] AS visited_nodes_per_path
 ORDER BY path

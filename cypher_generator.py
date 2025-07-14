@@ -103,6 +103,7 @@ def generate_cypher_from_json(json_file_path: str, batch_size: int = 100) -> Tup
         extend_rels = []
         extended_by_rels = []
         use_rels = []
+        used_by_rels = []
         
         for chunk in batch:
             class_name = chunk.get('class_name', '')
@@ -177,7 +178,14 @@ def generate_cypher_from_json(json_file_path: str, batch_size: int = 100) -> Tup
                     'source_method': method_name,
                     'target_class': var
                 })
-        
+
+            for used_by in chunk.get('vars', []):
+                used_by_rels.append({
+                    'source_class': used_by,
+                    'target_class': class_name,
+                    'target_method': method_name
+                })
+
         # Create batch queries for each relationship type
         if call_rels:
             call_query = """
@@ -243,7 +251,17 @@ def generate_cypher_from_json(json_file_path: str, batch_size: int = 100) -> Tup
             MERGE (source)-[:USE]->(target)
             """
             all_queries.append((use_query, {'relationships': use_rels}))
-    
+
+        if used_by_rels:
+            used_by_query = """
+            UNWIND $relationships AS rel
+            MATCH (source {class_name: rel.source_class})
+            MATCH (target {class_name: rel.target_class})
+            WHERE target.method_name = rel.target_method
+            MERGE (source)-[:USED_BY]->(target)
+            """
+            all_queries.append((used_by_query, {'relationships': used_by_rels}))
+
     return all_queries
 
 class Neo4jConnection:
