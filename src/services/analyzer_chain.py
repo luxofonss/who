@@ -217,6 +217,10 @@ class AnalyzerChain:
     def _read_final_response_ac(self) -> str:
         """Read final response template file"""
         return read_file("final_response_ac.txt")
+
+    def _read_testcase_guide_item_json(self) -> str:
+        """Read testcase guide item file"""
+        return read_file("testcase_guide_item_json.json")
     
     def _read_final_test_response(self) -> str:
         """Read final test response template file"""
@@ -700,7 +704,8 @@ Provide a JSON response in format of {{
             "code_coverage_score": "0%: No logic for test case. 1 to 49%: Some logic, lacks key checks. 50 to 79%: Handles most requirements, misses critical checks. 80 to 99%: Meets most requirements, minor gaps. 100%: Fully meets all requirements with checks and error handling. ",
             "explain_coverage": "explain how the test case is covered by the code",
         }},
-        "ac_analysis": analysis from final_ac. Only analyze "Code Location",	"Assessment", "Priority", testcase and other information must be exactly same as field "testcase" inin final_testcases. AC name and other information must be exactly same as final_ac. Return in format of: {response_ac_guide}.
+        "ac_analysis": analysis from final_ac. Only analyze "Code Location",	"Assessment", "Priority", testcase and other information must be exactly same as field "testcase" inin final_testcases. AC name and other information must be exactly same as final_ac. Return in format of: {response_ac_guide},
+        "test_csv": {self._read_testcase_guide_item_json()}
     }}  
 
 IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in English, you can translate it to Vietnamese with full context and information.  Do not translate English keyword. for example fields in request body or params, etc"""
@@ -715,7 +720,7 @@ IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in En
                 result = json.loads(response_clean)
                 
                 # Validate required fields
-                if "test_cases" not in result or "ac_analysis" not in result:
+                if "test_cases" not in result or "ac_analysis":
                     raise ValueError("Missing required fields in LLM response")
                 
                 # Process test cases coverage
@@ -726,11 +731,14 @@ IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in En
                 
                 # Process AC analysis
                 ac_analysis = result.get("ac_analysis", {})
+
+                test_csv = result.get("test_csv", {})
                 
                 # Update state with validated data
                 state["final_analysis_result"] = {
                     "test_cases_coverage": test_cases,
-                    "ac_analysis": ac_analysis
+                    "ac_analysis": ac_analysis,
+                    "test_csv": test_csv
                 }
                 
                 # Mark phase as complete
@@ -889,6 +897,7 @@ Here is response structure:
 {self._read_final_test_response()}
 
 {self._read_final_response_ac()}
+
 
 """
             

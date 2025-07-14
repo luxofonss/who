@@ -1,0 +1,13 @@
+{
+  "testCaseKey": "(String) Should be an empty string "". This field will be populated later based on specific test case naming conventions",
+  "testCaseName": "(String) Exact test case text from requirements, typically found in the "comment" section of a Jira issue, starting with "testcases" or "testcase". This field must be prefixed with [ServiceName] where ServiceName is the name of the service for which the test case is being written (e.g., [QuizLibraryService] Kiểm tra API tìm kiếm trả status_code = 400 khi không truyền param keyWord)",
+  "prepareFileName": "The filename of the data preparation script or file associated with this test case (e.g., prepareData_1.csv)",
+  "httpMethod": "The HTTP method used for the request (e.g., GET, POST, PUT, DELETE)",
+  "expectedHttpCode": "The expected HTTP status code of the response, represented as a string (e.g., "200", "400", "500")",
+  "requestParamName": "The name of the request parameter if present; otherwise, an empty string",
+  "requestParamValue": "The value of the request parameter if present; otherwise, an empty string",
+  "requestBody": "The JSON string representation of the request body. Use {{}} if no request body is sent",
+  "expectBody": "The JSON string representation of the expected response body. For specific error messages, include the full JSON string (e.g., {\"message\": \"Required parameter ‘keyWord’ is not present\"}). If the JSON string is longer than 100 characters, store it in a separate file named expectBody_N.json (where N is an incremental number for each test case) and put the filename (e.g., expectBody_1.json) in this field instead of the full JSON string. Use {{}} for an empty expected body, or null if the body content isn't relevant to the assertion",
+  "code_coverage_score": "A string indicating the code coverage percentage for this test case, along with a brief note (e.g., "0%: No logic for test case. ").",
+  "explain_coverage": "A detailed explanation of the current code coverage status, outlining what is missing or needs improvement in the code to meet the test case's requirements"
+}

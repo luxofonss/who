@@ -13,7 +13,7 @@ def ensure_dir(path: PathLike):
     Path(path).mkdir(parents=True, exist_ok=True)
 
 
-def read_json(path: PathLike, default: Any | None = None):
+def read_json(path: PathLike, default: Optional[Any] = None):
     p = Path(path)
     if not p.exists():
         return default

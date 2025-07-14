@@ -1,0 +1,82 @@
+Okay, I will analyze the provided JSON data and generate a Markdown report as requested.
+
+# Requirements Analysis Report
+
+## 📋 Analysis Metadata
+| Field | Value |
+|-------|-------|
+| Jira Task ID | SCRUM-1 |
+| Git Commit IDs | 5d6559ed219cbd90c803ebce5387998510106be3, 0090ac14c88895f59409e45d33220ef62ce7d08b, 30b7f27ce6c7c132ffb8f14e85c0c0bc40a76bf6 |
+| Analysis Date | 2025-07-12T07:45:00+07:00 |
+
+# Test Cases Analysis
+
+| Test Case | Test Type | Category | Priority | Type | Code Coverage Score | Explain Coverage |
+|-----------|-----------|----------|----------|------|-------------------|------------------|
+| TC1: [Quiz Library API] Verify API trả về HTTP 400 khi không truyền tham số keyWord | negative | functional | high | new | 0%: No logic for test case. | Hiện tại, code không kiểm tra xem tham số `query` có được truyền hay không. Nếu không có tham số `query`, Spring sẽ tự động trả về lỗi 400, nhưng không có test case nào để kiểm tra điều này. |
+| TC2: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz rỗng khi keyWord là null | positive | functional | high | new | 50%: Handles most requirements, misses critical checks. | Code kiểm tra `query == null` và ném ra `BusinessException`. Tuy nhiên, yêu cầu là trả về HTTP 200 và danh sách Quiz rỗng, không phải ném exception. Cần sửa code để trả về danh sách rỗng thay vì ném exception. |
+| TC3: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz rỗng khi keyWord là chuỗi rỗng | positive | functional | high | new | 50%: Handles most requirements, misses critical checks. | Code kiểm tra `query == null` và ném ra `BusinessException`. Tuy nhiên, yêu cầu là trả về HTTP 200 và danh sách Quiz rỗng, không phải ném exception. Code hiện tại không xử lý trường hợp `query` là chuỗi rỗng. Cần sửa code để trả về danh sách rỗng thay vì ném exception. |
+| TC4: [Quiz Library API] Verify API trả về HTTP 200 và toàn bộ danh sách Quiz khi keyWord là 'All' | positive | functional | high | new | 80 to 99%: Meets most requirements, minor gaps. | Code trả về toàn bộ danh sách Quiz từ `quizRepository.findAll()`. Tuy nhiên, không có logic để kiểm tra xem `query` có phải là 'All' hay không. Cần thêm logic để kiểm tra điều này và chỉ trả về toàn bộ danh sách khi `query` là 'All'. |
+| TC5: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title trùng khớp chính xác với keyWord (không phân biệt hoa thường) | positive | functional | high | new | 1 to 49%: Some logic, lacks key checks. | Code trả về toàn bộ danh sách Quiz từ `quizRepository.findAll()`, không có logic để lọc theo `title` trùng khớp với `query` (không phân biệt hoa thường). Cần thêm logic để thực hiện việc lọc này. |
+| TC6: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz rỗng khi không có Quiz nào có title trùng khớp với keyWord | positive | functional | high | new | 1 to 49%: Some logic, lacks key checks. | Code trả về toàn bộ danh sách Quiz từ `quizRepository.findAll()`, không có logic để lọc theo `title` trùng khớp với `query`. Do đó, không có trường hợp nào trả về danh sách rỗng khi không có Quiz nào trùng khớp. Cần thêm logic để thực hiện việc lọc này và trả về danh sách rỗng khi không có kết quả. |
+| TC7: [Quiz Library API] Verify cấu trúc response của mỗi phần tử Quiz trong danh sách trả về đúng định dạng theo AC4 | positive | functional | high | new | 80 to 99%: Meets most requirements, minor gaps. | Code sử dụng `BaseResponse` để trả về dữ liệu, đảm bảo cấu trúc chung của response. Tuy nhiên, cần có test case cụ thể để kiểm tra xem tất cả các trường trong mỗi phần tử Quiz có đúng định dạng và giá trị hay không. |
+| TC8: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz khi keyWord chứa các ký tự đặc biệt | positive | functional | medium | new | 1 to 49%: Some logic, lacks key checks. | Code trả về toàn bộ danh sách Quiz từ `quizRepository.findAll()`, không có logic để xử lý các ký tự đặc biệt trong `query`. Cần thêm logic để đảm bảo các ký tự đặc biệt được xử lý an toàn và không gây ra lỗi. |
+| TC9: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz khi keyWord là một chuỗi rất dài | edge | functional | medium | new | 1 to 49%: Some logic, lacks key checks. | Code trả về toàn bộ danh sách Quiz từ `quizRepository.findAll()`, không có logic để kiểm tra độ dài của `query`. Cần thêm logic để kiểm tra độ dài của `query` và trả về lỗi nếu vượt quá giới hạn cho phép. |
+| TC10: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz khi có nhiều Quiz có cùng title trùng khớp với keyWord | positive | functional | medium | new | 1 to 49%: Some logic, lacks key checks. | Code trả về toàn bộ danh sách Quiz từ `quizRepository.findAll()`, không có logic để lọc theo `title` trùng khớp với `query`. Cần thêm logic để thực hiện việc lọc này và đảm bảo tất cả các Quiz có `title` trùng khớp đều được trả về. |
+| TC11: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz khi keyWord là tiếng Việt có dấu (không phân biệt hoa thường) | positive | functional | medium | new | 1 to 49%: Some logic, lacks key checks. | Code trả về toàn bộ danh sách Quiz từ `quizRepository.findAll()`, không có logic để xử lý tiếng Việt có dấu trong `query`. Cần thêm logic để đảm bảo tiếng Việt có dấu được xử lý đúng cách và không gây ra lỗi. |
+| TC12: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz khi keyWord chứa các ký tự Unicode | positive | functional | medium | new | 1 to 49%: Some logic, lacks key checks. | Code trả về toàn bộ danh sách Quiz từ `quizRepository.findAll()`, không có logic để xử lý các ký tự Unicode trong `query`. Cần thêm logic để đảm bảo các ký tự Unicode được xử lý đúng cách và không gây ra lỗi. |
+| TC13: [Quiz Library API] Verify that the API returns all quizzes regardless of the search term. | positive | functional | high | new | 80 to 99%: Meets most requirements, minor gaps. | The current implementation returns all quizzes regardless of the search term. However, it throws an exception when the search term is null, which is not the expected behavior. It should return all quizzes in this case as well. |
+| TC14: [Quiz Library API] Verify that the API returns all quizzes regardless of the search term for search2. | positive | functional | high | new | 80 to 99%: Meets most requirements, minor gaps. | The current implementation returns all quizzes regardless of the search term for search2. However, it throws an exception when the search term is null, which is not the expected behavior. It should return all quizzes in this case as well. |
+
+## 🎯 Detailed Mapping
+| ID | AC Description | Status | Test Case Name | Code Location | Assessment | Priority |
+|----|----------------|--------|----------------|---------------|------------|----------|
+| AC1 | API tìm kiếm yêu cầu tham số `query` (bắt buộc). Nếu không truyền `query`, API phải trả về HTTP 400 Bad Request với thông báo lỗi: `Required parameter 'query' is not present`. | Đã định nghĩa | TC1: [Quiz Library API] Verify API trả về HTTP 400 khi không truyền tham số keyWord | QuizController.java | Chưa có code | High |
+| AC2 | Trường hợp `query` là null hoặc chuỗi rỗng: API trả về HTTP 200 OK và trả về toàn bộ danh sách Quiz hiện có trong Quiz Library. | Đã định nghĩa | TC2: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz rỗng khi keyWord là null | QuizServiceImpl.java:search | Code chưa đủ | High |
+| AC2 | Trường hợp `query` là null hoặc chuỗi rỗng: API trả về HTTP 200 OK và trả về toàn bộ danh sách Quiz hiện có trong Quiz Library. | Đã định nghĩa | TC3: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz rỗng khi keyWord là chuỗi rỗng | QuizServiceImpl.java:search | Code chưa đủ | High |
+| AC3 | Trường hợp `query` có giá trị cụ thể: API trả về HTTP 200 OK và trả về danh sách Quiz có `title` hoặc `description` chứa `query` (không phân biệt hoa thường). | Đã định nghĩa | TC5: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title trùng khớp chính xác với keyWord (không phân biệt hoa thường) | QuizServiceImpl.java:search | Code chưa đủ | High |
+| AC4 | Cấu trúc response phải tuân theo định dạng JSON đã cho, bao gồm các trường: `meta` và `data`. Trường `data` là một List các Quiz, mỗi Quiz bao gồm: `id`, `title`, `description`, `category`, `difficulty`, `duration`, `questionCount`, `tags`, `status`, `createdAt`, `updatedAt`, `deletedAt`, `authorId`, `author`, `rating`, `attempts`, `passingScore`, `navigationMode`, `hasTimer`, `timeLimit`, `warningTime`, `allowQuestionPicker`, `shuffleQuestions`, `shuffleAnswers`, `showProgress`, `allowPause`, `maxAttempts`, `questions`, `quizAttempts`, `savedByUsers`, `leaderboardEntries`. | Đã định nghĩa | TC7: [Quiz Library API] Verify cấu trúc response của mỗi phần tử Quiz trong danh sách trả về đúng định dạng theo AC4 | BaseResponse.java | Chưa có testcase | High |
+| AC_AI_Suggest1 | API nên hỗ trợ pagination để xử lý trường hợp số lượng Quiz trong thư viện lớn. Cần có các tham số `pageIndex` và `pageSize` trong request. Giá trị mặc định cho `pageIndex` là 0 và `pageSize` là 10 nếu không được cung cấp. | Đề xuất | Kiểm tra pagination khi số lượng quiz lớn | QuizController.java, QuizServiceImpl.java | Chưa có code | Medium |
+| AC_AI_Suggest2 | API nên trả về HTTP 200 OK và danh sách Quiz rỗng khi không tìm thấy Quiz nào phù hợp với `query`. | Đề xuất | Kiểm tra khi không tìm thấy quiz nào | QuizServiceImpl.java:search | Code chưa đủ | Medium |
+| AC_AI_Suggest3 | API nên log lại các request tìm kiếm, bao gồm cả `query` được sử dụng, để phục vụ cho việc phân tích và cải thiện hiệu năng. Thông tin log bao gồm `request_path`, `query_string`, `code_file`, `method_name`, `message_type`, `request_id`, `headers`. | Đề xuất | Kiểm tra log request tìm kiếm | LogsActivityAOPHandler.java | Chưa có testcase | Low |
+| AC_AI_Suggest4 | API cần validate độ dài tối đa của `query` để tránh tấn công DoS hoặc các vấn đề về hiệu năng. Độ dài tối đa của `query` là 255 ký tự. | Đề xuất | Kiểm tra độ dài tối đa của query | QuizController.java | Chưa có code | Medium |
+| AC_AI_Suggest5 | API cần xử lý các ký tự đặc biệt trong `query` một cách an toàn để tránh SQL injection hoặc các lỗ hổng bảo mật khác. Sử dụng parameterized queries hoặc escaping để xử lý các ký tự đặc biệt. | Đề xuất | Kiểm tra xử lý ký tự đặc biệt trong query | QuizServiceImpl.java | Chưa có code | High |
+| AC_AI_Suggest6 | API nên trả về thông tin về tổng số lượng Quiz (total count) phù hợp với điều kiện tìm kiếm, kể cả khi sử dụng pagination. Thông tin này nên được trả về trong header của response (ví dụ: `X-Total-Count`). | Đề xuất | Kiểm tra thông tin total count trong header response | BaseResponse.java, QuizController.java | Chưa có code | Medium |
+| AC_AI_Suggest7 | API cần kiểm tra quyền truy cập. Chỉ những người dùng đã đăng nhập và có quyền phù hợp (ví dụ: USER, ADMIN) mới được phép tìm kiếm Quiz. Nếu không, API phải trả về HTTP 401 Unauthorized hoặc HTTP 403 Forbidden. | Đề xuất | Kiểm tra quyền truy cập API | QuizController.java | Chưa có code | High |
+| AC_AI_Suggest8 | API cần có cơ chế rate limiting để ngăn chặn việc lạm dụng API và tấn công DoS. Ví dụ, giới hạn số lượng request tìm kiếm trong một khoảng thời gian nhất định (ví dụ: 10 request/giây). | Đề xuất | Kiểm tra rate limiting | QuizController.java | Chưa có code | Medium |
+| AC_AI_Suggest9 | API cần xử lý trường hợp database không khả dụng hoặc gặp lỗi trong quá trình truy vấn. API nên trả về HTTP 500 Internal Server Error với thông báo lỗi phù hợp. | Đề xuất | Kiểm tra xử lý lỗi database | QuizServiceImpl.java | Chưa có code | High |
+| AC_AI_Suggest10 | API cần kiểm tra và xử lý trường hợp `query` chứa các ký tự Unicode không hợp lệ hoặc không được hỗ trợ. API nên trả về HTTP 400 Bad Request với thông báo lỗi rõ ràng. | Đề xuất | Kiểm tra xử lý ký tự Unicode không hợp lệ trong query | QuizController.java | Chưa có code | Medium |
+| AC_AI_Suggest11 | API cần kiểm tra xem người dùng có quyền xem các Quiz ở trạng thái PRIVATE hay không. Chỉ author hoặc ADMIN mới có quyền xem các Quiz PRIVATE. Nếu không, API phải trả về HTTP 403 Forbidden. Kiểm tra này cần được thực hiện trong QuizServiceImpl.java:search. | Đề xuất | Kiểm tra quyền xem Quiz PRIVATE | QuizServiceImpl.java:search | Chưa có code | High |
+| AC_AI_Suggest12 | API cần kiểm tra và xử lý trường hợp có quá nhiều Quiz trùng tên. Cần có biện pháp để phân biệt các Quiz này (ví dụ: hiển thị thêm thông tin về author hoặc category). | Đề xuất | Kiểm tra xử lý Quiz trùng tên | QuizServiceImpl.java | BA cần xem xét | Medium |
+| AC_AI_Suggest13 | API cần đảm bảo tính nhất quán dữ liệu. Nếu một Quiz được cập nhật trong quá trình tìm kiếm, kết quả tìm kiếm phải phản ánh sự thay đổi này. | Đề xuất | Kiểm tra tính nhất quán dữ liệu | QuizServiceImpl.java | Chưa có code | Medium |
+| AC_AI_Suggest14 | API cần có documentation rõ ràng về cách sử dụng, các tham số, cấu trúc response và các mã lỗi có thể xảy ra. Sử dụng OpenAPI (Swagger) để tạo documentation. | Đề xuất | Kiểm tra documentation API | QuizController.java | Chưa có code | Low |
+| AC15 | API search và search2 phải trả về kết quả giống nhau, không phụ thuộc vào giá trị của `query`. | Đề xuất | Kiểm tra kết quả trả về của search và search2 | QuizController.java, QuizServiceImpl.java | Chưa có code | High |
+
+## 📊 Coverage Overview
+| Metric | Value |
+|--------|-------|
+| Total Acceptance Criteria | 20 |
+| Fully Covered | 0 |
+| Partially Covered | 4 |
+| Not Covered | 16 |
+| Requirement Coverage | 25.00% |
+| Code Coverage | 0.00% |
+| Test Case Coverage | 0.00% |
+| Overall Assessment | Not Satisfactory |
+| Quality Score | 10 |
+
+## 📈 Visual Summary Data
+
+### Coverage Distribution
+| Type | Count |
+|------|-------|
+| Fully Covered | 0 |
+| Partially Covered | 4 |
+| Not Covered | 16 |
+
+### Progress Metrics
+| Metric | Percentage |
+|--------|------------|
+| Requirement | 25.00% |
+| Code | 0.00% |
+| Test Case | 0.00% |

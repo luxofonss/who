@@ -1,0 +1,11 @@
+testCaseKey|testCaseName|prepareFileName|httpMethod|expectedHttpCode|requestParamName|requestParamValue|requestBody|expectBody
+TC1|[QuizService] Verify API returns HTTP 400 when search query is missing||GET|400|query|||"{ ""message"": ""Required parameter 'query' is not present"" }"
+TC2|[QuizService] Verify API returns HTTP 200 and all quizzes when search query is null|prepare_all_quizzes.json|GET|200|query|null||expect_all_quizzes.json
+TC3|[QuizService] Verify API returns HTTP 200 and all quizzes when search query is 'All'|prepare_all_quizzes.json|GET|200|query|All||expect_all_quizzes.json
+TC4|[QuizService] Verify API returns HTTP 200 and a quiz when search query matches the title exactly (case-insensitive)|prepare_one_quiz.json|GET|200|query|My Quiz Title||expect_one_quiz.json
+TC5|[QuizService] Verify API returns HTTP 200 and a quiz when search query matches the title exactly (different case)|prepare_one_quiz.json|GET|200|query|my quiz title||expect_one_quiz.json
+TC6|[QuizService] Verify API returns HTTP 200 and an empty list when search query does not match any title|prepare_all_quizzes.json|GET|200|query|NonExistingQuizTitle||expect_empty_list.json
+TC7|[QuizService] Verify API response structure matches the specified format|prepare_one_quiz.json|GET|200|query|My Quiz Title||expect_one_quiz_structure.json
+TC8|[QuizService] Verify API handles special characters in search query correctly|prepare_one_quiz_special_chars.json|GET|200|query|!@#$%^&*()_+||expect_one_quiz_special_chars.json
+TC9|[QuizService] Verify API handles long search query values|prepare_one_quiz.json|GET|200|query|This is a very long quiz title to test the maximum length of the keyword parameter. This is a very long quiz title to test the maximum length of the keyword parameter.||expect_empty_list.json
+TC10|[QuizService] Verify that search API logs request and response data|prepare_one_quiz.json|GET|200|query|My Quiz Title||expect_one_quiz.json

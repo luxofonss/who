@@ -29,7 +29,7 @@ class ModelFactory:
         elif provider == "grok":
             return os.getenv("GROK_MODEL", "grok-beta")
         else:  # gemini
-            return os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+            return os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
     
     @staticmethod
     def get_temperature() -> float:

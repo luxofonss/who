@@ -1,0 +1,15 @@
+testCaseKey|testCaseName|prepareFileName|httpMethod|expectedHttpCode|requestParamName|requestParamValue|requestBody|expectBody
+""|"Kiểm tra API tìm kiếm trả status_code = 400 và response = 'Required parameter ‘keyWord’ is not present', Trường hợp không truyền tham số keyWord"|prepareData_QuizLibraryService_1.csv|POST|400|||{}|"{""message"": ""Required parameter ‘keyWord’ is not present""}"
+""|"Kiểm tra API tìm kiếm trả status_code = 200 và trả về toàn bộ quizzes, Trường hợp tham số keyWord = null"|prepareData_QuizLibraryService_2.csv|POST|200|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 200 và trả về toàn bộ quizzes, Trường hợp tham số keyWord = 'All'"|prepareData_QuizLibraryService_3.csv|POST|200|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 200 và trả về quizzes có title chính xác là 'yen', Trường hợp tham số keyWord = 'yen'"|prepareData_QuizLibraryService_4.csv|POST|200|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 200 và trả về quizzes có title chính xác là 'yen', Trường hợp tham số keyWord = 'YEN' (case-insensitive)"|prepareData_QuizLibraryService_5.csv|POST|200|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 200 và trả về danh sách rỗng, Trường hợp tham số keyWord không khớp với title nào"|prepareData_QuizLibraryService_6.csv|POST|200|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 200 và trả về danh sách rỗng hoặc quizzes đã được lọc, Trường hợp tham số keyWord chứa ký tự đặc biệt"|prepareData_QuizLibraryService_7.csv|POST|200|||{}|{}
+""|"Kiểm tra hiệu năng API tìm kiếm với số lượng lớn quizzes, Trường hợp tham số keyWord = 'common_word' và load test đồng thời"|prepareData_QuizLibraryService_8.csv|POST|200|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 200 và trả về danh sách rỗng, Trường hợp tham số keyWord là một chuỗi rỗng"|prepareData_QuizLibraryService_9.csv|POST|200|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 200 và trả về danh sách rỗng, Trường hợp tham số keyWord chứa ký tự Unicode"|prepareData_QuizLibraryService_10.csv|POST|200|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 200 và trả về danh sách rỗng, Trường hợp tham số keyWord dài hơn độ dài cho phép của cột title"|prepareData_QuizLibraryService_11.csv|POST|200|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 200 và trả về danh sách rỗng, Trường hợp tham số keyWord chứa dấu cách ở đầu và cuối chuỗi"|prepareData_QuizLibraryService_12.csv|POST|200|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 500, Trường hợp có lỗi kết nối cơ sở dữ liệu"|prepareData_QuizLibraryService_13.csv|POST|500|||{}|{}
+""|"Kiểm tra API tìm kiếm trả status_code = 500, Trường hợp có lỗi SQL syntax"|prepareData_QuizLibraryService_14.csv|POST|500|||{}|{} 

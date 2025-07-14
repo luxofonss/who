@@ -1,0 +1,9 @@
+testCaseKey|testCaseName|prepareFileName|httpMethod|expectedHttpCode|requestParamName|requestParamValue|requestBody|expectBody
+TC1|[QuizService] Xác minh API trả về lỗi khi không cung cấp tham số tìm kiếm||GET|400||||"{""message"": ""Required parameter 'keyWord' is not present""}"
+TC2|[QuizService] Xác minh API trả về danh sách tất cả bài kiểm tra khi tham số tìm kiếm là null|prepare_all_quizzes.json|GET|200|query|null||expect_all_quizzes.json
+TC3|[QuizService] Xác minh API trả về danh sách tất cả bài kiểm tra khi tham số tìm kiếm là 'All'|prepare_all_quizzes.json|GET|200|query|All||expect_all_quizzes.json
+TC4|[QuizService] Xác minh API trả về danh sách bài kiểm tra có tiêu đề khớp chính xác với tham số tìm kiếm (không phân biệt hoa thường)|prepare_matching_quizzes.json|GET|200|query|test QUIZ||expect_matching_quizzes.json
+TC5|[QuizService] Xác minh API trả về danh sách trống khi không có bài kiểm tra nào khớp với tham số tìm kiếm|prepare_no_matching_quizzes.json|GET|200|query|nonexistent quiz||expect_empty_list.json
+TC6|[QuizService] Xác minh cấu trúc phản hồi API cho một bài kiểm tra duy nhất|prepare_single_quiz.json|GET|200|query|test quiz 1||expect_single_quiz_structure.json
+TC7|[QuizService] Xác minh API xử lý đúng các ký tự đặc biệt trong tham số tìm kiếm|prepare_special_char_quiz.json|GET|200|query|!@#$%^&*()_+||expect_special_char_quiz.json
+TC8|[QuizService] Xác minh API xử lý đúng tham số tìm kiếm dài|prepare_long_keyword_quiz.json|GET|200|query|This is a very long keyword to test the API's handling of long search terms. This is a very long keyword to test the API's handling of long search terms.||expect_long_keyword_quiz.json
