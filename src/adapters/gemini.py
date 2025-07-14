@@ -20,18 +20,24 @@ class Gemini:  # pylint: disable=too-few-public-methods
         *,
         model_name: str = "gemini-2.0-flash",
         temperature: float = 0.1,
+        api_key: str = None,
     ) -> None:
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("GOOGLE_API_KEY environment variable is not set. Please set it with your Gemini API key.")
+        if api_key:
+            # Use provided API key
+            self._api_key = api_key
+        else:
+            # Fallback to environment variable
+            self._api_key = os.getenv("GOOGLE_API_KEY")
+            if not self._api_key:
+                raise RuntimeError("GOOGLE_API_KEY environment variable is not set. Please set it with your Gemini API key.")
 
         # Configure the client once.  Idempotent.
-        genai.configure(api_key=api_key)
+        genai.configure(api_key=self._api_key)
 
         self._model = genai.GenerativeModel(model_name)
         self._generation_cfg: Dict[str, Any] = {
             "temperature": temperature,
-            "max_output_tokens": 16384 ,
+            "max_output_tokens": 32768,  # Increased from 16384 to 32768 for longer responses
             "candidate_count": 1,
         }
         self.model_name = model_name
@@ -71,11 +77,12 @@ class LangChainGemini(LLM):
         *,
         model_name: str = "gemini-2.0-flash",
         temperature: float = 0.1,
+        api_key: str = None,
         **kwargs
     ):
         super().__init__(model_name=model_name, temperature=temperature, **kwargs)
         # Create Gemini instance without setting it as a field to avoid Pydantic conflicts
-        object.__setattr__(self, '_gemini', Gemini(model_name=model_name, temperature=temperature))
+        object.__setattr__(self, '_gemini', Gemini(model_name=model_name, temperature=temperature, api_key=api_key))
 
     @property
     def _llm_type(self) -> str:
@@ -104,7 +111,6 @@ class LangChainGemini(LLM):
 
         response = self._gemini.invoke(prompt)
 
-        logger.info(f" Response: {response}")
         
         # Handle stop words if provided
         if stop:

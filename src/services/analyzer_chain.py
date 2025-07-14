@@ -16,7 +16,7 @@ from langgraph.prebuilt import ToolExecutor
 from adapters.model_factory import ModelFactory
 from services.retriever import LangChainRetriever
 from services.prompt_builder import PromptBuilder
-from utils.file import read_file, write_analysis_results
+from utils.file import read_file, write_analysis_results, _write_to_file
 
 
 class AgentState(TypedDict):
@@ -77,37 +77,33 @@ class AnalysisError(Exception):
 
 class AnalyzerChain:
 
-    def __init__(self, project_id: str):
+    def __init__(self, project_id: str, model_name: str, api_key: str):
         if not project_id or not isinstance(project_id, str):
             raise ValueError("project_id must be a non-empty string")
         
         self.project_id = project_id
         self.retriever = LangChainRetriever(project_id)
-        self.llm = ModelFactory.create_llm()  # For fallback analysis
-        self.langchain_llm = ModelFactory.create_langchain_llm()  # For LangGraph agent
+        
+        if model_name and api_key:
+            self._setup_custom_model(model_name, api_key)
+        else:
+            raise ValueError("model_name and api_key must be provided")
         
         # Create tool and graph
         self._setup_langgraph()
         
         logger.info(f" AnalyzerChain initialized with LangGraph for project: {project_id}")
 
+    def _setup_custom_model(self, model_name: str, api_key: str):
+        """Setup custom model with provided API key using ModelFactory."""
+        from adapters.model_factory import ModelFactory
+        self.llm = ModelFactory.create_llm(model_name=model_name, api_key=api_key, temperature=0.1)
+        self.langchain_llm = ModelFactory.create_langchain_llm(model_name=model_name, api_key=api_key, temperature=0.1)
+        logger.info(f"🔧 Using custom model: {model_name}")
+
     def _setup_langgraph(self):
         logger.info(" Setting up LangGraph components...")
         
-        # Create the tool
-        self.get_context_tool = Tool(
-            name="get_project_code_context",
-            func=self._find_symbol_context,
-            description=(
-                "Return code content related to any symbol (class/method/DTO/service/etc) from the project. "
-                "Use it when you need more details about classes, methods, or components mentioned in the code. "
-                "Pass the exact name of the class, interface, method, or component you want to understand better."
-            )
-        )
-        logger.info(" Created get_project_code_context tool")
-        
-        # Create tool executor
-        self.tool_executor = ToolExecutor([self.get_context_tool])
         self._build_graph()
         logger.info(" LangGraph setup complete")
 
@@ -154,49 +150,6 @@ class AnalyzerChain:
         # Compile the graph
         self.graph = graph.compile()
         logger.info(" 3-Phase LangGraph workflow compiled with 7 nodes")
-
-    def _find_symbol_context(self, symbol: str, seen_chunks: List[str]) -> Tuple[str, List[str]]:
-        logger.info(f" Searching for symbol: '{symbol}'")
-        try:
-            # Try direct symbol search first
-            logger.debug(f" Attempting direct symbol lookup for: {symbol}")
-            docs = self.retriever.find_by_symbol_name(symbol)
-            
-            # If no direct match, try a broader search
-            if not docs:
-                logger.debug(f" No direct match for '{symbol}', trying semantic search...")
-                docs = self.retriever.retrieve_sync(
-                    symbol,
-                    top=1,
-                    hyde=False
-                )
-            
-            if docs:
-                new_chunks = []
-                new_chunk_ids = []
-                for doc in docs:
-                    chunk_id = doc.metadata.get("id", str(hash(doc.page_content)))  # Fallback to hash if no chunk_id
-                    if chunk_id not in seen_chunks:
-                        new_chunks.append(doc.page_content)
-                        new_chunk_ids.append(chunk_id)
-                    else:
-                        # logger.debug(f" Skipped already seen chunk {chunk_id} for symbol '{symbol}'")
-                        pass
-                
-                if new_chunks:
-                    result = "\n\n".join(new_chunks)
-                    logger.info(f" Found {len(new_chunks)} new documents for '{symbol}' ({len(result)} chars)")
-                    logger.debug(f" Context preview for '{symbol}': {result[:150]}...")
-                    return f"'{symbol}':\n{result}", new_chunk_ids
-                else:
-                    # logger.warning(f" No new chunks found for symbol: '{symbol}'")
-                    return f"No new code found for symbol: {symbol}.", []
-            else:
-                logger.warning(f" No code found for symbol: '{symbol}'")
-                return f"No code found for symbol: {symbol}. Try a different class or method name.", []
-        except Exception as e:
-            logger.error(f" Error retrieving context for symbol '{symbol}': {str(e)}")
-            return f"Error retrieving code for symbol: {symbol} - {str(e)}", []
 
     def _read_api_docs_example(self) -> str:
         """Read API documentation example file"""
@@ -689,6 +642,7 @@ For each test case, check:
 - Are the input parameters supported?
 - Are the expected behaviors implemented?
 - Are error scenarios handled?
+- Analyze test_cases first, then analyze ac_anlysis
 
 Provide a JSON response in format of {{
         "test_cases": base on final_testcases and code context, commit diff, response in format:  {{
@@ -944,68 +898,73 @@ Here is response structure:
             for endpt in endpoints:
                 doc = await self.retriever.retrieve(str(endpt), 1 , hyde=False)
                 logger.info(f"endpoint {str(endpt)} docs {len(doc)}")
+                contents = [doc.page_content for doc in doc]
+                _write_to_file(str(contents), "coe", "logs/code")
                 docs.extend(doc)
                 endpoint_strs.append(str(endpt))
             
-            endpoint_str = str(endpoint_strs)
-            logger.info(f"endpoint_str: {endpoint_str}")
             
-            logger.info(f"len of docs before deduplicate: {len(docs)}")
-            docs = self.retriever._deduplicate_documents(docs)
-            logger.info(f"len of docs after deduplicate: {len(docs)}")
-            initial_context = "\n\n".join(doc.page_content for doc in docs)
-            initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
+            
+            # endpoint_str = str(endpoint_strs)
+            # logger.info(f"endpoint_str: {endpoint_str}")
+            
+            # logger.info(f"len of docs before deduplicate: {len(docs)}")
+            # docs = self.retriever._deduplicate_documents(docs)
+            # logger.info(f"len of docs after deduplicate: {len(docs)}")
+            # initial_context = "\n\n".join(doc.page_content for doc in docs)
+            # initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
 
-            initial_state: AgentState = {
-                "question": f"Analyze the REST endpoint '{endpoint}' according to the requirements and test cases.",
-                "context": initial_context,
-                "endpoint": endpoint_str,
-                "requirements": requirements_txt,
-                "user_text": user_text,
-                "code_commit": code_commit,
-                "history": [],
-                "retrieved_symbols": [],
-                "seen_context": initial_chunk_ids,
-                "final_response": None,
-                "html_response": None,
-                "iteration_count": 0,
-                "last_tool_call_symbols": [],
-                "new_retrieved_symbols": [],
-                "node_call_count": {},
-                "current_phase": "phase1_extract_testcases",
-                "phase_complete": {
-                    "phase1_extract_testcases": False,
-                    "phase1_generate_missing_testcases": False,
-                    "phase1_improve_testcases": False,
-                    "phase2_generate_current_ac": False,
-                    "phase2_generate_missing_ac": False,
-                    "phase2_improve_ac": False,
-                    "phase3_additional_coverage": False,
-                    "format_output": False
-                },
-                "existing_testcases": [],
-                "generated_missing_testcases": [],
-                "final_testcases": [],
-                "current_ac": [],
-                "generated_missing_ac": [],
-                "final_ac": [],
-                "additional_coverage": {},
-                "final_analysis_result": {},
-                "needs_more_context": False
-            }
+            # initial_state: AgentState = {
+            #     "question": f"Analyze the REST endpoint '{endpoint}' according to the requirements and test cases.",
+            #     "context": initial_context,
+            #     "endpoint": endpoint_str,
+            #     "requirements": requirements_txt,
+            #     "user_text": user_text,
+            #     "code_commit": code_commit,
+            #     "history": [],
+            #     "retrieved_symbols": [],
+            #     "seen_context": initial_chunk_ids,
+            #     "final_response": None,
+            #     "html_response": None,
+            #     "iteration_count": 0,
+            #     "last_tool_call_symbols": [],
+            #     "new_retrieved_symbols": [],
+            #     "node_call_count": {},
+            #     "current_phase": "phase1_extract_testcases",
+            #     "phase_complete": {
+            #         "phase1_extract_testcases": False,
+            #         "phase1_generate_missing_testcases": False,
+            #         "phase1_improve_testcases": False,
+            #         "phase2_generate_current_ac": False,
+            #         "phase2_generate_missing_ac": False,
+            #         "phase2_improve_ac": False,
+            #         "phase3_additional_coverage": False,
+            #         "format_output": False
+            #     },
+            #     "existing_testcases": [],
+            #     "generated_missing_testcases": [],
+            #     "final_testcases": [],
+            #     "current_ac": [],
+            #     "generated_missing_ac": [],
+            #     "final_ac": [],
+            #     "additional_coverage": {},
+            #     "final_analysis_result": {},
+            #     "needs_more_context": False
+            # }
             
-            logger.info(" Step 3: Starting LangGraph analysis workflow...")
-            final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
+            # logger.info(" Step 3: Starting LangGraph analysis workflow...")
+            # final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
                     
-            logger.info(" Step 4: Parsing and structuring final response...")
+            # logger.info(" Step 4: Parsing and structuring final response...")
 
-            result = {
-                "markdown_response": final_state.get("html_response", ""),
-                "json_response": final_state.get("final_analysis_result", ""),
-            }
-            # final_analysis_result = final_state.get("final_analysis_result", "")
-            logger.info(f" Analysis complete - returning final response")
-            return result
+            # result = {
+            #     "markdown_response": final_state.get("html_response", ""),
+            #     "json_response": final_state.get("final_analysis_result", ""),
+            # }
+            # # final_analysis_result = final_state.get("final_analysis_result", "")
+            # logger.info(f" Analysis complete - returning final response")
+            # return result
+            return {}
             
         except AnalysisError:
             raise

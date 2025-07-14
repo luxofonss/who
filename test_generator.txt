@@ -1,0 +1,53 @@
+với chunk có "chunk_type": "controller":
+CREATE (OneStudyApplication:EndpointNode {
+  file_path: "storage/repos/onestudy-server-scrum6/src/main/java/com/edu/onestudy/controller/external/AuthController.java::AuthController::whoAmI::29::32",
+  class_name: "AuthController",
+  method_name: whoAmI,
+  chunk_type: "controller",
+  content: "@GetMapping(\"/me\")\n    public BaseResponse<AuthProfileResponse> whoAmI(@CurrentUser UserPrincipal requester) {\n        return baseService.ofSucceeded(authService.getAuthProfile(requester.getId().toString()));\n    }",
+  endpoint: '{ "path": "/api/v1/auth/me","method": "GET"}',
+  summary: ""
+});
+
+với chunk có "method_name khác null:
+CREATE (OneStudyApplication:MethodNodeMethodNode {
+  file_path: "storage/repos/onestudy-server-scrum6/src/main/java/com/edu/onestudy/repository/SavedQuizRepository.java::SavedQuizRepository::existsByQuizIdAndUserId::15::15",
+  class_name: "SavedQuizRepository",
+  method_name: existsByQuizIdAndUserId,
+  chunk_type: "interface",
+  content: "boolean existsByQuizIdAndUserId(String quizId, String userId);",
+  endpoint: null,
+  summary: ""
+});
+
+
+với chunk khác:
+CREATE (UserMapper:ClassNode {
+  file_path: "storage/repos/onestudy-server-scrum6/src/main/java/com/edu/onestudy/OneStudyApplication.java::OneStudyApplication::::11::23",
+  class_name: "UserMapper",
+  method_name: null,
+  chunk_type: "interface",
+  content: "@Mapper(componentModel = \"spring\")\npublic interface UserMapper {\n    User authRegisterRequestToUser(AuthRegisterRequest request);\n    AuthProfileResponse userToAuthProfileResponse(User user);\n}",
+  endpoint: null,
+  summary: ""
+});
+
+tạo quan hệ CALL với node có calls khác rỗng. ví dụ:
+"calls": [
+        "QuizServiceImpl.getQuizStatsById",
+      ],
+thì tạo quan hệ CALL với node có class_name = QuizServiceImpl và method_name = getQuizStatsById
+
+tạo quan hệ CALLED_BY với node có called_by khác rỗng, ví dụ:
+"called_by": [
+        "JwtProvider.generateAccessToken"
+      ],
+thì tạo tạoquan hệ CALLED_BY với node có class_name = JwtProvider và method_name = generateAccessToken
+
+tương tự với implements tạo quan hệ IMPLEMENT, implemented_by thì tạo quan hệ implemented_by
+
+với chunk có vars khác rỗng:
+"vars": [
+        "UserPrincipal"
+      ],
+tạo quan hệ USE với node có class_name = UserPrincipal và method_name null 

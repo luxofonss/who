@@ -9,7 +9,6 @@ from loguru import logger
 from tree_sitter import Language, Parser
 from tree_sitter_languages import get_language
 from utils.constant import JAVA_STANDARD_TYPES, GENERIC_TYPE_VARS
-from adapters.gemini import Gemini
 
 JAVA_LANGUAGE: Language = get_language("java")
 _PARSER = Parser()
@@ -20,7 +19,8 @@ CodeChunk = Dict[str, object]
 DependencyGraph = Dict[str, Dict[str, List[str]]]
 
 BLACKLIST_DIR = {
-    ".git", ".idea", "env", ".github", ".gitlab", 
+    ".git", ".idea", "env", ".github", ".gitlab", "target", "build", 
+    "out", "bin", ".vscode", "node_modules", "__pycache__"
 }
 WHITELIST_EXT = {".java"}
 
@@ -82,7 +82,7 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
 
         method_nodes = []
         for child in class_node.children:
-            if child.type == "class_body" or child.type == "interface_body" or child.type == "enum_body":
+             if child.type in ["class_body", "interface_body", "enum_body"]:
                 method_nodes.extend([
                     n for n in child.children if n.type == "method_declaration"
                 ])
@@ -154,10 +154,14 @@ def _extract_vars(node) -> List[str]:
     captures = JAVA_LANGUAGE.query(q).captures(node);
     res = []
 
-    for node, capture_name in captures:
-        res.append(node.text.decode())
-
-    return res
+    try:
+        captures = JAVA_LANGUAGE.query(q).captures(node)
+        res = []
+        for capture_node, capture_name in captures:
+            res.append(capture_node.text.decode())
+        return res
+    except:
+        return []
 
 def _get_identifier(node, source: str) -> str | None:
     for child in node.children:
@@ -277,9 +281,10 @@ def _infer_chunk_type(node, source: str) -> str:
     if "abstract" in ann_text:
         return "abstract_class"
 
-    interface_nodes = [i for i in node.children if i.type == "interface_declaration"]
-    logger.info(f"interface_nodes: {interface_nodes}")
-    if node.type == "interface_declaration" or interface_nodes:
+    # interface_nodes = [i for i in node.children if i.type == "interface_declaration"]
+    # logger.info(f"interface_nodes: {interface_nodes}")
+    # if node.type == "interface_declaration" or interface_nodes:
+    if node.type == "interface_declaration":
         return "interface"
     
     return "other"
@@ -289,10 +294,6 @@ def _extract_class_level_endpoints(class_node, source: str) -> List[str]:
     paths = []
     for child in class_node.children:
         if child.type == "modifiers":
-            for grandchild in child.children:
-                if grandchild.type != "annotation":
-                    continue
-
 
             text = source[child.start_byte:child.end_byte]
             if "@RequestMapping" in text:

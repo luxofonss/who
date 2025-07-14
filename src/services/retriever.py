@@ -202,21 +202,6 @@ class LangChainRetriever:
         else:
             return ''
 
-    def find_by_symbol_name(self, symbol: str) -> List[Document]:
-        found = []
-        for key, chunk in self._chunk_lookup.items():
-            if symbol.lower() in key.lower():
-                full_text = self._get_full_text(chunk)
-                found.append(Document(page_content=full_text, metadata=chunk))
-        return found
-
-    def retrieve_sync(self, query: str, top: int = 5, hyde: bool = False) -> List[Document]:
-        coro = self.retrieve(query, top, hyde)
-        try:
-            return asyncio.run(coro)
-        except RuntimeError:
-            loop = asyncio.get_event_loop()
-            return loop.run_until_complete(coro)
 
     def _deduplicate_documents(self, docs: List[Document]) -> List[Document]:
         if not docs:

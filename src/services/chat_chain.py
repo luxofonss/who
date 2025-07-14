@@ -12,6 +12,7 @@ from langgraph.graph import StateGraph
 from adapters.gemini import Gemini, LangChainGemini
 from services.retriever import LangChainRetriever
 from services.prompt_builder import PromptBuilder
+from adapters.model_factory import ModelFactory
 
 class ChatState(TypedDict):
     question: str
@@ -51,19 +52,28 @@ class ChatError(Exception):
 class ChatChain:
     """LangGraph-based chat chain for conversational code assistance."""
 
-    def __init__(self, project_id: str):
+    def __init__(self, project_id: str, model_name: Optional[str] = None, api_key: Optional[str] = None):
         if not project_id or not isinstance(project_id, str):
             raise ValueError("project_id must be a non-empty string")
         
         self.project_id = project_id
         self.retriever = LangChainRetriever(project_id)
-        self.llm = Gemini(temperature=0.1)  # Slightly higher temperature for chat
-        self.langchain_llm = LangChainGemini(temperature=0.1)
         
+        if model_name and api_key:
+            self._setup_custom_model(model_name, api_key)
+        else:
+           raise ValueError("model_name and api_key must be provided")
+
         # Create tool and graph
         self._setup_langgraph()
         
         logger.info(f"🤖 ChatChain initialized with LangGraph for project: {project_id}")
+
+    def _setup_custom_model(self, model_name: str, api_key: str):
+        """Setup custom model with provided API key using ModelFactory."""
+        self.llm = ModelFactory.create_llm(model_name=model_name, api_key=api_key, temperature=0.1)
+        self.langchain_llm = ModelFactory.create_langchain_llm(model_name=model_name, api_key=api_key, temperature=0.1)
+        logger.info(f"🔧 Using custom model: {model_name}")
 
     def _setup_langgraph(self):
         logger.info("🔧 Setting up LangGraph components for chat...")

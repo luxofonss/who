@@ -37,33 +37,33 @@ class ModelFactory:
         return float(os.getenv("LLM_TEMPERATURE", "0.1"))
     
     @staticmethod
-    def create_llm() -> Gemini | Claude | Grok:
-        """Create a single-shot LLM instance based on configuration."""
-        provider = ModelFactory.get_llm_provider()
-        model_name = ModelFactory.get_model_name()
-        temperature = ModelFactory.get_temperature()
-        
-        logger.info(f"Creating LLM instance: provider={provider}, model={model_name}, temperature={temperature}")
-        
-        if provider == "claude":
-            return Claude(model_name=model_name, temperature=temperature)
-        elif provider == "grok":
-            return Grok(model_name=model_name, temperature=temperature)
+    def create_llm(model_name: str, api_key: str, temperature: Optional[float] = 0.1):
+        """Create a single-shot LLM instance based on configuration or provided args."""
+        if not model_name:
+            model_name = ModelFactory.get_model_name()
+        if temperature is None:
+            temperature = ModelFactory.get_temperature()
+        if model_name.startswith("claude"):
+            return Claude(model_name=model_name, temperature=temperature, api_key=api_key)
+        elif model_name.startswith("grok"):
+            return Grok(model_name=model_name, temperature=temperature, api_key=api_key)
+        elif model_name.startswith("gemini"):
+            return Gemini(model_name=model_name, temperature=temperature, api_key=api_key)
         else:  # gemini (default)
-            return Gemini(model_name=model_name, temperature=temperature)
+            raise ValueError("Invalid model name")
     
     @staticmethod
-    def create_langchain_llm() -> LangChainGemini | LangChainClaude | LangChainGrok:
-        """Create a LangChain-compatible LLM instance based on configuration."""
-        provider = ModelFactory.get_llm_provider()
-        model_name = ModelFactory.get_model_name()
-        temperature = ModelFactory.get_temperature()
-        
-        logger.info(f"Creating LangChain LLM instance: provider={provider}, model={model_name}, temperature={temperature}")
-        
-        if provider == "claude":
-            return LangChainClaude(model_name=model_name, temperature=temperature)
-        elif provider == "grok":
-            return LangChainGrok(model_name=model_name, temperature=temperature)
+    def create_langchain_llm(model_name: str, api_key: str, temperature: Optional[float] = 0.1):
+        """Create a LangChain-compatible LLM instance based on configuration or provided args."""
+        if not model_name:
+            model_name = ModelFactory.get_model_name()
+        if temperature is None:
+            temperature = ModelFactory.get_temperature()
+        if model_name.startswith("claude"):
+            return LangChainClaude(model_name=model_name, temperature=temperature, api_key=api_key)
+        elif model_name.startswith("grok"):
+            return LangChainGrok(model_name=model_name, temperature=temperature, api_key=api_key)
+        elif model_name.startswith("gemini"):
+            return LangChainGemini(model_name=model_name, temperature=temperature, api_key=api_key)
         else:  # gemini (default)
-            return LangChainGemini(model_name=model_name, temperature=temperature) 
+            raise ValueError("Invalid model name")

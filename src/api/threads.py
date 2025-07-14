@@ -5,7 +5,7 @@ Project Thread API endpoints for conversation context management (flat version)
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 import uuid
@@ -482,61 +482,13 @@ async def get_messages(
         logger.error(f"Error getting latest messages for thread {thread_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
-@router.post("/api/v1/threads/{thread_id}/messages")
-async def send_message(
-    thread_id: str,
-    request: ChatMessageRequest,
-    db: Session = Depends(get_db_session)
-):
-    """Send a chat message to a thread and get AI response using ChatChain or AnalyzerChain"""
-    try:
-        # Verify thread exists and is active
-        thread = db.query(ProjectThread).filter(ProjectThread.thread_id == thread_id).first()
-        if not thread:
-            raise HTTPException(status_code=404, detail="Thread not found")
-        
-        if not thread.is_active:
-            raise HTTPException(status_code=400, detail="Thread is not active")
-        
-        # Verify project exists
-        project = db.query(Project).filter(Project.project_id == thread.project_id).first()
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        logger.info(f"💬 Chat message request for thread {thread_id}: {request.message[:100]}...")
-        
-        # Check if message starts with @analyze
-        is_analyze_request = request.message.strip().lower().startswith("@analyze")
-        
-        if is_analyze_request:
-            # Extract the actual query by removing @analyze prefix
-            user_query = request.message.strip()[8:].strip()  # Remove "@analyze" and trim
-            logger.info(f"🔍 Detected analyze request: {user_query[:100]}...")
-            
-            # Use analyze logic
-            result = await handle_analyze_request(thread_id, user_query, db)
-            
-        else:
-            # Use regular chat logic
-            result = await handle_chat_request(thread_id, request.message, db)
-        
-        return result
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error processing message for thread {thread_id}: {str(e)}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
-
-
-async def handle_analyze_request(thread_id: str, user_query: str, db: Session):
+async def handle_analyze_request(thread_id: str, user_query: str, db: Session, model_name: str, api_key: str):
     """Handle analyze request logic"""
     # Get thread context and requirements using reusable function
     context_data = await get_thread_context_and_requirements(thread_id, db)
     
     # Run the analyzer
-    analyzer = AnalyzerChain(context_data["project"].project_id)
+    analyzer = AnalyzerChain(context_data["project"].project_id, model_name, api_key)
     logger.info(f"Running analysis for endpoint: {context_data['api_path']}")
     logger.info(f"Method: {context_data['api_method']}")
     logger.info(f"User query: {user_query}")
@@ -592,7 +544,7 @@ async def handle_analyze_request(thread_id: str, user_query: str, db: Session):
     return result
 
 
-async def handle_chat_request(thread_id: str, message: str, db: Session):
+async def handle_chat_request(thread_id: str, message: str, db: Session, model_name: Optional[str] = None, api_key: Optional[str] = None):
     """Handle regular chat request logic"""
     # Get chat history for this thread
     history_messages = db.query(ChatHistory).filter(
@@ -619,7 +571,7 @@ async def handle_chat_request(thread_id: str, message: str, db: Session):
         "method": api_method
     }
 
-    chat_chain = ChatChain(context_data["project"].project_id)
+    chat_chain = ChatChain(context_data["project"].project_id, model_name, api_key)
     result = await chat_chain.chat(
         message,
         history,
@@ -665,26 +617,15 @@ async def handle_chat_request(thread_id: str, message: str, db: Session):
             }
     return final_response
 
-
-# Keep the original analyze endpoint as a backup or for direct API calls
-@router.post("/api/v1/threads/{thread_id}/analyze")
-async def analyze(
-    thread_id: str,
-    request: AnalyzeRequest,
-    db: Session = Depends(get_db_session)
-):
-    """Direct analyze endpoint (can be deprecated if not needed)"""
-    return await handle_analyze_request(thread_id, request.user_query, db)
-
-
-# Alternative implementation with more flexible prefix detection
 @router.post("/api/v1/threads/{thread_id}/messages")
 async def send_message_alternative(
     thread_id: str,
     request: ChatMessageRequest,
+    model_name: str = Header(..., alias="X-Model-Name"),
+    api_key: str = Header(..., alias="X-API-Key"),
     db: Session = Depends(get_db_session)
 ):
-    """Alternative implementation with flexible command detection"""
+
     try:
         # Verify thread exists and is active
         thread = db.query(ProjectThread).filter(ProjectThread.thread_id == thread_id).first()
@@ -716,17 +657,13 @@ async def send_message_alternative(
                     break
             
             logger.info(f"🔍 Detected analyze request: {user_query[:100]}...")
-            
-            # Validate that there's actually a query after the command
-            if not user_query:
-                raise HTTPException(status_code=400, detail="Please provide a query after @analyze command")
-            
+                        
             # Use analyze logic
-            result = await handle_analyze_request(thread_id, user_query, db)
+            result = await handle_analyze_request(thread_id, user_query, db, model_name, api_key)
             
         else:
             # Use regular chat logic
-            result = await handle_chat_request(thread_id, request.message, db)
+            result = await handle_chat_request(thread_id, request.message, db, model_name, api_key)
         
         return result
         
@@ -850,4 +787,3 @@ async def retrieve_jira_content(jira_urls: list[str], session_id: str) -> str:
     except Exception as e:
         logger.error(f"Error retrieving Jira content: {str(e)}")
         return f"Error retrieving Jira content: {str(e)}"
-

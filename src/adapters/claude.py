@@ -20,14 +20,20 @@ class Claude:  # pylint: disable=too-few-public-methods
         *,
         model_name: str = "claude-3-5-sonnet-20241022",
         temperature: float = 0.1,
+        api_key: str = None,
     ) -> None:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY environment variable is not set. Please set it with your Claude API key.")
+        if api_key:
+            # Use provided API key
+            self._api_key = api_key
+        else:
+            # Fallback to environment variable
+            self._api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not self._api_key:
+                raise RuntimeError("ANTHROPIC_API_KEY environment variable is not set. Please set it with your Claude API key.")
 
         # Initialize client with proper configuration
         try:
-            self._client = anthropic.Anthropic(api_key=api_key)
+            self._client = anthropic.Anthropic(api_key=self._api_key)
         except TypeError as e:
             # Fallback for compatibility issues
             logger.warning(f"Failed to initialize Anthropic client with default config: {e}")
@@ -58,7 +64,7 @@ class Claude:  # pylint: disable=too-few-public-methods
         try:
             response = self._client.messages.create(
                 model=self._model_name,
-                max_tokens=8192,  # Increase max output tokens for longer responses
+                max_tokens=16384,  # Increased from 8192 to 16384 for longer responses
                 temperature=self._temperature,
                 messages=[
                     {
@@ -87,11 +93,12 @@ class LangChainClaude(LLM):
         *,
         model_name: str = "claude-3-5-sonnet-20241022",
         temperature: float = 0.1,
+        api_key: str = None,
         **kwargs
     ):
         super().__init__(model_name=model_name, temperature=temperature, **kwargs)
         # Create Claude instance without setting it as a field to avoid Pydantic conflicts
-        object.__setattr__(self, '_claude', Claude(model_name=model_name, temperature=temperature))
+        object.__setattr__(self, '_claude', Claude(model_name=model_name, temperature=temperature, api_key=api_key))
 
     @property
     def _llm_type(self) -> str:

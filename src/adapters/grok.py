@@ -20,12 +20,16 @@ class Grok:  # pylint: disable=too-few-public-methods
         *,
         model_name: str = "grok-beta",
         temperature: float = 0.1,
+        api_key: str = None,
     ) -> None:
-        api_key = os.getenv("GROK_API_KEY")
-        if not api_key:
-            raise RuntimeError("GROK_API_KEY environment variable is not set. Please set it with your Grok API key.")
-
-        self._api_key = api_key
+        if api_key:
+            # Use provided API key
+            self._api_key = api_key
+        else:
+            # Fallback to environment variable
+            self._api_key = os.getenv("GROK_API_KEY")
+            if not self._api_key:
+                raise RuntimeError("GROK_API_KEY environment variable is not set. Please set it with your Grok API key.")
         self._model_name = model_name
         self._temperature = temperature
         self._base_url = "https://api.x.ai/v1"
@@ -55,7 +59,7 @@ class Grok:  # pylint: disable=too-few-public-methods
                     }
                 ],
                 "temperature": self._temperature,
-                "max_tokens": 8192  # Increase max output tokens for longer responses
+                "max_tokens": 16384  # Increased from 8192 to 16384 for longer responses
             }
             
             response = requests.post(
@@ -91,11 +95,12 @@ class LangChainGrok(LLM):
         *,
         model_name: str = "grok-beta",
         temperature: float = 0.1,
+        api_key: str = None,
         **kwargs
     ):
         super().__init__(model_name=model_name, temperature=temperature, **kwargs)
         # Create Grok instance without setting it as a field to avoid Pydantic conflicts
-        object.__setattr__(self, '_grok', Grok(model_name=model_name, temperature=temperature))
+        object.__setattr__(self, '_grok', Grok(model_name=model_name, temperature=temperature, api_key=api_key))
 
     @property
     def _llm_type(self) -> str:
