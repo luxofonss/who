@@ -69,6 +69,7 @@ async def create_project(body: CreateProjectRequest, db=Depends(get_db_session))
 
     # Use Neo4j connection to import chunks
     neo4j_conn = get_neo4j_connection()
+    neo4j_conn.delete_project_data(body.project_id)
     neo4j_conn.import_code_chunks(chunks, 50)
 
     # Write metadata
@@ -113,7 +114,11 @@ async def reindex(body: ReindexRequest):
 
     # Re-parse project
     chunks, dep_graph = parse_project(repo_path, body.project_id, True)
-
+    # Use Neo4j connection to import chunks
+    neo4j_conn = get_neo4j_connection()
+    neo4j_conn.delete_project_data(body.project_id)
+    neo4j_conn.import_code_chunks(chunks, 50)
+    
     # Update metadata
     meta = {
         "chunks": [{k: v for k, v in c.items()} for c in chunks],

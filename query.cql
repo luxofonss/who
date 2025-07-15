@@ -34,3 +34,23 @@ WITH endpoint, path, node_list, rel_list,
 RETURN endpoint, path, 
        [node IN filtered_nodes WHERE node IS NOT NULL] AS visited_nodes_per_path
 ORDER BY path
+
+
+
+
+----
+
+
+MATCH (endpoint:EndpointNode {class_name: "PronunciationController", method_name: "getSamplePronunciations"})
+        CALL apoc.path.expandConfig(endpoint, {
+            relationshipFilter: "CALL>|IMPLEMENTED_BY>|EXTENDED_BY>|USE>",
+            minLevel: 1,
+            maxLevel: 20,
+            bfs: true,
+            uniqueness: "NODE_GLOBAL",
+            filterStartNode: false
+        }) YIELD path
+        WITH path, nodes(path) AS node_list, relationships(path) AS rel_list
+        WHERE NONE(i IN range(0, size(rel_list)-2) WHERE type(rel_list[i]) = 'USE' AND size(rel_list) > i + 1)
+        UNWIND node_list AS node
+        RETURN DISTINCT node

@@ -771,7 +771,9 @@ async def retrieve_jira_content(jira_urls: list[str], session_id: str) -> str:
                         if attachments:
                             content += f"\nAttachments ({len(attachments)} total):\n"
                             for attachment in attachments:
-                                content += f"- {attachment.get('filename', '')} ({attachment.get('size', 0)} bytes, {attachment.get('mimeType', '')})\n"
+                                pass
+                                # TODO: handle attachment
+                                # content += f"- {attachment.get('filename', '')} ({attachment.get('size', 0)} bytes, {attachment.get('mimeType', '')})\n"
                         
                         # Note: Commits will be extracted separately using _extract_commits_from_issue
                         content += "\n" + "="*50 + "\n\n"

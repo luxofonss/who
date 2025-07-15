@@ -1,6 +1,7 @@
 import uuid
 import os
 from neo4j import GraphDatabase
+from neo4j.graph import Node
 from typing import List, Dict, Tuple
 
 # Type alias for clarity
@@ -437,3 +438,46 @@ class Neo4jConnection:
         except Exception as e:
             print(f"Error deleting project data in batches: {str(e)}")
             raise e
+
+    def find_endpoint_node(self, class_name: str, method_name: str | None, project_id: str) -> List[Node]:
+        with self.driver.session() as session:
+            # Single query that handles both null and non-null method_name
+            query = """
+            MATCH path = (start)-[:IMPLEMENT|EXTEND|USED_BY|CALLED_BY*1..]->(endpoint:EndpointNode)
+            WHERE start.class_name = $class_name 
+            AND start.project_id = $project_id
+            AND (
+                ($method_name IS NULL AND start.method_name IS NULL) 
+                OR 
+                ($method_name IS NOT NULL AND start.method_name = $method_name)
+            )
+            RETURN DISTINCT endpoint
+            """
+            
+            result = session.run(query, {
+                'class_name': class_name, 
+                'method_name': method_name, 
+                'project_id': project_id
+            })
+            
+            return [record['endpoint'] for record in result]
+
+    def find_related_nodes(self, class_name: str, method_name: str, project_id: str) -> List[Node]:
+        with self.driver.session() as session:
+            query = """
+            MATCH (endpoint:EndpointNode {class_name: $class_name, method_name: $method_name})
+            CALL apoc.path.expandConfig(endpoint, {
+                relationshipFilter: "CALL>|IMPLEMENTED_BY>|EXTENDED_BY>|USE>",
+                minLevel: 1,
+                maxLevel: 20,
+                bfs: true,
+                uniqueness: "NODE_GLOBAL",
+                filterStartNode: false
+            }) YIELD path
+            WITH path, nodes(path) AS node_list, relationships(path) AS rel_list
+            WHERE NONE(i IN range(0, size(rel_list)-2) WHERE type(rel_list[i]) = 'USE' AND size(rel_list) > i + 1)
+            UNWIND node_list AS node
+            RETURN DISTINCT node
+            """
+            result = session.run(query, {'class_name': class_name, 'method_name': method_name, 'project_id': project_id})
+            return [record['node'] for record in result]

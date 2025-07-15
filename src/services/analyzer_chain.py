@@ -12,6 +12,7 @@ from loguru import logger
 from langgraph.graph import StateGraph, END
 
 from adapters.model_factory import ModelFactory
+from services.neo4j import get_neo4j_connection
 from services.retriever import LangChainRetriever
 from services.prompt_builder import PromptBuilder
 from utils.file import read_file
@@ -324,8 +325,6 @@ Response in Vietnamese.  Do not translate English keyword. for example fields in
         
         logger.info(" 🔧 Phase 1.3: Improving and finalizing test cases")
         
-        software_testing_guide = self._read_software_testing_guide()
-        
         prompt = f"""You are Expert Quality Engineer.
 Your task is to improve the additional test cases from the previous step and create a final comprehensive test cases list.
 
@@ -339,26 +338,39 @@ Your task is to improve the additional test cases from the previous step and cre
 
 <generated_missing_test_cases> {json.dumps(state.get('generated_missing_testcases', []), indent=2)} </generated_missing_test_cases>
 
-Improve the generated_missing_test_cases by:
+<software_testing_guide>
+{self._read_software_testing_guide()}
+</software_testing_guide>
 
-- Using the current code context to make test cases more specific and implementable, without including any code snippets or specific class/enum names in test case descriptions.
-- Considering code_diff_commit and current_context for any specific changes that need testing. If new scenarios are identified, add new test cases to generated_missing_test_cases.
-- Following software_testing_guide best practices for clear, concise, and independent test case design.
-- Adding implementation details based on the functionality described in the code structure, focusing on behavior and expected outcomes rather than code-specific references.
+### Instructions for Improving Test Cases
+1. **Improve the generated_missing_test_cases**:
+   - Rewrite each test case description in **natural, clear, and professional Vietnamese**, focusing on functionality, behavior, or user scenarios.
+   - Retain technical terms like "keyWord", "HTTP 200", "HTTP 400", etc., as they are, without translating them into Vietnamese.
+   - Make test cases more specific and implementable based on the <current_context> and <code_diff_commit>, without including code snippets, class names, enum names, or implementation-specific details in descriptions.
+   - Identify and add new test cases if new scenarios are found in the <requirements> or <code_diff_commit> that are not covered by existing or generated test cases.
+   - Follow the <software_testing_guide> for clear, concise, and independent test case design, ensuring each test case focuses on a single behavior or scenario.
+   - Remove the "rationale" field from improved test cases, as it is not required in the final output.
 
-Create a final test cases list that combines existing and improved additional test cases. Do not modify the existing_test_cases.
-The code in current_context and code_diff_commit is only additional data to inform the improvement of additional test cases to cover all scenarios. Test case names and descriptions must:
-- Focus on functionality, behavior, or user scenarios.
-- Avoid including any code, class names, enum names, or implementation-specific details.
-- Be written in a way that is independent of the code structure.
+2. **Combine Test Cases**:
+   - Create a final test cases list that includes:
+     - All <existing_test_cases> (do not modify these).
+     - Improved versions of <generated_missing_test_cases>.
+     - Any new test cases identified from the <requirements> or <code_diff_commit>.
+   - Ensure test case names and descriptions:
+     - Are written in **natural Vietnamese**, avoiding English phrases unless they are technical terms (e.g., "keyWord", "HTTP 200").
+     - Focus on functionality or behavior, independent of code structure.
+     - Are unique, clear, and avoid redundancy (e.g., avoid repeating similar test cases for case sensitivity unless necessary).
+   - Assign appropriate values for "test_type" (positive/negative/edge/performance/security), "category" (functional/integration/unit/performance), "priority" (high/medium/low), and "type" (existing/new).
 
-DO NOT:
-- Do not deleting test cases just because the code doesn't implement those features
-- Do not modifying expected behavior to align with current code implementation
-- Do not overlooking requirements when they differ from the code
-- Do not assuming the existing code logic is correct
+3. **DO NOT**:
+   - Delete test cases just because the code does not implement those features.
+   - Modify expected behavior to align with current code implementation.
+   - Overlook requirements when they differ from the code.
+   - Assume the existing code logic is correct.
+   - Translate technical terms like "keyWord", "HTTP 200", or "HTTP 400" into Vietnamese.
 
-Provide a JSON response:
+4. **Output Format**:
+```json
 {{
     "final_test_cases": [
         {{
@@ -370,8 +382,7 @@ Provide a JSON response:
         }}
     ]
 }}
-Response in Vietnamese. Do not translate English keyword
-
+Response in Vietnamese. Do not translate English technical terms and params, keywords.
 """
         
         try:
@@ -636,6 +647,10 @@ Your task is to analyze whether the test cases and acceptance criteria from prev
 {json.dumps(state.get('final_ac', []), indent=2)}
 </final_ac>
 
+<software_testing_guide>
+{self._read_software_testing_guide()}
+</software_testing_guide>
+
 Analyze the current code implementation to determine:
 1. Whether each test case can be executed against the current code
 2. Whether each acceptance criteria is supported by the current code implementation
@@ -661,9 +676,10 @@ Provide a JSON response in format of {{
             "explain_coverage": "explain how the test case is covered by the code",
         }},
         "ac_analysis": analysis from final_ac. Only analyze "Code Location",	"Assessment", "Priority", testcase and other information must be exactly same as field "testcase" inin final_testcases. AC name and other information must be exactly same as final_ac. Return in format of: {response_ac_guide}.
-        "testcase_csv": analyze exactly all testcases from above "final_testcases". use "current_context" and "requirements". response data in format list of {self._read_testcase_guide_item_json()}
+        "testcase_csv": analyze exactly all testcases from above "final_testcases". use "current_context" and "requirements". response all data in format list of {self._read_testcase_guide_item_json()}.  Please provide the complete response without shortening or using ellipses (...).
     }}  
 
+DO NOT assume , always return full response.  Please provide the complete response without shortening or using ellipses (...).
 IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in English, you can translate it to Vietnamese with full context and information.  Do not translate English keyword. for example fields in request body or params, etc"""
         
         try:
@@ -872,37 +888,66 @@ Here is response structure:
             raise AnalysisError(f"Invalid input: {str(e)}")
         
         # if not endpoint:
-        symbols = [method["class"] + "." + method["method"] for method in changed_methods]
-        endpoints = await self.retriever.retrieve_endpoints(symbols)
-        logger.info(f"Endpoints: {endpoints}")
+        # symbols = [method["class"] + "." + method["method"] for method in changed_methods]
+        # endpoints = await self.retriever.retrieve_endpoints(symbols)
+        # logger.info(f"Endpoints: {endpoints}")
 
-        if endpoint and not endpoints:
-            endpoints.append(endpoint)
+        # if endpoint and not endpoints:
+        #     endpoints.append(endpoint)
         
         logger.info(f" Starting LangGraph AnalyzerChain for endpoint: {endpoint}")
     
         try:
             # TODO: update to retrieve docs of all endpoints
             # TODO: use langchain memory to store chat memory so that user can iterate with ai
-            docs = []
-            endpoint_strs = []
-            for endpt in endpoints:
-                doc = await self.retriever.retrieve(str(endpt), 1 , hyde=False)
-                logger.info(f"endpoint {str(endpt)} docs {len(doc)}")
-                contents = [doc.page_content for doc in doc]
-                docs.extend(doc)
-                endpoint_strs.append(str(endpt))
+            # docs = []
+            # endpoint_strs = []
+            # for endpt in endpoints:
+            #     doc = await self.retriever.retrieve(str(endpt), 1 , hyde=False)
+            #     logger.info(f"endpoint {str(endpt)} docs {len(doc)}")
+            #     contents = [doc.page_content for doc in doc]
+            #     docs.extend(doc)
+            #     endpoint_strs.append(str(endpt))
             
             
             
-            endpoint_str = str(endpoint_strs)
-            logger.info(f"endpoint_str: {endpoint_str}")
+            # endpoint_str = str(endpoint_strs)
+            # logger.info(f"endpoint_str: {endpoint_str}")
             
-            logger.info(f"len of docs before deduplicate: {len(docs)}")
-            docs = self.retriever._deduplicate_documents(docs)
-            logger.info(f"len of docs after deduplicate: {len(docs)}")
-            initial_context = "\n\n".join(doc.page_content for doc in docs)
-            initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
+            # logger.info(f"len of docs before deduplicate: {len(docs)}")
+            # docs = self.retriever._deduplicate_documents(docs)
+            # logger.info(f"len of docs after deduplicate: {len(docs)}")
+            # initial_context = "\n\n".join(doc.page_content for doc in docs)
+            # initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
+
+            neo4j_conn = get_neo4j_connection()
+            endpointNodes = []
+            for symbol in changed_methods:
+                endpointNode = neo4j_conn.find_endpoint_node(symbol["class"], symbol["method"], self.project_id)
+                endpointNodes.extend(endpointNode)
+
+            logger.info(f"endpointNodes: {endpointNodes[0]}")
+
+            relatedNodes = []
+            for endpoint in endpointNodes:
+                class_name = endpoint.get("class_name")
+                method_name = endpoint.get("method_name")
+                relatedNode = neo4j_conn.find_related_nodes(class_name, method_name, self.project_id)
+                relatedNodes.extend(relatedNode)
+            
+            # Deduplicate relatedNodes based on a unique identifier
+            seen_related = set()
+            unique_relatedNodes = []
+            for node in relatedNodes:
+                identifier = node.get("id") or hash(node.get("content", ""))
+                if identifier not in seen_related:
+                    seen_related.add(identifier)
+                    unique_relatedNodes.append(node)
+
+            relatedNodes = unique_relatedNodes
+            logger.info(f"relatedNodes: {relatedNodes[0]}")
+            initial_context = "\n\n".join([node.get("content") for node in relatedNodes])
+            endpoint_str = "\n\n".join([node.get("endpoint") for node in endpointNodes])
 
             initial_state: AgentState = {
                 "question": f"Analyze the REST endpoint '{endpoint}' according to the requirements and test cases.",
@@ -913,7 +958,7 @@ Here is response structure:
                 "code_commit": code_commit,
                 "history": [],
                 "retrieved_symbols": [],
-                "seen_context": initial_chunk_ids,
+                "seen_context": [],
                 "final_response": None,
                 "html_response": None,
                 "iteration_count": 0,
@@ -959,16 +1004,17 @@ Here is response structure:
             raise
         except Exception as e:
             logger.error(f" LangGraph analysis failed: {str(e)}")
-            try:
-                return await self._fallback_analysis(
-                    endpoint=endpoint,
-                    requirements_txt=requirements_txt,
-                    user_text=user_text,
-                    initial_context=initial_context if 'initial_context' in locals() else ""
-                )
-            except Exception as fallback_error:
-                logger.error(f" Fallback analysis also failed: {str(fallback_error)}")
-                raise AnalysisError(f"Both LangGraph and fallback analysis failed. LangGraph error: {str(e)}, Fallback error: {str(fallback_error)}")
+            return {}
+            # try:
+            #     return await self._fallback_analysis(
+            #         endpoint=endpoint,
+            #         requirements_txt=requirements_txt,
+            #         user_text=user_text,
+            #         initial_context=initial_context if 'initial_context' in locals() else ""
+            #     )
+            # except Exception as fallback_error:
+            #     logger.error(f" Fallback analysis also failed: {str(fallback_error)}")
+            #     raise AnalysisError(f"Both LangGraph and fallback analysis failed. LangGraph error: {str(e)}, Fallback error: {str(fallback_error)}")
 
     async def _fallback_analysis(
             self,
