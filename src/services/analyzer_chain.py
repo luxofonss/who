@@ -9,9 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
-from langchain_core.tools import Tool
 from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolExecutor
 
 from adapters.model_factory import ModelFactory
 from services.retriever import LangChainRetriever
@@ -174,6 +172,14 @@ class AnalyzerChain:
     def _read_final_test_response(self) -> str:
         """Read final test response template file"""
         return read_file("final_test_response.txt")
+
+    def _read_testcase_guide_item_json(self) -> str:
+        """Read testcase guide item file"""
+        return read_file("testcase_guide_item_json.json")
+
+    def _read_testcase_guide_item_csv(self) -> str:
+        """Read testcase guide item file"""
+        return read_file("testcase_guide_item_csv.md")
 
     def _extract_existing_testcases_node(self, state: AgentState) -> AgentState:
         """Phase 1 Node 1: Extract existing test cases from requirements"""
@@ -655,6 +661,7 @@ Provide a JSON response in format of {{
             "explain_coverage": "explain how the test case is covered by the code",
         }},
         "ac_analysis": analysis from final_ac. Only analyze "Code Location",	"Assessment", "Priority", testcase and other information must be exactly same as field "testcase" inin final_testcases. AC name and other information must be exactly same as final_ac. Return in format of: {response_ac_guide}.
+        "testcase_csv": analyze exactly all testcases from above "final_testcases". use "current_context" and "requirements". response data in format list of {self._read_testcase_guide_item_json()}
     }}  
 
 IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in English, you can translate it to Vietnamese with full context and information.  Do not translate English keyword. for example fields in request body or params, etc"""
@@ -680,11 +687,14 @@ IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in En
                 
                 # Process AC analysis
                 ac_analysis = result.get("ac_analysis", {})
+
+                testcase_csv = result.get("testcase_csv", [])
                 
                 # Update state with validated data
                 state["final_analysis_result"] = {
                     "test_cases_coverage": test_cases,
-                    "ac_analysis": ac_analysis
+                    "ac_analysis": ac_analysis,
+                    "testcase_csv": testcase_csv,
                 }
                 
                 # Mark phase as complete
@@ -844,6 +854,8 @@ Here is response structure:
 
 {self._read_final_response_ac()}
 
+{self._read_testcase_guide_item_csv()}
+
 """
             
             logger.info(f" Sending prompt to LLM ({len(prompt)} characters)")
@@ -905,66 +917,65 @@ Here is response structure:
             
             
             
-            # endpoint_str = str(endpoint_strs)
-            # logger.info(f"endpoint_str: {endpoint_str}")
+            endpoint_str = str(endpoint_strs)
+            logger.info(f"endpoint_str: {endpoint_str}")
             
-            # logger.info(f"len of docs before deduplicate: {len(docs)}")
-            # docs = self.retriever._deduplicate_documents(docs)
-            # logger.info(f"len of docs after deduplicate: {len(docs)}")
-            # initial_context = "\n\n".join(doc.page_content for doc in docs)
-            # initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
+            logger.info(f"len of docs before deduplicate: {len(docs)}")
+            docs = self.retriever._deduplicate_documents(docs)
+            logger.info(f"len of docs after deduplicate: {len(docs)}")
+            initial_context = "\n\n".join(doc.page_content for doc in docs)
+            initial_chunk_ids = [doc.metadata.get("id", str(hash(doc.page_content))) for doc in docs]
 
-            # initial_state: AgentState = {
-            #     "question": f"Analyze the REST endpoint '{endpoint}' according to the requirements and test cases.",
-            #     "context": initial_context,
-            #     "endpoint": endpoint_str,
-            #     "requirements": requirements_txt,
-            #     "user_text": user_text,
-            #     "code_commit": code_commit,
-            #     "history": [],
-            #     "retrieved_symbols": [],
-            #     "seen_context": initial_chunk_ids,
-            #     "final_response": None,
-            #     "html_response": None,
-            #     "iteration_count": 0,
-            #     "last_tool_call_symbols": [],
-            #     "new_retrieved_symbols": [],
-            #     "node_call_count": {},
-            #     "current_phase": "phase1_extract_testcases",
-            #     "phase_complete": {
-            #         "phase1_extract_testcases": False,
-            #         "phase1_generate_missing_testcases": False,
-            #         "phase1_improve_testcases": False,
-            #         "phase2_generate_current_ac": False,
-            #         "phase2_generate_missing_ac": False,
-            #         "phase2_improve_ac": False,
-            #         "phase3_additional_coverage": False,
-            #         "format_output": False
-            #     },
-            #     "existing_testcases": [],
-            #     "generated_missing_testcases": [],
-            #     "final_testcases": [],
-            #     "current_ac": [],
-            #     "generated_missing_ac": [],
-            #     "final_ac": [],
-            #     "additional_coverage": {},
-            #     "final_analysis_result": {},
-            #     "needs_more_context": False
-            # }
+            initial_state: AgentState = {
+                "question": f"Analyze the REST endpoint '{endpoint}' according to the requirements and test cases.",
+                "context": initial_context,
+                "endpoint": endpoint_str,
+                "requirements": requirements_txt,
+                "user_text": user_text,
+                "code_commit": code_commit,
+                "history": [],
+                "retrieved_symbols": [],
+                "seen_context": initial_chunk_ids,
+                "final_response": None,
+                "html_response": None,
+                "iteration_count": 0,
+                "last_tool_call_symbols": [],
+                "new_retrieved_symbols": [],
+                "node_call_count": {},
+                "current_phase": "phase1_extract_testcases",
+                "phase_complete": {
+                    "phase1_extract_testcases": False,
+                    "phase1_generate_missing_testcases": False,
+                    "phase1_improve_testcases": False,
+                    "phase2_generate_current_ac": False,
+                    "phase2_generate_missing_ac": False,
+                    "phase2_improve_ac": False,
+                    "phase3_additional_coverage": False,
+                    "format_output": False
+                },
+                "existing_testcases": [],
+                "generated_missing_testcases": [],
+                "final_testcases": [],
+                "current_ac": [],
+                "generated_missing_ac": [],
+                "final_ac": [],
+                "additional_coverage": {},
+                "final_analysis_result": {},
+                "needs_more_context": False
+            }
             
-            # logger.info(" Step 3: Starting LangGraph analysis workflow...")
-            # final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
+            logger.info(" Step 3: Starting LangGraph analysis workflow...")
+            final_state = await asyncio.to_thread(self.graph.invoke, initial_state)
                     
-            # logger.info(" Step 4: Parsing and structuring final response...")
+            logger.info(" Step 4: Parsing and structuring final response...")
 
-            # result = {
-            #     "markdown_response": final_state.get("html_response", ""),
-            #     "json_response": final_state.get("final_analysis_result", ""),
-            # }
-            # # final_analysis_result = final_state.get("final_analysis_result", "")
-            # logger.info(f" Analysis complete - returning final response")
-            # return result
-            return {}
+            result = {
+                "markdown_response": final_state.get("html_response", ""),
+                "json_response": final_state.get("final_analysis_result", ""),
+            }
+            # final_analysis_result = final_state.get("final_analysis_result", "")
+            logger.info(f" Analysis complete - returning final response")
+            return result
             
         except AnalysisError:
             raise

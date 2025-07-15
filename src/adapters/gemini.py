@@ -21,6 +21,7 @@ class Gemini:  # pylint: disable=too-few-public-methods
         model_name: str = "gemini-2.0-flash",
         temperature: float = 0.1,
         api_key: str = None,
+        timeout: int = 600,  # 10 minutes default timeout
     ) -> None:
         if api_key:
             # Use provided API key
@@ -37,11 +38,12 @@ class Gemini:  # pylint: disable=too-few-public-methods
         self._model = genai.GenerativeModel(model_name)
         self._generation_cfg: Dict[str, Any] = {
             "temperature": temperature,
-            "max_output_tokens": 32768,  # Increased from 16384 to 32768 for longer responses
+            "max_output_tokens": 512000,  # Increased from 512000 to 512000 for longer responses
             "candidate_count": 1,
         }
         self.model_name = model_name
-        logger.info("Gemini adapter initialised (model=%s, temperature=%.2f)", model_name, temperature)
+        self.timeout = timeout
+        logger.info("Gemini adapter initialised (model=%s, temperature=%.2f, timeout=%ds)", model_name, temperature, timeout)
 
     # ------------------------------------------------------------------
     def invoke(self, prompt: str) -> str:
@@ -53,10 +55,18 @@ class Gemini:  # pylint: disable=too-few-public-methods
         # logger.debug(f"Gemini prompt (first 100000 chars): {prompt[:100000]}")
 
         try:
+            import time
+            start_time = time.time()
+            
             response = self._model.generate_content(
                 [prompt],
                 generation_config=self._generation_cfg,
             )
+            
+            elapsed_time = time.time() - start_time
+            if elapsed_time > self.timeout:
+                logger.warning(f"Gemini API call took {elapsed_time:.2f}s (timeout: {self.timeout}s)")
+            
             text: str = response.text or ""
             # logger.debug(f"Gemini raw response: {text[:10000]}")
             return text
@@ -78,11 +88,12 @@ class LangChainGemini(LLM):
         model_name: str = "gemini-2.0-flash",
         temperature: float = 0.1,
         api_key: str = None,
+        timeout: int = 600,  # 10 minutes default timeout
         **kwargs
     ):
         super().__init__(model_name=model_name, temperature=temperature, **kwargs)
         # Create Gemini instance without setting it as a field to avoid Pydantic conflicts
-        object.__setattr__(self, '_gemini', Gemini(model_name=model_name, temperature=temperature, api_key=api_key))
+        object.__setattr__(self, '_gemini', Gemini(model_name=model_name, temperature=temperature, api_key=api_key, timeout=timeout))
 
     @property
     def _llm_type(self) -> str:

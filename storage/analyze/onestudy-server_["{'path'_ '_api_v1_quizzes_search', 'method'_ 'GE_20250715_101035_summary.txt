@@ -1,0 +1,28 @@
+Analysis Report
+==================================================
+Project ID: onestudy-server
+Endpoint: ["{'path': '/api/v1/quizzes/search', 'method': 'GET'}", "{'path': '/api/v1/quizzes/search2', 'method': 'GET'}"]
+Analysis Date: 2025-07-15 10:10:35
+Timestamp: 20250715_101035
+
+Phase Completion Status:
+  - phase1_extract_testcases: ✅ Completed
+  - phase1_generate_missing_testcases: ✅ Completed
+  - phase1_improve_testcases: ✅ Completed
+  - phase2_generate_current_ac: ✅ Completed
+  - phase2_generate_missing_ac: ✅ Completed
+  - phase2_improve_ac: ✅ Completed
+  - phase3_additional_coverage: ✅ Completed
+  - format_output: ✅ Completed
+
+Generated Missing Test Cases: 20
+Final Test Cases: 40
+Current Acceptance Criteria: 12
+Generated Missing AC: 16
+Final Acceptance Criteria: 32
+
+Coverage Analysis:
+
+Context Length: 149253 characters
+Requirements Length: 2673 characters
+  (truncated in summary)

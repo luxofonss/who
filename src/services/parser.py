@@ -191,8 +191,6 @@ def _extract_calls(method_node, source: str, this_class: str, var_types: Dict[st
 
             qualified = f"unknown.{method_name}"  # fallback
 
-            logger.info(f"var_types: {var_types}")
-
             if object_node:
                 obj_text = _resolve_object_name(object_node, source).strip()
 

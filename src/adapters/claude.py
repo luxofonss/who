@@ -64,7 +64,7 @@ class Claude:  # pylint: disable=too-few-public-methods
         try:
             response = self._client.messages.create(
                 model=self._model_name,
-                max_tokens=16384,  # Increased from 8192 to 16384 for longer responses
+                max_tokens=512000,  # Increased from 8192 to 512000 for longer responses
                 temperature=self._temperature,
                 messages=[
                     {

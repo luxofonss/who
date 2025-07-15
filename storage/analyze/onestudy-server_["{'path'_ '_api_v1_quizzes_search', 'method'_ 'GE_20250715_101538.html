@@ -1,0 +1,76 @@
+# Requirements Analysis Report
+
+## 📋 Analysis Metadata
+| Field | Value |
+|-------|-------|
+| Jira Task ID | SCRUM-1 |
+| Git Commit IDs | 5d6559ed219cbd90c803ebce5387998510106be3, 0090ac14c88895f59409e45d33220ef62ce7d08b, 30b7f27ce6c7c132ffb8f14e85c0c0bc40a76bf6 |
+| Analysis Date | 2025-07-12T07:45:00+07:00 |
+
+## 🎯 Detailed Mapping
+| ID | AC Description | Status | Test Case Name | Code Location | Assessment | Priority |
+|----|----------------|--------|----------------|---------------|------------|----------|
+| AC1 | API `/search` và `/search2` yêu cầu tham số `query` (bắt buộc). Nếu không truyền `query`, API phải trả về HTTP 400 Bad Request với thông báo lỗi: `Required parameter 'query' is not present`. | Đã định nghĩa | TC1: [API Thư viện Quiz] Xác minh API trả về HTTP 400 khi không truyền tham số tìm kiếm, phản hồi chứa thông báo lỗi chính xác. | QuizController.java | Chưa có code | High |
+| AC2 | Trường hợp `query` là null hoặc chuỗi rỗng: API trả về HTTP 200 OK và trả về toàn bộ danh sách Quiz hiện có trong Quiz Library. Việc này tuân theo logic hiện tại của `QuizServiceImpl.search()` và `QuizServiceImpl.search2()`. | Đã định nghĩa | TC2: [API Thư viện Quiz] Xác minh API trả về HTTP 200 và danh sách Quiz rỗng khi tham số tìm kiếm là null. | QuizServiceImpl.java:519, QuizServiceImpl.java:527 | Code chưa đủ | High |
+| AC3 | Trường hợp `query` có giá trị cụ thể: API trả về HTTP 200 OK và trả về danh sách Quiz. Do implement trả về toàn bộ quiz, cần làm rõ yêu cầu: Quiz có `title` chứa `query` (không phân biệt hoa thường) hay `title` chính xác bằng `query` (không phân biệt hoa thường). | Cần làm rõ | TC5: [API Thư viện Quiz] Xác minh API trả về HTTP 200 và danh sách Quiz có tiêu đề trùng khớp chính xác với tham số tìm kiếm (không phân biệt hoa thường). Trường hợp: tham số tìm kiếm chứa ký tự đặc biệt. | QuizServiceImpl.java:519, QuizServiceImpl.java:527 | BA cần xem xét | High |
+| AC4 | Cấu trúc response phải tuân theo định dạng `BaseResponse<List<Quiz>>` JSON đã cho, bao gồm các trường: `meta` và `data`. `data` là một list các Quiz, mỗi Quiz bao gồm: `id`, `title`, `description`, `category`, `difficulty`, `duration`, `questionCount`, `tags`, `status`, `createdAt`, `updatedAt`, `deletedAt`, `authorId`, `author`, `rating`, `attempts`, `passingScore`, `navigationMode`, `hasTimer`, `timeLimit`, `warningTime`, `allowQuestionPicker`, `shuffleQuestions`, `shuffleAnswers`, `showProgress`, `allowPause`, `maxAttempts`, `questions`, `quizAttempts`, `savedByUsers`, `leaderboardEntries`. | Đã định nghĩa | TC7: [API Thư viện Quiz] Xác minh cấu trúc phản hồi của mỗi phần tử Quiz trong danh sách trả về đúng định dạng. | BaseResponse.java, Quiz.java | Chưa có testcase | High |
+| AC_AI_Suggest1 | API nên có logging để theo dõi các request tìm kiếm, bao gồm cả `query` được sử dụng và kết quả trả về. Sử dụng `@LogsActivityAnnotation` để log request và response, bao gồm thông tin về `request_path`, `query_string`, `code_file`, `method_name`, `message_type`, `request_id`, `headers`, `execution_time`. | Đề xuất |  | LogsActivityAOPHandler.java | Testcase chưa đủ | Medium |
+| AC_AI_Suggest2 | API nên có cơ chế để ngăn chặn các tấn công injection thông qua tham số `query`. Cần validate input để loại bỏ hoặc escape các ký tự đặc biệt có thể gây hại. | Đề xuất |  |  | Chưa có code | High |
+| AC_AI_Suggest3 | API nên trả về HTTP 204 No Content nếu không tìm thấy Quiz nào phù hợp với `query` (ngoại trừ trường hợp `query` là null hoặc chuỗi rỗng). | Đề xuất |  |  | Chưa có code | Medium |
+| AC_AI_Suggest4 | API nên có cơ chế xác thực và phân quyền để đảm bảo chỉ những người dùng được phép mới có thể tìm kiếm Quiz trong thư viện. Nếu người dùng không có quyền, API nên trả về HTTP 403 Forbidden. | Đề xuất |  |  | Chưa có code | Medium |
+| AC_AI_Suggest5 | API nên có cơ chế pagination để xử lý trường hợp số lượng Quiz trả về lớn, tránh gây quá tải cho server và client. Cần xác định số lượng Quiz tối đa trả về trên một trang (pageSize) và tham số để chỉ định trang cần lấy (pageIndex). | Đề xuất |  |  | Chưa có code | Medium |
+| AC_AI_Suggest6 | API nên trả về thông tin về tổng số Quiz tìm thấy (totalCount) để client có thể hiển thị thông tin pagination một cách chính xác. Thông tin này nên được trả về trong meta của `BaseResponse`. | Đề xuất |  | BaseResponse.java | Chưa có code | Medium |
+| AC_AI_Suggest7 | API cần xử lý trường hợp có lỗi xảy ra trong quá trình tìm kiếm (ví dụ: lỗi database, lỗi kết nối). API nên trả về HTTP 500 Internal Server Error với thông báo lỗi chi tiết trong `BaseResponse.meta.message`. | Đề xuất | TC10: [API Thư viện Quiz] Xác minh API trả về HTTP 500 khi có lỗi xảy ra ở phía server. |  | Chưa có code | High |
+| AC_AI_Suggest8 | API cần validate tham số `query`. Nếu `query` chứa các ký tự đặc biệt không hợp lệ (ví dụ: các ký tự có thể gây ra lỗi SQL injection nếu không được xử lý đúng cách), API nên trả về HTTP 400 Bad Request với thông báo lỗi trong `BaseResponse.meta.message`. | Đề xuất |  |  | Chưa có code | High |
+| AC_AI_Suggest9 | API nên có cơ chế rate limiting để ngăn chặn việc lạm dụng API (ví dụ: tấn công DoS). | Đề xuất |  |  | Chưa có code | Medium |
+| AC_AI_Suggest10 | API cần đảm bảo performance tốt. Thời gian phản hồi của API nên nằm trong một ngưỡng chấp nhận được (ví dụ: dưới 200ms). | Đề xuất |  |  | Chưa có code | Medium |
+| AC_AI_Suggest11 | API cần kiểm tra quyền truy cập của người dùng. Chỉ những người dùng có quyền xem quiz mới được phép tìm kiếm quiz. Nếu người dùng không có quyền, API nên trả về HTTP 403 Forbidden. | Đề xuất |  |  | Chưa có code | High |
+| AC_AI_Suggest12 | API cần xử lý trường hợp database không khả dụng. API nên trả về HTTP 503 Service Unavailable với thông báo lỗi chi tiết trong `BaseResponse.meta.message`. | Đề xuất |  |  | Chưa có code | High |
+| AC_AI_Suggest13 | API cần kiểm tra độ dài tối đa của tham số `query`. Nếu `query` vượt quá độ dài cho phép, API nên trả về HTTP 400 Bad Request với thông báo lỗi trong `BaseResponse.meta.message`. | Đề xuất |  |  | Chưa có code | Medium |
+| AC_AI_Suggest14 | API nên trả về một HTTP header (ví dụ: `X-Total-Count`) chứa tổng số lượng quiz tìm thấy, để client có thể dễ dàng lấy thông tin này mà không cần parse response body. | Đề xuất |  |  | Chưa có code | Low |
+
+## 📊 Coverage Overview
+| Metric | Value |
+|--------|-------|
+| Total Acceptance Criteria | 18 |
+| Fully Covered | 1 |
+| Partially Covered | 1 |
+| Not Covered | 16 |
+| Requirement Coverage | 22.22 |
+| Code Coverage | 50 |
+| Test Case Coverage | 50 |
+| Overall Assessment | Not Satisfactory |
+| Quality Score | 25 |
+
+## 📈 Visual Summary Data
+
+### Coverage Distribution
+| Type | Count |
+|------|-------|
+| Fully Covered | 1 |
+| Partially Covered | 1 |
+| Not Covered | 16 |
+
+### Progress Metrics
+| Metric | Percentage |
+|--------|------------|
+| Requirement | 22.22 |
+| Code | 50 |
+| Test Case | 50 |
+
+# Test Cases Analysis
+
+| Test Case | Test Type | Category | Priority | Type | Code Coverage Score | Explain Coverage |
+|-----------|-----------|----------|----------|------|-------------------|------------------|
+| TC1: [API Thư viện Quiz] Xác minh API trả về HTTP 400 khi không truyền tham số tìm kiếm, phản hồi chứa thông báo lỗi chính xác. | negative | functional | high | new | 0%: Không có logic để xử lý trường hợp không có tham số `query`. | Hiện tại, code không kiểm tra sự tồn tại của tham số `query`. Nếu tham số này không được truyền, code sẽ ném ra ngoại lệ `BusinessException` với mã lỗi `ErrorConstant.QUIZ_NOT_FOUND`, nhưng không trả về mã HTTP 400 và thông báo lỗi chính xác theo yêu cầu. |
+| TC2: [API Thư viện Quiz] Xác minh API trả về HTTP 200 và danh sách Quiz rỗng khi tham số tìm kiếm là null. | positive | functional | high | new | 50%: Code có kiểm tra `query == null` nhưng trả về toàn bộ danh sách Quiz thay vì danh sách rỗng. | Code có kiểm tra `query == null` và ném ra `BusinessException`, nhưng theo yêu cầu, API cần trả về HTTP 200 và danh sách Quiz rỗng. Cần sửa đổi code để trả về danh sách rỗng khi `query == null`. |
+| TC3: [API Thư viện Quiz] Xác minh API trả về HTTP 200 và danh sách Quiz rỗng khi tham số tìm kiếm là chuỗi rỗng. | positive | functional | high | new | 0%: Không có logic để xử lý trường hợp tham số tìm kiếm là chuỗi rỗng. | Code hiện tại không xử lý trường hợp tham số tìm kiếm là chuỗi rỗng. Cần thêm logic để kiểm tra và trả về danh sách rỗng khi `query` là chuỗi rỗng. |
+| TC4: [API Thư viện Quiz] Xác minh API trả về HTTP 200 và toàn bộ danh sách Quiz khi tham số tìm kiếm là 'All'. | positive | functional | high | new | 100%: Code trả về toàn bộ danh sách Quiz khi có tham số tìm kiếm. | Code hiện tại trả về toàn bộ danh sách Quiz khi có tham số tìm kiếm, do đó đáp ứng yêu cầu của test case này. |
+| TC5: [API Thư viện Quiz] Xác minh API trả về HTTP 200 và danh sách Quiz có tiêu đề trùng khớp chính xác với tham số tìm kiếm (không phân biệt hoa thường). Trường hợp: tham số tìm kiếm chứa ký tự đặc biệt. | positive | functional | high | new | 0%: Không có logic để tìm kiếm theo tiêu đề trùng khớp chính xác và không phân biệt hoa thường. | Code hiện tại trả về toàn bộ danh sách Quiz mà không thực hiện tìm kiếm theo tiêu đề. Cần thêm logic để tìm kiếm theo tiêu đề trùng khớp chính xác (không phân biệt hoa thường) và xử lý ký tự đặc biệt. |
+| TC6: [API Thư viện Quiz] Xác minh API trả về HTTP 200 và danh sách Quiz rỗng khi không có Quiz nào có tiêu đề trùng khớp với tham số tìm kiếm. | positive | functional | high | new | 0%: Không có logic để tìm kiếm theo tiêu đề trùng khớp chính xác và trả về danh sách rỗng khi không tìm thấy. | Code hiện tại trả về toàn bộ danh sách Quiz mà không thực hiện tìm kiếm theo tiêu đề. Cần thêm logic để tìm kiếm theo tiêu đề trùng khớp chính xác và trả về danh sách rỗng khi không tìm thấy Quiz nào phù hợp. |
+| TC7: [API Thư viện Quiz] Xác minh cấu trúc phản hồi của mỗi phần tử Quiz trong danh sách trả về đúng định dạng. | positive | functional | high | new | 100%: Cấu trúc response được định nghĩa rõ ràng trong các DTO và Entity. | Cấu trúc response được đảm bảo thông qua các DTO và Entity đã được định nghĩa, và được trả về thông qua `BaseResponse`. |
+| TC8: [API Thư viện Quiz] Xác minh API trả về HTTP 200 và danh sách Quiz có tiêu đề trùng khớp chính xác với tham số tìm kiếm (không phân biệt hoa thường). Trường hợp: tham số tìm kiếm là một chuỗi rất dài. | edge | functional | medium | new | 0%: Không có logic để tìm kiếm theo tiêu đề trùng khớp chính xác và không phân biệt hoa thường. | Code hiện tại trả về toàn bộ danh sách Quiz mà không thực hiện tìm kiếm theo tiêu đề. Cần thêm logic để tìm kiếm theo tiêu đề trùng khớp chính xác (không phân biệt hoa thường) và xử lý chuỗi dài. |
+| TC9: [API Thư viện Quiz] Xác minh API trả về HTTP 200 và danh sách Quiz có tiêu đề trùng khớp chính xác với tham số tìm kiếm (không phân biệt hoa thường). Trường hợp: tham số tìm kiếm chứa các ký tự Unicode. | edge | functional | medium | new | 0%: Không có logic để tìm kiếm theo tiêu đề trùng khớp chính xác và không phân biệt hoa thường. | Code hiện tại trả về toàn bộ danh sách Quiz mà không thực hiện tìm kiếm theo tiêu đề. Cần thêm logic để tìm kiếm theo tiêu đề trùng khớp chính xác (không phân biệt hoa thường) và xử lý ký tự Unicode. |
+| TC10: [API Thư viện Quiz] Xác minh API trả về HTTP 500 khi có lỗi xảy ra ở phía server. | negative | functional | medium | new | 0%: Không có logic để mô phỏng lỗi server và trả về HTTP 500. | Code hiện tại không có cơ chế để mô phỏng lỗi server và trả về HTTP 500. Cần thêm logic để xử lý các trường hợp lỗi và trả về mã HTTP phù hợp. |
+| TC11: [API Thư viện Quiz] Xác minh API trả về danh sách tất cả các Quiz khi tham số tìm kiếm không được cung cấp. | positive | functional | high | new | 0%: Không có logic để xử lý trường hợp không có tham số `query`. | Hiện tại, code không kiểm tra sự tồn tại của tham số `query`. Nếu tham số này không được truyền, code sẽ ném ra ngoại lệ `BusinessException` với mã lỗi `ErrorConstant.QUIZ_NOT_FOUND`, nhưng không trả về danh sách tất cả các Quiz. |
+| TC12: [API Thư viện Quiz] Xác minh API trả về danh sách tất cả các Quiz khi tham số tìm kiếm là một chuỗi bất kỳ. | positive | functional | high | new | 100%: Code trả về toàn bộ danh sách Quiz khi có tham số tìm kiếm. | Code hiện tại trả về toàn bộ danh sách Quiz khi có tham số tìm kiếm, do đó đáp ứng yêu cầu của test case này. |
