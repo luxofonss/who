@@ -1,0 +1,31 @@
+version: '3.8'
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:15
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres:/data/postgres
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "2345:5432"
+    networks:
+      - postgres-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres:
+
+networks:
+  postgres-network:
+    driver: bridge
