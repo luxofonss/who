@@ -14,7 +14,7 @@ from langgraph.graph import StateGraph, END
 from adapters.model_factory import ModelFactory
 from services.retriever import LangChainRetriever
 from services.prompt_builder import PromptBuilder
-from utils.file import read_file, write_analysis_results, _write_to_file
+from utils.file import read_file
 
 
 class AgentState(TypedDict):
@@ -783,27 +783,6 @@ IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in En
         state["html_response"] = html_content
         state["phase_complete"]["format_output"] = True
         
-        # Write analysis results to files
-        logger.info(" 💾 Writing analysis results to files...")
-        try:
-            written_files = write_analysis_results(
-                state_data=dict(state),
-                project_id=self.project_id,
-                endpoint=state["endpoint"],
-                base_dir="storage/analyze"
-            )
-            
-            if written_files:
-                logger.info(" ✅ Analysis results written to files:")
-                for file_type, file_path in written_files.items():
-                    logger.info(f"   - {file_type.upper()}: {file_path}")
-                
-            else:
-                logger.warning(" ⚠️ No files were written")
-                
-        except Exception as e:
-            logger.error(f" ❌ Error writing analysis results to files: {e}")
-        
         logger.info(" ✅ Final Phase completed: Comprehensive output formatted")
         
         return state
@@ -911,7 +890,6 @@ Here is response structure:
                 doc = await self.retriever.retrieve(str(endpt), 1 , hyde=False)
                 logger.info(f"endpoint {str(endpt)} docs {len(doc)}")
                 contents = [doc.page_content for doc in doc]
-                _write_to_file(str(contents), "coe", "logs/code")
                 docs.extend(doc)
                 endpoint_strs.append(str(endpt))
             
