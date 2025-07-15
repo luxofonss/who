@@ -926,7 +926,8 @@ Here is response structure:
                 endpointNode = neo4j_conn.find_endpoint_node(symbol["class"], symbol["method"], self.project_id)
                 endpointNodes.extend(endpointNode)
 
-            logger.info(f"endpointNodes: {endpointNodes[0]}")
+            if len(endpointNodes) > 0:
+                logger.info(f"endpointNodes: {endpointNodes[0]}")
 
             relatedNodes = []
             for endpoint in endpointNodes:
@@ -945,7 +946,9 @@ Here is response structure:
                     unique_relatedNodes.append(node)
 
             relatedNodes = unique_relatedNodes
-            logger.info(f"relatedNodes: {relatedNodes[0]}")
+            if len(relatedNodes) > 0:
+                logger.info(f"relatedNodes: {relatedNodes[0]}")
+
             initial_context = "\n\n".join([node.get("content") for node in relatedNodes])
             endpoint_str = "\n\n".join([node.get("endpoint") for node in endpointNodes])
 

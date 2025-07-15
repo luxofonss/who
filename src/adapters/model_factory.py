@@ -4,6 +4,7 @@ Model factory for creating LLM instances based on configuration
 
 import os
 from typing import Optional
+from adapters.deepseek import DeepSeek, LangChainDeepSeek
 from loguru import logger
 
 from .gemini import Gemini, LangChainGemini
@@ -31,6 +32,8 @@ class ModelFactory:
             return os.getenv("GROK_MODEL", "grok-beta")
         elif provider == "openai":
             return os.getenv("OPENAI_MODEL", "gpt-4o")
+        elif provider == "deepseek":
+            return os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
         else:  # gemini
             return os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
     
@@ -58,11 +61,13 @@ class ModelFactory:
         elif model_name.startswith("grok"):
             return Grok(model_name=model_name, temperature=temperature, api_key=api_key)
         elif model_name.startswith("gpt") or model_name.startswith("openai"):
-            return OpenAIAdapter(model_name=model_name, temperature=temperature, api_key=api_key)
+            return OpenAIAdapter(model_name=model_name, temperature=temperature, api_key=api_key, timeout=timeout)
+        elif model_name.startswith("deepseek"):
+            return DeepSeek(model_name=model_name, temperature=temperature, api_key=api_key, timeout=timeout)
         elif model_name.startswith("gemini"):
             return Gemini(model_name=model_name, temperature=temperature, api_key=api_key, timeout=timeout)
-        else:  # gemini (default)
-            raise ValueError("Invalid model name")
+        else:
+            raise ValueError(f"Invalid model name: {model_name}")
     
     @staticmethod
     def create_langchain_llm(model_name: str, api_key: str, temperature: Optional[float] = 0.1, timeout: Optional[int] = None):
@@ -79,7 +84,9 @@ class ModelFactory:
             return LangChainGrok(model_name=model_name, temperature=temperature, api_key=api_key)
         elif model_name.startswith("gpt") or model_name.startswith("openai"):
             return LangChainOpenAI(model_name=model_name, temperature=temperature, api_key=api_key)
+        elif model_name.startswith("deepseek"):
+            return LangChainDeepSeek(model_name=model_name, temperature=temperature, api_key=api_key, timeout=timeout)
         elif model_name.startswith("gemini"):
             return LangChainGemini(model_name=model_name, temperature=temperature, api_key=api_key, timeout=timeout)
-        else:  # gemini (default)
-            raise ValueError("Invalid model name")
+        else:
+            raise ValueError(f"Invalid model name: {model_name}")
