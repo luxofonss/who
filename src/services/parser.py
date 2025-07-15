@@ -37,36 +37,180 @@ def list_java_files(root: Path) -> List[Path]:
             files.append(p)
     return files
 
-def parse_project(root: Path) -> Tuple[List[CodeChunk], DependencyGraph]:
+def _check_duplicate_chunks(chunks: List[CodeChunk]) -> List[CodeChunk]:
+    """Remove duplicate chunks based on their ID"""
+    seen_ids = set()
+    unique_chunks = []
+    duplicate_count = 0
+    
+    for chunk in chunks:
+        chunk_id = chunk.get("id", "")
+        if chunk_id not in seen_ids:
+            seen_ids.add(chunk_id)
+            unique_chunks.append(chunk)
+        else:
+            duplicate_count += 1
+            logger.info(f"Duplicate chunk found with ID: {chunk_id}")
+    
+    if duplicate_count > 0:
+        logger.info(f"Removed {duplicate_count} duplicate chunks")
+    
+    return unique_chunks
+
+def parse_project(root: Path, project_id: str, remove_comments: bool = True) -> Tuple[List[CodeChunk], DependencyGraph]:
+    """Parse entire Java project and build dependency graph"""
     chunks: List[CodeChunk] = []
     dep_graph: DependencyGraph = {}
+    # Store class hierarchy information for method-level inheritance resolution
+    class_hierarchy: Dict[str, Dict[str, any]] = {}
 
-    for file_path in list_java_files(root):
+    java_files = list_java_files(root)
+    
+    # First pass: collect class hierarchy information
+    for file_path in java_files:
+        try:
+            text = file_path.read_text("utf-8")
+            if remove_comments:
+                text = _remove_comments(text)
+            tree = _PARSER.parse(text.encode("utf-8"))
+            _collect_class_hierarchy(file_path, tree, text, class_hierarchy)
+        except Exception as exc:
+            logger.error(f"Error collecting hierarchy for {file_path}: {exc}")
+    
+    # Second pass: parse files with hierarchy context
+    for i, file_path in enumerate(java_files):
+        logger.info(f"Processing file {i+1}/{len(java_files)}: {file_path}")
+        
         try:
             text = file_path.read_text("utf-8")
         except UnicodeDecodeError:
-            logger.warning(f"Could not read {file_path} – skipping")
+            logger.info(f"Could not read {file_path} – skipping")
             continue
 
+        # Remove comments before parsing if requested
+        if remove_comments:
+            logger.info(f"Removing comments from {file_path}")
+            cleaned_text = _remove_comments(text)
+        else:
+            cleaned_text = text
+
         try:
-            tree = _PARSER.parse(text.encode("utf-8"))
+            tree = _PARSER.parse(cleaned_text.encode("utf-8"))
         except Exception as exc:
             logger.error(f"Parser error for {file_path}: {exc}")
             continue
 
-        file_chunks, file_graph = _parse_file(file_path, tree, text)
+        file_chunks, file_graph = _parse_file(project_id, file_path, tree, cleaned_text, class_hierarchy)
         chunks.extend(file_chunks)
         dep_graph.update(file_graph)
 
+    # Check for duplicate chunks
+    chunks = _check_duplicate_chunks(chunks)
+    
     _populate_called_by(dep_graph)
     _attach_called_by_to_chunks(chunks, dep_graph)
     _populate_extends_and_implements_by(chunks, dep_graph)
 
-    logger.info(f"parse_project: collected {len(chunks)} chunks ({len(dep_graph)} graph nodes)")
+    logger.info(f"Parse complete: {len(chunks)} chunks, {len(dep_graph)} graph nodes")
     return chunks, dep_graph
 
 
-def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], DependencyGraph]:
+def _collect_class_hierarchy(file_path: Path, tree, source: str, class_hierarchy: Dict[str, Dict]):
+    """Collect class hierarchy information for later method resolution"""
+    root_node = tree.root_node
+    
+    for class_node in [n for n in root_node.children if n.type not in EXCLUDE_CHUNK_TYPE]:
+        class_name = _get_identifier(class_node, source) or file_path.stem
+        hierarchy = _extract_class_hierarchy(class_node, source)
+        
+        # Store class hierarchy with method signatures
+        class_hierarchy[class_name] = {
+            "extends": hierarchy["extends"],
+            "implements": hierarchy["implements"],
+            "methods": _extract_method_signatures(class_node, source),
+            "file_path": str(file_path)
+        }
+
+
+def _extract_method_signatures(class_node, source: str) -> List[Dict[str, str]]:
+    """Extract method signatures from a class"""
+    method_signatures = []
+    
+    method_nodes = []
+    for child in class_node.children:
+        if child.type in ["class_body", "interface_body", "enum_body"]:
+            method_nodes.extend([
+                n for n in child.children if n.type == "method_declaration"
+            ])
+    
+    for method_node in method_nodes:
+        method_name = _get_identifier(method_node, source) or "unknown"
+        
+        # Extract method signature (return type + parameters)
+        signature = _extract_method_signature(method_node, source)
+        method_signatures.append({
+            "name": method_name,
+            "signature": signature
+        })
+    
+    return method_signatures
+
+
+def _extract_method_signature(method_node, source: str) -> str:
+    """Extract method signature for comparison"""
+    # Get method name
+    method_name = _get_identifier(method_node, source) or "unknown"
+    
+    # Get parameters
+    params = []
+    for child in method_node.children:
+        if child.type == "formal_parameters":
+            for param in child.children:
+                if param.type == "formal_parameter":
+                    type_node = param.child_by_field_name("type")
+                    if type_node:
+                        param_type = source[type_node.start_byte:type_node.end_byte].strip()
+                        # Remove generic parameters for matching
+                        param_type = param_type.split("<")[0]
+                        params.append(param_type)
+    
+    return f"{method_name}({','.join(params)})"
+
+
+def _resolve_method_inheritance(class_name: str, method_name: str, method_signature: str, 
+                               class_hierarchy: Dict[str, Dict]) -> Dict[str, List[str]]:
+    """Resolve which parent class/interface methods this method implements/overrides"""
+    implements = []
+    extends = []
+    
+    if class_name not in class_hierarchy:
+        return {"implements": implements, "extends": extends}
+    
+    current_class = class_hierarchy[class_name]
+    
+    # Check implemented interfaces
+    for interface_name in current_class.get("implements", []):
+        if interface_name in class_hierarchy:
+            interface_methods = class_hierarchy[interface_name].get("methods", [])
+            for method_info in interface_methods:
+                if method_info["signature"] == method_signature:
+                    implements.append(f"{interface_name}.{method_name}")
+                    logger.info(f"Method {class_name}.{method_name} implements {interface_name}.{method_name}")
+    
+    # Check extended class
+    extended_class = current_class.get("extends")
+    if extended_class and extended_class in class_hierarchy:
+        extended_methods = class_hierarchy[extended_class].get("methods", [])
+        for method_info in extended_methods:
+            if method_info["signature"] == method_signature:
+                extends.append(f"{extended_class}.{method_name}")
+                logger.info(f"Method {class_name}.{method_name} overrides {extended_class}.{method_name}")
+    
+    return {"implements": implements, "extends": extends}
+
+
+def _parse_file(project_id: str, file_path: Path, tree, source: str, class_hierarchy: Dict[str, Dict]) -> Tuple[List[CodeChunk], DependencyGraph]:
+    """Parse a single Java file with class hierarchy context"""
     chunks: List[CodeChunk] = []
     graph: DependencyGraph = {}
 
@@ -76,20 +220,22 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
         class_name = _get_identifier(class_node, source) or file_path.stem
         chunk_type = _infer_chunk_type(class_node, source)
         class_endpoints = _extract_class_level_endpoints(class_node, source)
-        class_hierarchy = _extract_class_hierarchy(class_node, source)
+        class_hierarchy_info = _extract_class_hierarchy(class_node, source)
 
         field_map = _extract_fields(class_node, source)
 
         method_nodes = []
         for child in class_node.children:
-             if child.type in ["class_body", "interface_body", "enum_body"]:
+            if child.type in ["class_body", "interface_body", "enum_body"]:
                 method_nodes.extend([
                     n for n in child.children if n.type == "method_declaration"
                 ])
     
-        logger.info(f"class_node: {class_name}")
-        logger.info(f"method_nodes: {method_nodes}")
+        logger.info(f"Processing class: {class_name} with {len(method_nodes)} methods")
+        
+        # Create class-level chunk
         chunk = _build_chunk(
+            project_id=project_id,
             file_path=file_path,
             class_name=class_name,
             method_name=None,
@@ -99,26 +245,30 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
             content=source[class_node.start_byte:class_node.end_byte],
             calls=[],
             endpoints=[{"path": ep, "method": "REQUEST"} for ep in class_endpoints] if chunk_type == "controller" else [],
-            extends=class_hierarchy['extends'],
-            implements=class_hierarchy['implements'],
+            extends=class_hierarchy_info['extends'],
+            implements=class_hierarchy_info['implements'],
         )
         chunks.append(chunk)
         graph[f"{class_name}"] = {
             "calls": [], 
             "called_by": [], 
-            "extends": class_hierarchy['extends'], 
-            "implements": class_hierarchy['implements'],
+            "extends": class_hierarchy_info['extends'], 
+            "implements": class_hierarchy_info['implements'],
             "extended_by": [],
             "implemented_by": []
         }
 
+        # Process methods
         for m_node in method_nodes:
             method_name = _get_identifier(m_node, source) or "unknown"
-            logger.info(f"method_name: {method_name}")
+            method_signature = _extract_method_signature(m_node, source)
             param_map = _extract_param_types(m_node, source)
-            vars = _extract_vars(m_node)
-            vars = [var for var in vars if var not in JAVA_STANDARD_TYPES and var not in GENERIC_TYPE_VARS]
+            vars_list = _extract_vars(m_node)
+            vars_list = [var for var in vars_list if var not in JAVA_STANDARD_TYPES and var not in GENERIC_TYPE_VARS]
             calls = _extract_calls(m_node, source, class_name, {**field_map, **param_map})
+
+            # Resolve method-level inheritance
+            method_inheritance = _resolve_method_inheritance(class_name, method_name, method_signature, class_hierarchy)
 
             endpoint = _extract_method_endpoint(m_node, source)
             endpoints = []
@@ -127,6 +277,7 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
                 endpoints.append({"path": path, "method": method})
 
             chunk = _build_chunk(
+                project_id=project_id,
                 file_path=file_path,
                 class_name=class_name,
                 method_name=method_name,
@@ -136,24 +287,23 @@ def _parse_file(file_path: Path, tree, source: str) -> Tuple[List[CodeChunk], De
                 content=source[m_node.start_byte:m_node.end_byte],
                 calls=calls,
                 endpoints=endpoints,
-                extends=None,
-                implements=[],
-                vars=vars,
+                extends=method_inheritance["extends"],
+                implements=method_inheritance["implements"],
+                vars=vars_list,
             )
             chunks.append(chunk)
             graph[f"{class_name}.{method_name}"] = {"calls": calls, "called_by": []}
 
     return chunks, graph
 
+
 def _extract_vars(node) -> List[str]:
+    """Extract variable type identifiers from a node"""
     q = """
     (
         (type_identifier) @vars
     )
     """
-    captures = JAVA_LANGUAGE.query(q).captures(node);
-    res = []
-
     try:
         captures = JAVA_LANGUAGE.query(q).captures(node)
         res = []
@@ -163,7 +313,9 @@ def _extract_vars(node) -> List[str]:
     except:
         return []
 
+
 def _get_identifier(node, source: str) -> str | None:
+    """Get identifier from a node"""
     for child in node.children:
         if child.type == "identifier":
             return source[child.start_byte:child.end_byte]
@@ -177,6 +329,7 @@ def _get_identifier(node, source: str) -> str | None:
 
 
 def _extract_calls(method_node, source: str, this_class: str, var_types: Dict[str, str]) -> List[str]:
+    """Extract method calls from a method node"""
     calls: set[str] = set()
 
     def walk(node):
@@ -204,12 +357,12 @@ def _extract_calls(method_node, source: str, this_class: str, var_types: Dict[st
                     if root in var_types:
                         qualified = f"{var_types[root]}.{method_name}"
                     else:
-                        logger.warning(f"Unresolved object: '{obj_text}' -> '{method_name}'")
+                        logger.info(f"Unresolved object: '{obj_text}' -> '{method_name}'")
                         qualified = f"unknown.{method_name}"
                 elif obj_text[0].isupper():
                     qualified = f"{obj_text}.{method_name}"
                 else:
-                    logger.warning(f"Unknown object: '{obj_text}' in method '{method_name}'")
+                    logger.info(f"Unknown object: '{obj_text}' in method '{method_name}'")
                     qualified = f"unknown.{method_name}"
             else:
                 qualified = f"{this_class}.{method_name}"
@@ -222,8 +375,9 @@ def _extract_calls(method_node, source: str, this_class: str, var_types: Dict[st
     walk(method_node)
     return sorted(calls)
 
+
 def _resolve_object_name(node, source: str) -> str:
-    """Resolves the left-hand-side of a method call or field access."""
+    """Resolve the left-hand-side of a method call or field access"""
     if node is None:
         return "unknown"
 
@@ -242,7 +396,9 @@ def _resolve_object_name(node, source: str) -> str:
 
     return "unknown"
 
+
 def _extract_param_types(method_node, source: str) -> Dict[str, str]:
+    """Extract parameter types from method declaration"""
     param_map = {}
     for child in method_node.children:
         if child.type == "formal_parameters":
@@ -256,10 +412,12 @@ def _extract_param_types(method_node, source: str) -> Dict[str, str]:
                         param_map[name] = typename
     return param_map
 
+
 def _infer_chunk_type(node, source: str) -> str:
+    """Infer the type of a code chunk based on annotations"""
     annotations = [c for c in node.children if c.type == "modifiers"]
     ann_text = "".join(source[c.start_byte:c.end_byte].lower() for c in annotations)
-    logger.info(f"ann_text {ann_text}")
+    
     if "@controller" in ann_text or "@restcontroller" in ann_text:
         return "controller"
     if "@service" in ann_text:
@@ -279,9 +437,6 @@ def _infer_chunk_type(node, source: str) -> str:
     if "abstract" in ann_text:
         return "abstract_class"
 
-    # interface_nodes = [i for i in node.children if i.type == "interface_declaration"]
-    # logger.info(f"interface_nodes: {interface_nodes}")
-    # if node.type == "interface_declaration" or interface_nodes:
     if node.type == "interface_declaration":
         return "interface"
     
@@ -289,10 +444,10 @@ def _infer_chunk_type(node, source: str) -> str:
 
 
 def _extract_class_level_endpoints(class_node, source: str) -> List[str]:
+    """Extract endpoints from class-level RequestMapping annotations"""
     paths = []
     for child in class_node.children:
         if child.type == "modifiers":
-
             text = source[child.start_byte:child.end_byte]
             if "@RequestMapping" in text:
                 val = _extract_annotation_value(text, "value") or _extract_annotation_value(text, "path")
@@ -300,7 +455,9 @@ def _extract_class_level_endpoints(class_node, source: str) -> List[str]:
                     paths.append(val)
     return paths
 
+
 def _extract_annotation_value(annotation_text: str, param_name: str) -> str | None:
+    """Extract value from annotation parameter"""
     # Handle value = "/path", path = "/path", or short form like @GetMapping("/users")
     pattern = rf'{param_name}\s*=\s*(?:"([^"]+)"|\{{?"([^"]+)"\}}?)'
     match = re.search(pattern, annotation_text)
@@ -312,7 +469,9 @@ def _extract_annotation_value(annotation_text: str, param_name: str) -> str | No
         return match.group(1) if match else None
     return None
 
+
 def _extract_method_endpoint(method_node, source: str) -> Tuple[str, str] | None:
+    """Extract endpoint information from method annotations"""
     method_path = ""
     http_method = "REQUEST"
 
@@ -359,7 +518,9 @@ def _extract_method_endpoint(method_node, source: str) -> Tuple[str, str] | None
         full_path = class_path.rstrip("/")
     return full_path or "/", http_method
 
+
 def _extract_fields(class_node, source: str) -> Dict[str, str]:
+    """Extract field declarations from class"""
     field_map: Dict[str, str] = {}
 
     field_nodes = []
@@ -376,16 +537,13 @@ def _extract_fields(class_node, source: str) -> Dict[str, str]:
 
         # Extract base type (ignore generic parameters)
         raw_type = source[type_node.start_byte:type_node.end_byte].strip()
-        logger.info(f"raw_type: {raw_type}")
         type_name = raw_type.split("<")[0].strip()
-        logger.info(f"type_name: {type_name}")
 
         # Support multiple declarators (e.g., `String a, b;`)
         declarator_nodes = [
             n for n in field_node.children if n.type == "variable_declarator"
         ]
         for decl in declarator_nodes:
-            logger.info(f"decl: {decl}")
             name_node = decl.child_by_field_name("name")
             if name_node:
                 var_name = source[name_node.start_byte:name_node.end_byte].strip()
@@ -394,8 +552,31 @@ def _extract_fields(class_node, source: str) -> Dict[str, str]:
     return field_map
 
 
+def _deduplicate_list(data: List[str]) -> List[str]:
+    """Remove duplicates from a list while preserving order"""
+    seen = set()
+    result = []
+    for item in data:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def _deduplicate_endpoints(endpoints: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """Remove duplicate endpoints"""
+    seen = set()
+    result = []
+    for endpoint in endpoints:
+        # Create a unique key for each endpoint
+        key = f"{endpoint.get('path', '')}:{endpoint.get('method', '')}"
+        if key not in seen:
+            seen.add(key)
+            result.append(endpoint)
+    return result
+
 def _build_chunk(
     *,
+    project_id: str,
     file_path: Path,
     class_name: str,
     method_name: str | None,
@@ -405,15 +586,33 @@ def _build_chunk(
     content: str,
     calls: List[str],
     endpoints: List[Dict[str, str]],
-    extends: Optional[str] = None,
+    extends: Optional[str | List[str]] = None,
     implements: Optional[List[str]] = None,
     vars: List[str] = []
 ) -> CodeChunk:
+    """Build a code chunk with all metadata"""
     line_start = start_point[0] + 1
     line_end = end_point[0] + 1
     chunk_id = f"{file_path}::{class_name}::{method_name or ''}::{line_start}::{line_end}"
-    chunk = {
+    
+    # Handle extends being either string or list
+    if isinstance(extends, str):
+        extends_list = [extends] if extends else []
+    elif isinstance(extends, list):
+        extends_list = extends
+    else:
+        extends_list = []
+    
+    # Deduplicate all list fields
+    calls = _deduplicate_list(calls)
+    vars = _deduplicate_list(vars)
+    implements = _deduplicate_list(implements or [])
+    extends_list = _deduplicate_list(extends_list)
+    endpoints = _deduplicate_endpoints(endpoints)
+    
+    return {
         "id": chunk_id,
+        "project_id": project_id,
         "file_path": str(file_path),
         "class_name": class_name,
         "method_name": method_name,
@@ -424,49 +623,36 @@ def _build_chunk(
         "line_end": line_end,
         "content": content,
         "endpoints": endpoints,
-        "extends": extends,
-        "implements": implements or [],
+        "extends": extends_list,
+        "implements": implements,
         "extended_by": [],
         "implemented_by": [],
-        "vars": vars
+        "vars": vars,
+        "summary": ""  # Can be populated later with AI summarization
     }
-
-    # TODO: add summary, now i dont have enough model to do this hehe
-    chunk["summary"] = _summarise_chunk(chunk)
-    return chunk
-
-
-def _summarise_chunk(chunk: CodeChunk) -> str:
-    # TODO: enable this when we have enough money to call model
-    # content = chunk.get("content", "")
-    # content_preview = str(content)
-    # prompt = (
-    #     f"Summarise the following Java {chunk.get('chunk_type')} in ONE sentence.\n\n"
-    #     + content_preview
-    # )
-    # try:
-    #     return Gemini().invoke(prompt).strip()
-    # except Exception as exc:
-    #     logger.error("Gemini summary failed: %s", exc)
-    #     return ""
-    return ""
 
 
 def _populate_called_by(dep_graph: DependencyGraph):
+    """Populate called_by relationships from calls"""
     for caller, rel in dep_graph.items():
-        for callee in rel["calls"]:
+        for callee in rel.get("calls", []):
             if callee in dep_graph:
-                dep_graph[callee]["called_by"].append(caller)
+                # Deduplicate called_by list
+                if caller not in dep_graph[callee].get("called_by", []):
+                    dep_graph[callee].setdefault("called_by", []).append(caller)
 
 
 def _attach_called_by_to_chunks(chunks: List[CodeChunk], dep_graph: DependencyGraph):
+    """Attach called_by information to chunks"""
     for chunk in chunks:
         if chunk["method_name"] is None:
             continue
         key = f"{chunk['class_name']}.{chunk['method_name']}"
-        chunk["called_by"] = dep_graph.get(key, {}).get("called_by", [])
+        chunk["called_by"] = _deduplicate_list(dep_graph.get(key, {}).get("called_by", []))
+
 
 def _populate_extends_and_implements_by(chunks: List[CodeChunk], dep_graph: DependencyGraph):
+    """Populate extends and implements relationships"""
     # First, populate the graph relationships
     for chunk in chunks:
         this_class = str(chunk.get("class_name", ""))
@@ -476,31 +662,34 @@ def _populate_extends_and_implements_by(chunks: List[CodeChunk], dep_graph: Depe
         implements = chunk.get("implements", [])
         if isinstance(implements, list):
             for parent in implements:
-                dep_graph.setdefault(str(parent), {}).setdefault("implemented_by", []).append(this_class)
+                dep_graph.setdefault(str(parent), {}).setdefault("implemented_by", [])
+                if this_class not in dep_graph[str(parent)]["implemented_by"]:
+                    dep_graph[str(parent)]["implemented_by"].append(this_class)
 
-        extends = chunk.get("extends")
-        if extends:
-            dep_graph.setdefault(str(extends), {}).setdefault("extended_by", []).append(this_class)
+        extends = chunk.get("extends", [])
+        if isinstance(extends, list):
+            for parent in extends:
+                dep_graph.setdefault(str(parent), {}).setdefault("extended_by", [])
+                if this_class not in dep_graph[str(parent)]["extended_by"]:
+                    dep_graph[str(parent)]["extended_by"].append(this_class)
     
     # Then, populate the chunk relationships
     for chunk in chunks:
         class_name = str(chunk.get("class_name", ""))
         if class_name in dep_graph:
-            chunk["extended_by"] = dep_graph[class_name].get("extended_by", [])
-            chunk["implemented_by"] = dep_graph[class_name].get("implemented_by", [])
+            chunk["extended_by"] = _deduplicate_list(dep_graph[class_name].get("extended_by", []))
+            chunk["implemented_by"] = _deduplicate_list(dep_graph[class_name].get("implemented_by", []))
 
 def _extract_class_hierarchy(class_node, source: str) -> dict:
+    """Extract class hierarchy (extends/implements) information"""
     extends = None
     implements = []
 
-    # --- Extract superclass ---
+    # Extract superclass
     superclass_node = class_node.child_by_field_name("superclass")
     if superclass_node:
-        logger.info(f"superclass_node: {superclass_node}")
-        # Try field_name first
         type_id_node = superclass_node.child_by_field_name("type_identifier")
         if not type_id_node:
-            # Fallback: iterate to find a 'type_identifier' manually
             type_id_node = next(
                 (child for child in superclass_node.children if child.type == "type_identifier"),
                 None
@@ -508,11 +697,9 @@ def _extract_class_hierarchy(class_node, source: str) -> dict:
         if type_id_node:
             extends = source[type_id_node.start_byte:type_id_node.end_byte]
 
-    # --- Extract implemented interfaces ---
+    # Extract mplemented interfaces
     interfaces_node = class_node.child_by_field_name("interfaces")
     if interfaces_node:
-        logger.info(f"interfaces_node: {interfaces_node}")
-        # Fallback: no "type_list" field name, so find manually
         type_list = next(
             (child for child in interfaces_node.children if child.type == "type_list"),
             None
@@ -526,3 +713,54 @@ def _extract_class_hierarchy(class_node, source: str) -> dict:
         "extends": extends,
         "implements": implements
     }
+
+def generate_summary(chunks: List[CodeChunk], dep_graph: DependencyGraph) -> Dict:
+    """Generate summary statistics"""
+    summary = {
+        "total_chunks": len(chunks),
+        "total_classes": len([c for c in chunks if c["method_name"] is None]),
+        "total_methods": len([c for c in chunks if c["method_name"] is not None]),
+        "chunk_types": {},
+        "dependency_stats": {
+            "total_nodes": len(dep_graph),
+            "total_relationships": 0
+        }
+
+    }
+
+    # Count chunk types
+    for chunk in chunks:
+        chunk_type = chunk["chunk_type"]
+        summary["chunk_types"][chunk_type] = summary["chunk_types"].get(chunk_type, 0) + 1
+
+    # Count relationships
+    for node_data in dep_graph.values():
+        for rel_type in ["calls", "called_by", "extends", "implements", "extended_by", "implemented_by"]:
+            if rel_type in node_data:
+                summary["dependency_stats"]["total_relationships"] += len(node_data[rel_type])
+
+
+    return summary
+
+def _remove_comments(source: str) -> str:
+    """Remove all Java comments from source code"""
+    import re
+
+    source = re.sub(r'//.*?$', '', source, flags=re.MULTILINE)
+    # Remove multi-line comments (/* ... */)
+    source = re.sub(r'/\*.*?\*/', '', source, flags=re.DOTALL)
+    # Remove Javadoc comments (/** ... */)
+    source = re.sub(r'/\*\*.*?\*/', '', source, flags=re.DOTALL)
+    # Clean up extra whitespace and empty lines
+    lines = source.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped:  # Keep non-empty lines
+            cleaned_lines.append(line)
+        else:
+            # Keep empty lines but reduce multiple consecutive empty lines
+            if not cleaned_lines or cleaned_lines[-1].strip():
+                cleaned_lines.append(line)
+
+    return '\n'.join(cleaned_lines)

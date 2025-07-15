@@ -11,6 +11,7 @@ from utils.file import write_json, ensure_dir
 from services.bitbucket_mcp_service import BitbucketMCPService, BitbucketMCPConfigBuilder
 from services.parser import parse_project
 from services.merkle import compute_merkle_tree, diff_trees, save_merkle, load_merkle
+from services.neo4j import get_neo4j_connection
 from models import get_db_session, Project
 
 logger = init_logger()
@@ -62,9 +63,13 @@ async def create_project(body: CreateProjectRequest, db=Depends(get_db_session))
     db.refresh(project)
 
     # Parse files and obtain dependency graph
-    chunks, dep_graph = parse_project(repo_path)
+    chunks, dep_graph = parse_project(repo_path, body.project_id)
     if not chunks:
         raise HTTPException(status_code=400, detail="No Java files found in repository")
+
+    # Use Neo4j connection to import chunks
+    neo4j_conn = get_neo4j_connection()
+    neo4j_conn.import_code_chunks(chunks, 50)
 
     # Write metadata
     meta = {
@@ -107,7 +112,7 @@ async def reindex(body: ReindexRequest):
         return {"status": "reindexed", "changed_files": []}
 
     # Re-parse project
-    chunks, dep_graph = parse_project(repo_path)
+    chunks, dep_graph = parse_project(repo_path, body.project_id, True)
 
     # Update metadata
     meta = {
