@@ -283,9 +283,9 @@ def generate_cypher_from_json(chunks: List[CodeChunk], batch_size: int = 100) ->
 
 class Neo4jConnection:
     def __init__(self):
-        uri = os.getenv("NEO4J_URI")
-        user = os.getenv("NEO4J_USER")
-        password = os.getenv("NEO4J_PASSWORD")
+        uri = os.getenv("APP_NEO4J_URI")
+        user = os.getenv("APP_NEO4J_USER")
+        password = os.getenv("APP_NEO4J_PASSWORD")
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
     
     def close(self):
