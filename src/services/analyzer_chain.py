@@ -703,6 +703,55 @@ IMPORTANT: Response MUST be in Vietnamese. if existed testcases and ac are in En
                 
                 # Process AC analysis
                 ac_analysis = result.get("ac_analysis", {})
+                if isinstance(ac_analysis, list):
+                    for ac in ac_analysis:
+                        code_location = ac.get("code_location")
+                        testcase_name = ac.get("testcase_name")
+                        is_code_sufficient = ac.get("is_code_sufficient", False)
+                        is_testcase_sufficient = ac.get("is_testcase_sufficient", False)
+                        if code_location and testcase_name:
+                            ac["assessment"] = "Đạt yêu cầu"
+                        elif code_location and not testcase_name:
+                            if not is_code_sufficient:
+                                ac["assessment"] = "Code chưa đủ; Chưa có testcase"
+                            else:
+                                ac["assessment"] = "Chưa có testcase"
+                        elif testcase_name and not code_location:
+                            if not is_testcase_sufficient:
+                                ac["assessment"] = "Testcase chưa đủ; Chưa có code"
+                            else:
+                                ac["assessment"] = "Chưa có code"
+                elif isinstance(ac_analysis, dict):
+                    code_location = ac_analysis.get("code_location")
+                    testcase_name = ac_analysis.get("testcase_name")
+                    is_code_sufficient = ac_analysis.get("is_code_sufficient", False)
+                    is_testcase_sufficient = ac_analysis.get("is_testcase_sufficient", False)
+                    if code_location and testcase_name:
+                        ac_analysis["assessment"] = "Đạt yêu cầu"
+                    elif code_location and not testcase_name:
+                        if not is_code_sufficient:
+                            ac_analysis["assessment"] = "Code chưa đủ; Chưa có testcase"
+                        else:
+                            ac_analysis["assessment"] = "Chưa có testcase"
+                    elif testcase_name and not code_location:
+                        if not is_testcase_sufficient:
+                            ac_analysis["assessment"] = "Testcase chưa đủ; Chưa có code"
+                        else:
+                            ac_analysis["assessment"] = "Chưa có code"
+
+                # Sinh trường overall_assessment
+                overall_assessment = "Not Satisfactory"
+                ac_list = ac_analysis if isinstance(ac_analysis, list) else [ac_analysis] if isinstance(ac_analysis, dict) else []
+                if ac_list:
+                    all_satisfactory = all(
+                        (ac.get("status") == "Đã định nghĩa" and ac.get("assessment") == "Đạt yêu cầu")
+                        or ac.get("status") != "Đã định nghĩa"
+                        for ac in ac_list
+                    )
+                    if all_satisfactory:
+                        overall_assessment = "Satisfactory"
+                # Gán vào kết quả trả về
+                result["overall_assessment"] = overall_assessment
 
                 testcase_csv = result.get("testcase_csv", [])
                 

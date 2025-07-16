@@ -1,7 +1,7 @@
 {
      "testCaseKey": "(String) Should be an empty string . This field will be populated later based on specific test case naming conventions",
      "testCaseName": "(String) Exact test case text from requirements, typically found in the `comment` section of a Jira issue, starting with `testcases` or `testcase`. This field must be prefixed with [ServiceName] where ServiceName is the name of the service for which the test case is being written (e.g., [QuizLibraryService] Kiểm tra API tìm kiếm trả status_code = 400 khi không truyền param keyWord)",
-     "prepareFileName": "(String) The meaning filename of the data preparation script or file associated with this test case. (e.g., prepareData_1.csv)",
+     "prepareFileName": "The filename of the data preparation CSV file that needs to be executed or loaded before the test case runs. This file typically sets up the database or other system states required for the test. The filename should follow the format `prepareData_N.csv` (where N is an incremental number for each test case, e.g., `prepareData_1.csv`, `prepareData_2.csv`), OR it can be a self-generated, descriptive CSV filename based on the `testCaseName` (e.g., `user_login_setup.csv` if the test case is about user login). If no preparation file is needed, this field should be an empty string `\"\"`",
      "httpMethod": "(String) The HTTP method used for the request (e.g., GET, POST, PUT, DELETE)",
      "expectedHttpCode": "(Number) The expected HTTP status code of the response, represented as a string (e.g., `200`, `400`, `500`)",
      "requestParamName": "The name of the request parameter in string if present; otherwise, an empty string",
