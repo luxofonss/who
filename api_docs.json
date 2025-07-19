@@ -1,227 +1,78 @@
 {
-     "title": "API Documentation Guidelines",
-     "description": "This document provides a standardized template and guidelines for writing clear, comprehensive, and consistent API documentation for REST APIs. Following these guidelines ensures that API documentation is developer-friendly, maintainable, and scalable.",
-     "sections": [
-       {
-         "section": "API Overview",
-         "description": "Provide a high-level summary of the API's purpose and functionality. This section should give developers a quick understanding of what the API does and why it exists.",
-         "fields": [
-           {
-             "name": "name",
-             "type": "string",
-             "required": true,
-             "description": "The name of the API endpoint (e.g., 'Make payment'). Use a clear, action-oriented name that reflects the API's function."
-           },
-           {
-             "name": "description",
-             "type": "string",
-             "required": true,
-             "description": "A brief explanation of what the API does (e.g., 'Create a transaction between two accounts'). Keep it concise but informative."
-           }
-         ]
-       },
-       {
-         "section": "API Specifications",
-         "description": "Provide detailed technical information about the API, including the endpoint, method, headers, parameters, request, and response formats. This section is critical for developers to understand how to interact with the API.",
-         "fields": [
-           {
-             "name": "url",
-             "type": "string",
-             "required": true,
-             "description": "The full URL of the API endpoint, including placeholders for dynamic parts (e.g., 'https://{{base_url}}/service/v1/resource'). Use consistent naming conventions for placeholders."
-           },
-           {
-             "name": "method",
-             "type": "string",
-             "required": true,
-             "description": "The HTTP method used (e.g., 'GET', 'POST', 'PUT', 'DELETE'). Ensure the method aligns with RESTful principles (e.g., 'POST' for creating resources)."
-           },
-           {
-             "name": "headers",
-             "type": "object",
-             "required": true,
-             "description": "Key-value pairs for required headers (e.g., 'Content-Type: application/json', 'Idempotency-Key: <unique_string>'). Include example values and explain their purpose."
-           },
-           {
-             "name": "params",
-             "type": "object",
-             "required": false,
-             "description": "Query parameters, if any, with their types, defaults, and descriptions (e.g., 'page: int, default=0' for pagination). Use consistent naming (e.g., snake_case)."
-           },
-           {
-             "name": "request_body",
-             "type": "object",
-             "required": false,
-             "description": "The structure of the request body in JSON format, including all required and optional fields. Provide a JSON schema or example to clarify the expected input."
-           },
-           {
-             "name": "response",
-             "type": "array",
-             "required": true,
-             "description": "Possible responses, including status codes and response body structure. Provide examples for both success and error cases, including the full response body."
-           },
-           {
-             "name": "sample",
-             "type": "string",
-             "required": false,
-             "description": "A sample API call (e.g., using curl) to demonstrate how to use the endpoint. Ensure the sample matches the API's method, headers, and body structure."
-           }
-         ]
-       },
-       {
-         "section": "Request Body",
-         "description": "Detail each parameter in the request body, including type, requirements, and purpose. This section helps developers understand what data to send and why.",
-         "fields": [
-           {
-             "name": "parameter",
-             "type": "string",
-             "required": true,
-             "description": "The name of the parameter (e.g., 'debit_account'). Use consistent naming conventions (e.g., camelCase or snake_case)."
-           },
-           {
-             "name": "type",
-             "type": "string",
-             "required": true,
-             "description": "The data type of the parameter (e.g., 'string', 'int', 'boolean'). Be specific (e.g., 'ISO 8601 date string' for dates)."
-           },
-           {
-             "name": "required",
-             "type": "boolean",
-             "required": true,
-             "description": "Whether the parameter is mandatory (true/false). Clearly indicate if a field is optional."
-           },
-           {
-             "name": "default",
-             "type": "any",
-             "required": false,
-             "description": "The default value, if applicable. Specify if the API provides a default or if the field can be omitted."
-           },
-           {
-             "name": "description",
-             "type": "string",
-             "required": true,
-             "description": "A clear explanation of the parameter's purpose, including any business logic, format constraints, or validation rules (e.g., 'Must be a valid account number with 10 digits')."
-           }
-         ],
-         "format": "Use a table to present parameters with columns for Parameter, Type, Required, Default, and Description. Include an example JSON snippet below the table."
-       },
-       {
-         "section": "Response Body",
-         "description": "Detail each field in the response body, including type, requirements, and purpose. This section helps developers understand what data they will receive and how to handle it.",
-         "fields": [
-           {
-             "name": "parameter",
-             "type": "string",
-             "required": true,
-             "description": "The name of the response field (e.g., 'transaction_id'). Use consistent naming conventions."
-           },
-           {
-             "name": "type",
-             "type": "string",
-             "required": true,
-             "description": "The data type of the response field (e.g., 'string', 'int', 'object'). Specify nested structures if applicable."
-           },
-           {
-             "name": "required",
-             "type": "boolean",
-             "required": true,
-             "description": "Whether the field is always included in the response (true/false). Indicate if a field may be absent in certain scenarios."
-           },
-           {
-             "name": "default",
-             "type": "any",
-             "required": false,
-             "description": "The default value, if applicable. Explain when this default might be used."
-           },
-           {
-             "name": "description",
-             "type": "string",
-             "required": true,
-             "description": "A clear explanation of the field's purpose and any relevant details (e.g., 'Unique identifier for the transaction, used for tracking')."
-           }
-         ],
-         "format": "Use a table to present response fields with columns for Parameter, Type, Required, Default, and Description. Include an example JSON snippet below the table."
-       },
-       {
-         "section": "Errors",
-         "description": "List all possible error codes, their types, and descriptions to help developers handle errors effectively. This section is crucial for debugging and error handling.",
-         "fields": [
-           {
-             "name": "status_code",
-             "type": "int",
-             "required": true,
-             "description": "The HTTP status code for the error (e.g., 400, 401). Use standard HTTP codes where possible."
-           },
-           {
-             "name": "code",
-             "type": "string",
-             "required": true,
-             "description": "A unique error code for the specific error condition (e.g., '400001'). This helps in programmatic error handling."
-           },
-           {
-             "name": "type",
-             "type": "string",
-             "required": true,
-             "description": "A short identifier for the error type (e.g., 'INSUFFICIENT_DEBIT_AMOUNT'). Use consistent naming across APIs."
-           },
-           {
-             "name": "description",
-             "type": "string",
-             "required": true,
-             "description": "A human-readable explanation of the error and its cause (e.g., 'The debit account does not have sufficient funds to complete the transaction')."
-           }
-         ],
-         "format": "Use a table to present errors with columns for Status Code, Code, Type, and Description. Include an example error response JSON snippet."
-       },
-       {
-         "section": "Logic Flow",
-         "description": "Describe the detailed logic flow or steps the API follows to process the request. This helps developers understand the backend processing, which is usefulenium for debugging and integration.",
-         "fields": [
-           {
-             "name": "logic_flow",
-             "type": "text",
-             "required": true,
-             "description": "A step-by-step explanation of the API's internal logic, including validations, database interactions, and business rules. Use bullet points or a numbered list for clarity."
-           }
-         ],
-         "example": "1. Validate the request body for required fields.\n2. Check if the debit account has sufficient balance.\n3. If sufficient, deduct the amount from the debit account.\n4. Add the amount to the credit account.\n5. Record the transaction in the database.\n6. Return the transaction details."
-       },
-       {
-         "section": "Consistency and Versioning",
-         "description": "Ensure consistency across API endpoints and provide guidance on versioning and deprecation policies. This section helps maintain a cohesive API ecosystem.",
-         "fields": [
-           {
-             "name": "consistency",
-             "type": "text",
-             "required": true,
-             "description": "Guidelines for maintaining consistency in naming conventions, data formats, and response structures across all API endpoints. For example, always use snake_case for parameter names and include a 'meta' object in responses."
-           },
-           {
-             "name": "versioning",
-             "type": "text",
-             "required": true,
-             "description": "Explain the API versioning strategy (e.g., including the version in the URL like '/v1/'). Describe how breaking changes are handled and how deprecated endpoints are managed."
-           },
-           {
-             "name": "deprecation",
-             "type": "text",
-             "required": true,
-             "description": "Provide a policy for deprecating API endpoints, including notice periods and migration guides for developers."
-           }
-         ],
-         "best_practices": [
-           "Use the same naming conventions for similar parameters across different endpoints.",
-           "Ensure all APIs return responses in a consistent format (e.g., always include 'meta' and 'data' objects).",
-           "Increment the API version for breaking changes and provide clear documentation on what has changed.",
-           "Give at least 3 months' notice before deprecating an endpoint and offer a migration path."
-         ]
-       }
-     ],
-     "notes": [
-       "Ensure all sections are complete, accurate, and up-to-date to avoid confusion.",
-       "Use markdown for formatting to ensure readability across different platforms and tools.",
-       "Validate sample API calls to ensure they align with the documented endpoint and work as expected.",
-       "Keep descriptions concise but informative, focusing on what developers need to know to use the API effectively.",
-       "Review and update documentation regularly, especially when changes are made to the API."
-     ]
-   }
+  "api_overview": {
+    "name": "string - Clear, action-oriented API name",
+    "description": "string - Brief explanation of API purpose and functionality"
+  },
+  "api_specifications": {
+    "url": "string - Full endpoint URL with placeholders (e.g., https://{{base_url}}/api/v1/resource)",
+    "method": "string - HTTP method (GET, POST, PUT, DELETE, PATCH)",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer {{token}}",
+      "Idempotency-Key": "{{unique_string}}"
+    },
+    "params": {
+      "parameter_name": {
+        "type": "string",
+        "required": "true or false",
+        "default": "default_value",
+        "description": "Parameter purpose and constraints"
+      }
+    },
+    "request_body": {
+      "field_name": {
+        "type": "string",
+        "required": "true or false",
+        "description": "Field purpose and validation rules"
+      }
+    },
+    "response": [
+      {
+        "status_code": 200,
+        "description": "Success response description",
+        "body": {
+          "field_name": {
+            "type": "string",
+            "description": "Response field explanation"
+          }
+        }
+      }
+    ],
+    "sample": "curl command example demonstrating API usage"
+  },
+  "request_body_details": [
+    {
+      "parameter": "field_name",
+      "type": "data_type",
+      "required": "true or false",
+      "default": "default_value",
+      "description": "Detailed parameter explanation including format, constraints, and business logic"
+    }
+  ],
+  "response_body_details": [
+    {
+      "parameter": "field_name",
+      "type": "data_type",
+      "required": "true or false",
+      "default": "default_value",
+      "description": "Detailed response field explanation"
+    }
+  ],
+  "errors": [
+    {
+      "status_code": 400,
+      "code": "ERROR_CODE",
+      "type": "ERROR_TYPE",
+      "description": "Human-readable error explanation with cause and resolution"
+    }
+  ],
+  "logic_flow": {
+    "description": "Step-by-step explanation of API processing logic",
+    "steps": [
+      "1. Validation step description",
+      "2. Business logic step description",
+      "3. Database interaction description",
+      "4. Response generation description"
+    ]
+  }
+}

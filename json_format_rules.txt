@@ -1,0 +1,38 @@
+
+JSON FORMAT RULES:
+
+1. All keys must be in double quotes.
+   Invalid: {name: "John"}
+   Valid: {"name": "John"}
+
+2. All string values must be in double quotes.
+   Invalid: {"name": 'John'}
+   Valid: {"name": "John"}
+
+3. No trailing commas are allowed.
+   Invalid: {"hobbies": ["music", "reading",]}
+   Valid: {"hobbies": ["music", "reading"]}
+
+4. Only the following data types are allowed:
+   - string
+   - number
+   - object (dictionary)
+   - array (list)
+   - boolean (true/false)
+   - null
+
+5. Comments are not allowed in JSON.
+   Invalid: {"name": "John" // user name}
+   Valid: {"name": "John"}
+
+6. The root of a JSON document must be either an object or an array.
+
+7. Use UTF-8 encoding for all characters.
+
+8. Whitespace (spaces, tabs, line breaks) is allowed for formatting but not required.
+
+9. Boolean and null values must be lowercase:
+   true, false, null
+   True, False, None
+
+10. Do not use functions, undefined, or other non-standard values.

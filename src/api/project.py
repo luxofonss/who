@@ -34,15 +34,15 @@ async def create_project(body: CreateProjectRequest, db=Depends(get_db_session))
     async with BitbucketMCPService(config) as bitbucket:
         repo_name = body.bitbucket_url.path.strip("/").split("/")[-1].replace('.git', '')
         repo_path = STORAGE_DIR / "repos" / body.project_id
-        clone_result = await bitbucket.clone_repository(
-            session_id=f"create_project_{body.project_id}",
-            repository=repo_name,
-            branch=body.branch,
-            target_path=repo_path
-        )
-        if clone_result["status"] != "success":
-            raise HTTPException(status_code=400, detail=f"Failed to clone Bitbucket repo: {clone_result.get('error', 'Unknown error')}")
-        sha = clone_result["data"]["commit_hash"]
+        # clone_result = await bitbucket.clone_repository(
+        #     session_id=f"create_project_{body.project_id}",
+        #     repository=repo_name,
+        #     branch=body.branch,
+        #     target_path=repo_path
+        # )
+        # if clone_result["status"] != "success":
+        #     raise HTTPException(status_code=400, detail=f"Failed to clone Bitbucket repo: {clone_result.get('error', 'Unknown error')}")
+        # sha = clone_result["data"]["commit_hash"]
 
     # Save project info to database
     project = Project(
@@ -53,7 +53,7 @@ async def create_project(body: CreateProjectRequest, db=Depends(get_db_session))
         workspace=repo_name.split('/')[0] if '/' in repo_name else '',
         repository=repo_name,
         default_branch=body.branch,
-        commit_hash=sha,
+        commit_hash="todo",
         indexed_files=0,
         extracted_files=0,
         status="active"
@@ -63,20 +63,20 @@ async def create_project(body: CreateProjectRequest, db=Depends(get_db_session))
     db.refresh(project)
 
     # Parse files and obtain dependency graph
-    chunks, dep_graph = parse_project(repo_path, body.project_id)
-    if not chunks:
-        raise HTTPException(status_code=400, detail="No Java files found in repository")
+    # chunks, dep_graph = parse_project(repo_path, body.project_id)
+    # if not chunks:
+    #     raise HTTPException(status_code=400, detail="No Java files found in repository")
 
-    # Use Neo4j connection to import chunks
-    neo4j_conn = get_neo4j_connection()
-    neo4j_conn.delete_project_data(body.project_id)
-    neo4j_conn.import_code_chunks(chunks, 50)
+    # # Use Neo4j connection to import chunks
+    # neo4j_conn = get_neo4j_connection()
+    # neo4j_conn.delete_project_data(body.project_id)
+    # neo4j_conn.import_code_chunks(chunks, 50)
 
     # Write metadata
     meta = {
         "commit": sha,
-        "chunks": [{k: v for k, v in c.items()} for c in chunks],
-        "dependency_graph": dep_graph,
+        # "chunks": [{k: v for k, v in c.items()} for c in chunks],
+        # "dependency_graph": dep_graph,
     }
     ensure_dir(STORAGE_DIR / "metadata")
     write_json(STORAGE_DIR / "metadata" / f"{body.project_id}.json", meta)
@@ -86,12 +86,12 @@ async def create_project(body: CreateProjectRequest, db=Depends(get_db_session))
     save_merkle(body.project_id, merkle_tree)
 
     # Update project with file counts
-    project.indexed_files = len(chunks)
-    project.extracted_files = len(chunks)
+    # project.indexed_files = len(chunks)
+    # project.extracted_files = len(chunks)
     db.commit()
     db.refresh(project)
 
-    return {"status": "created", "indexed_files": len(chunks), "project": project.to_dict()}
+    return {"status": "created", "indexed_files": 1, "project": project.to_dict()}
 
 
 class ReindexRequest(BaseModel):

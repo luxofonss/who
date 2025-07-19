@@ -162,7 +162,7 @@ def extract_jira_issue_key(url: str) -> Optional[str]:
         if match:
             return match.group(1)
     
-    return None
+    return url
 
 
 def build_confluence_search_query(endpoint: str, method: str, user_description: str) -> str:

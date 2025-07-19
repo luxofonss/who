@@ -1,0 +1,58 @@
+[
+  {
+    "class": "QuizController",
+    "method": null
+  },
+  {
+    "class": "QuizController",
+    "method": "search"
+  },
+  {
+    "class": "QuizController",
+    "method": "search"
+  },
+  {
+    "class": "QuizController",
+    "method": "search2"
+  },
+  {
+    "class": "QuizController",
+    "method": "search2"
+  },
+  {
+    "class": "QuizController",
+    "method": "search2"
+  },
+  {
+    "class": "QuizController",
+    "method": "search2"
+  },
+  {
+    "class": "QuizService",
+    "method": null
+  },
+  {
+    "class": "QuizService",
+    "method": "search2"
+  },
+  {
+    "class": "QuizServiceImpl",
+    "method": null
+  },
+  {
+    "class": "QuizServiceImpl",
+    "method": "search2"
+  },
+  {
+    "class": "QuizServiceImpl",
+    "method": "search2"
+  },
+  {
+    "class": "QuizServiceImpl",
+    "method": "search2"
+  },
+  {
+    "class": "QuizServiceImpl",
+    "method": "getQuizAuthor"
+  }
+]

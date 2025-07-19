@@ -336,6 +336,63 @@ class JiraMCPService:
             logger.error(f"Base URL: {self.config.base_url}")
             logger.error(f"Issue ID: {issue_id}")
             return []
+
+    async def _extract_branches_from_issue(self, issue_key: str) -> List[Dict[str, Any]]:
+        """Extract commit information from Jira issue using development panel"""
+        try:
+            branches = []
+            issue_id = await self._get_issue_numeric_id(issue_key)
+            if not issue_id:
+                logger.warning(f"Could not get numeric ID for {issue_key} - skipping branch extraction")
+                return []
+
+            api_endpoints = [
+                f'/rest/dev-status/1.0/issue/detail?issueId={issue_id}&applicationType=bitbucket&dataType=branch'
+            ]
+            
+            for endpoint in api_endpoints:
+                if self.config.base_url.endswith('/'):
+                    url = endpoint.lstrip('/')
+                else:
+                    url = '/' + endpoint.lstrip('/')
+                logger.debug(f"Trying development panel API: {url}")
+                logger.debug(f"Base URL: {self.config.base_url}")
+                logger.debug(f"Endpoint: {endpoint}")
+                logger.debug(f"Full URL: {url}")
+                
+                response = self.client.get(url)
+                logger.info(f"Response: {response}")
+                
+                try:
+                    dev_data = response
+                    logger.debug(f"Development data for {issue_key} (ID: {issue_id}): {dev_data}")
+                    
+                    detail = dev_data.get('detail', [])
+                    if len(detail) <= 0:
+                        logger.error(f"No detail found for {issue_key} (ID: {issue_id})")
+                        return []
+                    
+                    logger.info(f"detail: {detail}")
+                    all_branches = []
+
+                    for item in detail:
+                        branches = item.get('branches', [])
+                        all_branches.extend(branches)
+
+                    logger.info(f"All branches: {all_branches}")
+                    return all_branches
+                except Exception as e:
+                    logger.error(f"Error parsing response JSON for {issue_key}: {str(e)}")
+                    # logger.error(f"Response text: {response.text}")
+                        
+    
+            return branches
+            
+        except Exception as e:
+            logger.error(f"Error extracting branches for {issue_key}: {str(e)}")
+            logger.error(f"Base URL: {self.config.base_url}")
+            logger.error(f"Issue ID: {issue_id}")
+            return []
     
     def _extract_attachments(self, attachment_data: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         """Extract attachments from Jira issue"""

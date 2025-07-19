@@ -145,7 +145,7 @@ def parse_project(root: Path, verbose: bool = False, remove_comments: bool = Tru
     
     # Second pass: parse files with hierarchy context
     for i, file_path in enumerate(java_files):
-        log_info(f"Processing file {i+1}/{len(java_files)}: {file_path}", verbose)
+        # log_info(f"Processing file {i+1}/{len(java_files)}: {file_path}", verbose)
         
         try:
             text = file_path.read_text("utf-8")
@@ -155,7 +155,7 @@ def parse_project(root: Path, verbose: bool = False, remove_comments: bool = Tru
 
         # Remove comments before parsing if requested
         if remove_comments:
-            log_info(f"Removing comments from {file_path}", verbose)
+            # log_info(f"Removing comments from {file_path}", verbose)
             cleaned_text = _remove_comments(text)
         else:
             cleaned_text = text
@@ -297,7 +297,7 @@ def _parse_file(project_id: str, file_path: Path, tree, source: str, class_hiera
                     n for n in child.children if n.type == "method_declaration"
                 ])
     
-        log_info(f"Processing class: {class_name} with {len(method_nodes)} methods", verbose)
+        # log_info(f"Processing class: {class_name} with {len(method_nodes)} methods", verbose)
         
         # Create class-level chunk
         chunk = _build_chunk(

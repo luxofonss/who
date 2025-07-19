@@ -1,53 +1,470 @@
-với chunk có "chunk_type": "controller":
-CREATE (OneStudyApplication:EndpointNode {
-  file_path: "storage/repos/onestudy-server-scrum6/src/main/java/com/edu/onestudy/controller/external/AuthController.java::AuthController::whoAmI::29::32",
-  class_name: "AuthController",
-  method_name: whoAmI,
-  chunk_type: "controller",
-  content: "@GetMapping(\"/me\")\n    public BaseResponse<AuthProfileResponse> whoAmI(@CurrentUser UserPrincipal requester) {\n        return baseService.ofSucceeded(authService.getAuthProfile(requester.getId().toString()));\n    }",
-  endpoint: '{ "path": "/api/v1/auth/me","method": "GET"}',
-  summary: ""
-});
+{'question': "Analyze the REST endpoint '{'path': '/', 'method': 'GET'}' according to the requirements and test cases.", 'context': '@Configuration
+public class AppConfig {
 
-với chunk có "method_name khác null:
-CREATE (OneStudyApplication:MethodNodeMethodNode {
-  file_path: "storage/repos/onestudy-server-scrum6/src/main/java/com/edu/onestudy/repository/SavedQuizRepository.java::SavedQuizRepository::existsByQuizIdAndUserId::15::15",
-  class_name: "SavedQuizRepository",
-  method_name: existsByQuizIdAndUserId,
-  chunk_type: "interface",
-  content: "boolean existsByQuizIdAndUserId(String quizId, String userId);",
-  endpoint: null,
-  summary: ""
-});
+    @Value("${cors.whitelist}")
+    private String corsWhitelistString;
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        List<String> allowedOrigins = Arrays.stream(corsWhitelistString.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList();
+
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedMethods(List.of("HEAD", "GET", "POST", "PUT", "DELETE", "PATCH"));
+        configuration.setAllowCredentials(true);
+        configuration.setAllowedHeaders(List.of("*"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+}
+
+@Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        List<String> allowedOrigins = Arrays.stream(corsWhitelistString.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList();
+
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedMethods(List.of("HEAD", "GET", "POST", "PUT", "DELETE", "PATCH"));
+        configuration.setAllowCredentials(true);
+        configuration.setAllowedHeaders(List.of("*"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+@Configuration
+public class AwsS3Config {
+    @Value("${aws.accessKey}")
+    private String accessKey;
+
+    @Value("${aws.secretKey}")
+    private String secretKey;
+
+    @Value("${aws.region}")
+    private String region;
+
+    @Bean
+    public S3Client getS3Client() {
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
+
+        return S3Client.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                .build();
+    }
+}
+
+@Bean
+    public S3Client getS3Client() {
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
+
+        return S3Client.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                .build();
+    }
+
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
+@RequiredArgsConstructor
+public class AuthConfig {
+
+    private final AuthenticationProvider authProvider;
+
+    private final JwtFilter jwtFilter;
+
+    private final JwtAuthenticationEntryPoint unAuthorizedHandler;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .cors(Customizer.withDefaults())
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/pub/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(authProvider)
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(e -> e.authenticationEntryPoint(unAuthorizedHandler))
+                .securityContext(ctx -> ctx.requireExplicitSave(false));
+
+        return http.build();
+    }
+
+}
+
+@Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .cors(Customizer.withDefaults())
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                      
+  .requestMatchers("/api/v1/pub/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(authProvider)
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(e -> e.authenticationEntryPoint(unAuthorizedHandler))
+                .securityContext(ctx -> ctx.requireExplicitSave(false));
+
+        return http.build();
+    }
+
+@Configuration
+public class BeanConfig {
+
+    private final UserRepository userRepository;
+
+    public BeanConfig(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return new AppUserDetailsService(userRepository);
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider daoAuthProvider = new DaoAuthenticationProvider();
+        daoAuthProvider.setUserDetailsService(userDetailsService());
+        daoAuthProvider.setPasswordEncoder(passwordEncoder());
+
+        return daoAuthProvider;
+    }
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+
+@Bean
+    public UserDetailsService userDetailsService() {
+        return new AppUserDetailsService(userRepository);
+    }
+
+@Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider daoAuthProvider = new DaoAuthenticationProvider();
+        daoAuthProvider.setUserDetailsService(userDetailsService());
+        daoAuthProvider.setPasswordEncoder(passwordEncoder());
+
+        return daoAuthProvider;
+    }
+
+@Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+@Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }', 'endpoint': '', 'requirements': '=== SCRUM-1: [oneStudy] Bổ sung API tìm kiếm Quiz Library ===
+URL: https://luxofons.atlassian.net/rest/api/2/issue/10000
+
+Description:
+h3. *Mô tả:*
+
+Là một *Product Owner*,
+Tôi muốn người dùng có thể *tìm kiếm các bài Quiz vừa tạo trong thư viện Quiz (Quiz Library)* bằng tiêu đề,
+Để họ có thể nhanh chóng kiểm tra, xem lại hoặc chỉnh sửa các nội dung vừa tạo.
 
 
-với chunk khác:
-CREATE (UserMapper:ClassNode {
-  file_path: "storage/repos/onestudy-server-scrum6/src/main/java/com/edu/onestudy/OneStudyApplication.java::OneStudyApplication::::11::23",
-  class_name: "UserMapper",
-  method_name: null,
-  chunk_type: "interface",
-  content: "@Mapper(componentModel = \"spring\")\npublic interface UserMapper {\n    User authRegisterRequestToUser(AuthRegisterRequest request);\n    AuthProfileResponse userToAuthProfileResponse(User user);\n}",
-  endpoint: null,
-  summary: ""
-});
 
-tạo quan hệ CALL với node có calls khác rỗng. ví dụ:
-"calls": [
-        "QuizServiceImpl.getQuizStatsById",
-      ],
-thì tạo quan hệ CALL với node có class_name = QuizServiceImpl và method_name = getQuizStatsById
+*Acceptance Criteria (AC):*
 
-tạo quan hệ CALLED_BY với node có called_by khác rỗng, ví dụ:
-"called_by": [
-        "JwtProvider.generateAccessToken"
-      ],
-thì tạo tạoquan hệ CALLED_BY với node có class_name = JwtProvider và method_name = generateAccessToken
+h4. AC1 - API tìm kiếm yêu cầu tham số keyWord (bắt buộc):
 
-tương tự với implements tạo quan hệ IMPLEMENT, implemented_by thì tạo quan hệ implemented_by
+* Nếu *không truyền* keyWord, API phải trả về *HTTP 400* với thông báo lỗi: Required parameter \'keyWord\' is not present 
 
-với chunk có vars khác rỗng:
-"vars": [
-        "UserPrincipal"
-      ],
-tạo quan hệ USE với node có class_name = UserPrincipal và method_name null 
+h4. AC2 - Trường hợp keyWord là null hoặc bằng “All”:
+
+* API trả về *HTTP 200*
+* Trả về *toàn bộ danh sách Quiz* hiện có trong Quiz Library
+
+h4. AC3 - Trường hợp keyWord có giá trị cụ thể:
+
+* API trả về *HTTP 200*
+* Trả về *danh sách Quiz* có title *chính xác* bằng keyWord  và không phân biệt hoa thường
+
+h4. AC4 - Cấu trúc response:
+
+* Mỗi phần tử Quiz trong danh sách có định dạng như sau:
+** {{{   "id": "string",   "title": "string",   "description": "string",   "category": "string | null",   "difficulty": "BEGINNER | INTERMEDIATE | ADVANCED",   "duration": "integer | null",   "questionCount": "integer",   "tags": ["string"],   "status": "PUBLIC | PRIVATE",   "createdAt": "datetime",   "updatedAt": "datetime",   "deletedAt": "datetime | null",   "authorId": "string",   "author": {     "id": "string",     "username": "string",     "name": "string",     "email": "string",     "avatar": "string | null",     "joinedAt": "datetime",     "lastLoginAt": "datetime | null",     "isActive": true,     "role": "USER | ADMIN",     "credentials": null,     "createdQuizzes": null,     "quizAttempts": null,     "savedQuizzes": null,     "leaderboardEntries": null   },   "rating": "float",   "attempts": "integer",   "passingScore": "integer",   "navigationMode": "FREE_NAVIGATION | SEQUENTIAL",   "hasTimer": "boolean",   "timeLimit": "integer",   "warningTime": "integer",   "allowQuestionPicker": "boolean",   "shuffleQuestions": "boolean",   "shuffleAnswers": "boolean",   "showProgress": "boolean",   "allowPause": "boolean",   "maxAttempts": "integer",   "questions": null,   "quizAttempts": null,   "savedByUsers": null,   "leaderboardEntries": null } }}
+
+----
+
+h3. *Notes:*
+
+* Việc tìm kiếm theo keyWord chỉ trả kết quả nếu tiêu đề *trùng khớp tuyệt đối*, không hỗ trợ tìm kiếm gần đúng hoặc full-text.
+* So sánh tiêu đề *không phân biệt chữ hoa/chữ thường*.
+
+Comments (1 total):
+Content: với ticket này sẽ search chính xác theo keyword, không phân biệt hoa thường nhé
+
+==================================================
+
+', 'user_text': '', 'history': [], 'retrieved_symbols': [], 'final_response': None, 'html_response': None, 'iteration_count': 0, 'seen_context': [], 'last_tool_call_symbols': [], 'new_retrieved_symbols': [], 'node_call_count': {'extract_existing_testcases': 1, 'generate_missing_testcases': 1, 'generate_api_docs': 1, 'improve_and_finalize_testcases': 1, 'generate_current_ac': 1, 'improve_and_finalize_ac': 1, 'generate_final_response': 1}, 'code_commit': 'Commit: 5d6559ed219cbd90c803ebce5387998510106be3
+Display ID: 5d6559e
+Repository: onestudy-server
+Repository ID: 7b32386339663230372d363332372d343665332d393663312d6437656265656566363734667d
+Author: Ngoc Nguyen Thi
+Message: Merged in feature/SCRUM-1 (pull request #1)
+
+Feature/SCRUM-1
+
+Approved-by: Văn Quyền Nguyễn
+
+Date: 2025-07-09T08:21:47.000+0000
+Files Changed: 0
+Merge Commit: True
+URL: https://bitbucket.org/{}/{28c9f207-6327-46e3-96c1-d7ebeeef674f}/commits/5d6559ed219cbd90c803ebce5387998510106be3
+
+=== DIFF INFORMATION ===
+Total Files Changed: 4
+
+Files Changed:
+- src/main/java/com/edu/onestudy/config/StringListConverter.java
+  Status: modified
+  Additions: 1, Deletions: 0
+- src/main/java/com/edu/onestudy/controller/external/QuizController.java
+  Status: modified
+  Additions: 13, Deletions: 0
+- src/main/java/com/edu/onestudy/service/QuizService.java
+  Status: modified
+  Additions: 5, Deletions: 0
+- src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java
+  Status: modified
+  Additions: 14, Deletions: 0
+
+Diff:
+diff --git a/src/main/java/com/edu/onestudy/config/StringListConverter.java b/src/main/java/com/edu/onestudy/config/StringListConverter.java
+index 203b1db..b5d107b 100644
+--- a/src/main/java/com/edu/onestudy/config/StringListConverter.java
++++ b/src/main/java/com/edu/onestudy/config/StringListConverter.java
+@@ -22,6 +22,7 @@ public class StringListConverter implements AttributeConverter<List<String>, Str
+         // For true TEXT[] mapping with hibernate-types-52, you might not need this converter
+         
+// if you use @TypeDef(name = "list-array", typeClass = ListArrayType.class)
+         // and a List<String> field. But it\'s good for demonstration if you want manual control.
++        // more
+         return "{" + String.join(SPLIT_CHAR, stringList) + "}";
+     }
+ 
+diff --git a/src/main/java/com/edu/onestudy/controller/external/QuizController.java b/src/main/java/com/edu/onestudy/controller/external/QuizController.java
+index a07fdab..5b36755 100644
+--- a/src/main/java/com/edu/onestudy/controller/external/QuizController.java
++++ b/src/main/java/com/edu/onestudy/controller/external/QuizController.java
+@@ -121,4 +121,17 @@ public class QuizController {
+         quizService.submitQuizComplete(attempt_id, currentUser.getId());
+         return baseService.ofSucceeded(null);
+     }
++
++    @GetMapping("/search")
++    @LogsActivityAnnotation
++    BaseResponse<List<Quiz>> search(@RequestParam String query) {
++        return baseService.ofSucceeded(quizService.search(query));
++    }
++
++    @GetMapping("/search2")
++    @LogsActivityAnnotation
++    BaseResponse<List<Quiz>> search2(@RequestParam String query) {
++        return baseService.ofSucceeded(quizService.search2(query));
++    }
++
+ }
+diff --git a/src/main/java/com/edu/onestudy/service/QuizService.java b/src/main/java/com/edu/onestudy/service/QuizService.java
+index ac94d1d..3076cba 100644
+--- a/src/main/java/com/edu/onestudy/service/QuizService.java
++++ b/src/main/java/com/edu/onestudy/service/QuizService.java
+@@ -1,6 +1,7 @@
+ package com.edu.onestudy.service;
+ 
+ import com.edu.onestudy.dto.BaseCreateUpdateResponse;
++import com.edu.onestudy.dto.BaseResponse;
+ import com.edu.onestudy.dto.quiz.CreateQuizDto;
+ import com.edu.onestudy.dto.quiz.SubmitAnswerRequest;
+ import com.edu.onestudy.entity.Quiz;
+@@ -43,4 +44,8 @@ public interface QuizService {
+     void unsaveQuiz(String quizId, UUID userId);
+ 
+     List<UserSavedQuiz> getUserSavedQuiz(String quizId, UUID userId);
++
++    List<Quiz> search(String query);
++
++    List<Quiz> search2(String query);
+ }
+diff --git a/src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java b/src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java
+index edf7857..096d45e 100644
+--- a/src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java
++++ b/src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java
+@@ -506,6 +506,20 @@ public class QuizServiceImpl implements QuizService {
+         return savedQuizzes;
+     }
+ 
++    @Override
++    public List<Quiz> search(String query) {
++        if (query == null) throw new BusinessException(ErrorConstant.QUIZ_NOT_FOUND); //TODO: fix msg
++
++        return quizRepository.findAll();
++    }
++
++    @Override
++    public List<Quiz> search2(String query) {
++        if (query == null) throw new BusinessException(ErrorConstant.QUIZ_NOT_FOUND); //TODO: fix msg
++
++        return quizRepository.findAll();
++    }
++
+     private void getQuizAuthor(List<Quiz> quizzes) {
+         quizzes.forEach(q -> {
+             if (q.getAuthorId() != null) {
+
+
+
+Commit: 0090ac14c88895f59409e45d33220ef62ce7d08b
+Display ID: 0090ac1
+Repository: onestudy-server
+Repository ID: 7b32386339663230372d363332372d343665332d393663312d6437656265656566363734667d
+Author: Văn Quyền Nguyễn
+Message: SCRUM-1 fix
+
+Date: 2025-07-08T07:34:24.000+0000
+Files Changed: 0
+Merge Commit: False
+URL: https://bitbucket.org/{}/{28c9f207-6327-46e3-96c1-d7ebeeef674f}/commits/0090ac14c88895f59409e45d33220ef62ce7d08b
+
+=== DIFF INFORMATION ===
+Total Files Changed: 3
+
+Files Changed:
+- src/main/java/com/edu/onestudy/controller/external/QuizController.java
+  Status: modified
+  Additions: 8, Deletions: 1
+- src/main/java/com/edu/onestudy/service/QuizService.java
+  Status: modified
+  Additions: 2, Deletions: 0
+- src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java
+  Status: modified
+  Additions: 7, Deletions: 0
+
+Diff:
+diff --git a/src/main/java/com/edu/onestudy/controller/external/QuizController.java b/src/main/java/com/edu/onestudy/controller/external/QuizController.java
+index 4281bb4..5b36755 100644
+--- a/src/main/java/com/edu/onestudy/controller/external/QuizController.java
++++ b/src/main/java/com/edu/onestudy/controller/external/QuizController.java
+@@ -125,6 +125,13 @@ public class QuizController {
+     @GetMapping("/search")
+     @LogsActivityAnnotation
+     BaseResponse<List<Quiz>> search(@RequestParam String query) {
+-        return quizService.search(query);
++        return baseService.ofSucceeded(quizService.search(query));
+     }
++
++    @GetMapping("/search2")
++    @LogsActivityAnnotation
++    BaseResponse<List<Quiz>> search2(@RequestParam String query) {
++        return baseService.ofSucceeded(quizService.search2(query));
++    }
++
+ }
+diff --git a/src/main/java/com/edu/onestudy/service/QuizService.java b/src/main/java/com/edu/onestudy/service/QuizService.java
+index e6b8ec8..3076cba 100644
+--- a/src/main/java/com/edu/onestudy/service/QuizService.java
++++ b/src/main/java/com/edu/onestudy/service/QuizService.java
+@@ -46,4 +46,6 @@ public interface QuizService {
+     List<UserSavedQuiz> getUserSavedQuiz(String quizId, UUID userId);
+ 
+     List<Quiz> search(String query);
++
++    List<Quiz> search2(String query);
+ }
+diff --git a/src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java b/src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java
+index 7fd3f63..096d45e 100644
+--- a/src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java
++++ b/src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java
+@@ -513,6 +513,13 @@ public class QuizServiceImpl implements QuizService {
+         return quizRepository.findAll();
+     }
+ 
++    @Override
++    public List<Quiz> search2(String query) {
++        if (query == null) throw new BusinessException(ErrorConstant.QUIZ_NOT_FOUND); //TODO: fix msg
++
++        return quizRepository.findAll();
++    }
++
+     private void getQuizAuthor(List<Quiz> quizzes) {
+         quizzes.forEach(q -> {
+             if (q.getAuthorId() != null) {
+
+
+
+Commit: 30b7f27ce6c7c132ffb8f14e85c0c0bc40a76bf6
+Display ID: 30b7f27
+Repository: onestudy-server
+Repository ID: 7b32386339663230372d363332372d343665332d393663312d6437656265656566363734667d
+Author: Văn Quyền Nguyễn
+Message: SCRUM-1 msg
+
+Date: 2025-07-07T04:42:30.000+0000
+Files Changed: 0
+Merge Commit: False
+URL: https://bitbucket.org/{}/{28c9f207-6327-46e3-96c1-d7ebeeef674f}/commits/30b7f27ce6c7c132ffb8f14e85c0c0bc40a76bf6
+
+=== DIFF INFORMATION ===
+Total Files Changed: 1
+
+Files Changed:
+- src/main/java/com/edu/onestudy/config/StringListConverter.java
+  Status: modified
+  Additions: 1, Deletions: 1
+
+Diff:
+diff --git a/src/main/java/com/edu/onestudy/config/StringListConverter.java b/src/main/java/com/edu/onestudy/config/StringListConverter.java
+index 5f9e252..b5d107b 100644
+--- a/src/main/java/com/edu/onestudy/config/StringListConverter.java
++++ b/src/main/java/com/edu/onestudy/config/StringListConverter.java
+@@ -22,7 +22,7 @@ public class StringListConverter implements AttributeConverter<List<String>, Str
+         // For true TEXT[] mapping with hibernate-types-52, you might not need this converter
+         // if you use @TypeDef(name = "list-array", typeClass = ListArrayType.class)
+         // and a List<String> field. But it\'s good for demonstration if you want manual control.
+-        // moreg
++        // more
+         return "{" + String.join(SPLIT_CHAR, stringList) + "}";
+     }
+ 
+
+', 'api_docs': {'api_overview': {'name': 'Spring Boot Application Configuration API', 'description': 'Tài liệu mô tả các cấu hình chính của ứng dụng Spring Boot bao gồm CORS, AWS S3, bảo mật JWT và xác thực người dùng. Các cấu hình này thiết lập nền tảng cho toàn bộ hệ thống API với khả năng bảo mật cao và tích hợp cloud services.'}, 'api_specifications': {'url': 'https://{{base_url}}/api/v1/**', 'method': 'ALL', 'headers': {'Content-Type': 'application/json', 'Authorization': 'Bearer {{jwt_token}}', 'Origin': '{{allowed_origin}}'}, 'params': {'cors.whitelist': {'type': 'string', 'required': 'true', 'default': 'http://localhost:3000,https://yourdomain.com', 'description': 'Danh sách các domain được phép truy cập API, phân cách bằng dấu phẩy'}, 'aws.accessKey': {'type': 'string', 'required': 'true', 'default': 'AKIA...', 'description': 'AWS Access Key để kết nối với S3 service'}, 'aws.secretKey': {'type': 'string', 'required': 'true', 'default': 'secret_key_value', 'description': 'AWS Secret Key để xác thực với S3 service'}, 'aws.region': {'type': 'string', 'required': 'true', 'default': 'us-east-1', 'description': 'AWS region nơi S3 bucket được tạo'}}, 'request_body': {'authentication_required': {'type': 'boolean', 'required': 'true', 'description': 'Tất cả endpoint trừ /api/v1/pub/** đều yêu cầu JWT token hợp lệ'}}, 'response': [{'status_code': 200, 'description': 'Yêu cầu được xử lý thành công với cấu hình CORS và bảo mật phù hợp', 'body': {'success': {'type': 'boolean', 'description': 'Trạng thái thành công của request'}, 'data': {'type': 'object', 'description': 'Dữ liệu phản hồi từ API endpoint'}}}, {'status_code': 401, 'description': 'Không có quyền truy cập - JWT token không hợp lệ hoặc không được cung cấp', 'body': {'error': {'type': 'string', 'description': 'Thông báo lỗi xác thực'}, 'timestamp': {'type': 'string', 'description': 'Thời gian xảy ra lỗi'}}}, {'status_code': 403, 'description': 'CORS policy violation - Origin không được phép truy cập', 'body': {'error': {'type': 'string', 'description': 'Thông báo lỗi CORS'}}}], 'sample': "curl -X GET 'https://api.example.com/api/v1/protected-endpoint' \\
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\
+  -H 'Content-Type: application/json' \\
+  -H 'Origin: https://yourdomain.com'"}, 'request_body_details': [{'parameter': 'cors.whitelist', 'type': 'string', 'required': 'true', 'default': 'http://localhost:3000', 'description': 'Chuỗi chứa danh sách các domain được phép truy cập API. Các domain được phân cách bằng dấu phẩy và sẽ được trim khoảng trắng. Domain rỗng sẽ bị loại bỏ khỏi danh sách.'}, {'parameter': 'jwt_token', 'type': 'string', 'required': 'true', 'default': 'Bearer token_value', 'description': "JWT token được đặt trong Authorization header với prefix 'Bearer '. Token này được validate bởi JwtFilter trước khi cho phép truy cập các endpoint được bảo vệ."}, {'parameter': 'aws_credentials', 'type': 'object', 'required': 'true', 'default': '{}', 'description': 'Thông tin xác thực AWS bao gồm accessKey, secretKey và region. Được sử dụng để tạo S3Client bean cho việc tương tác với AWS S3 service.'}], 'response_body_details': [{'parameter': 'corsConfigurationSource', 'type': 'CorsConfigurationSource', 'required': 'true', 'default': 'UrlBasedCorsConfigurationSource instance', 'description': 'Bean cấu hình CORS cho phép các HTTP methods: HEAD, GET, POST, PUT, DELETE, PATCH. Cho phép credentials và tất cả headers. Áp dụng cho tất cả endpoints (/**).'}, {'parameter': 's3Client', 'type': 'S3Client', 'required': 'true', 'default': 'AWS S3Client instance', 'description': 'Bean S3Client được cấu hình với credentials và region từ properties. Sử dụng StaticCredentialsProvider với AwsBasicCredentials.'}, {'parameter': 'securityFilterChain', 'type': 'SecurityFilterChain', 'required': 'true', 'default': 'Configured security chain', 'description': 'Chuỗi filter bảo mật với JWT authentication. Cho phép truy cập public tới /api/v1/pub/**, yêu cầu authentication cho các endpoint khác. Session policy là STATELESS.'}, {'parameter': 'passwordEncoder', 'type': 'BCryptPasswordEncoder', 'required': 'true', 'default': 'BCryptPasswordEncoder instance', 'description': 'Bean mã hóa mật khẩu sử dụng thuật toán BCrypt để hash và verify mật khẩu người dùng một cách an toàn.'}], 'errors': [{'status_code': 400, 'code': 'INVALID_CORS_CONFIGURATION', 'type': 'CONFIGURATION_ERROR', 'description': 'Cấu hình CORS không hợp lệ - cors.whitelist property không được định nghĩa hoặc có format không đúng. Kiểm tra lại application.properties và đảm bảo cors.whitelist chứa danh sách domain hợp lệ.'}, {'status_code': 401, 'code': 'UNAUTHORIZED', 'type': 'AUTHENTICATION_ERROR', 'description': "Không có quyền truy cập - JWT token không được cung cấp, đã hết hạn hoặc không hợp lệ. Đảm bảo gửi token trong Authorization header với format 'Bearer <token>'."}, {'status_code': 403, 'code': 'CORS_POLICY_VIOLATION', 'type': 'CORS_ERROR', 'description': 'Vi phạm CORS policy - Origin của request không nằm trong danh sách whitelist. Liên hệ admin để thêm domain vào cors.whitelist hoặc kiểm tra lại Origin header.'}, {'status_code': 500, 'code': 'AWS_S3_CONNECTION_ERROR', 'type': 'CONFIGURATION_ERROR', 'description': 'Lỗi kết nối AWS S3 - Credentials không hợp lệ hoặc region không đúng. Kiểm tra lại aws.accessKey, aws.secretKey và aws.region trong application.properties.'}, {'status_code': 500, 'code': 'AUTHENTICATION_PROVIDER_ERROR', 'type': 'CONFIGURATION_ERROR', 'description': 'Lỗi cấu hình authentication provider - UserRepository không thể truy cập hoặc database connection failed. Kiểm tra kết nối database và UserRepository configuration.'}], 'logic_flow': {'description': 'Luồng xử lý request trong hệ thống Spring Boot với các layer bảo mật và cấu hình', 'steps': ['1. CORS Filter: Kiểm tra Origin header của request có nằm trong danh sách cors.whitelist không. Nếu không hợp lệ, trả về 403 Forbidden.', '2. Security Filter Chain: Kiểm tra endpoint có phải là public (/api/v1/pub/**) không. Nếu là protected endpoint, chuyển sang bước 3.', '3. JWT Authentication Filter: Extract và validate JWT token từ Authorization header. Nếu token không hợp lệ, trả về 401 Unauthorized.', '4. User Details Service: Load thông tin user từ database thông qua UserRepository và AppUserDetailsService.', '5. Authentication Provider: Sử dụng DaoAuthenticationProvider với BCryptPasswordEncoder để verify credentials.', '6. Authorization: Kiểm tra quyền truy cập của user đối với resource được yêu cầu.', '7. Business Logic: Xử lý logic nghiệp vụ của endpoint, có thể sử dụng S3Client để tương tác với AWS S3 nếu cần.', '8. Response Generation: Tạo response với appropriate HTTP status code và data, đảm bảo CORS headers được set đúng.']}}, 'current_phase': 'phase3_additional_coverage', 'phase_complete': {'phase1_extract_testcases': True, 'phase1_generate_missing_testcases': True, 'phase1_improve_testcases': True, 'phase2_generate_current_ac': True, 'phase2_generate_missing_ac': False, 'phase2_improve_ac': True, 'phase3_additional_coverage': True, 'format_output': False, 'phase1_generate_api_docs': True}, 'needs_more_context': False, 'existing_testcases': [], 'generated_missing_testcases': [{'test_case': "TC1: [Quiz Library API] Verify API trả về HTTP 400 với thông báo lỗi 'Required parameter 'keyWord' is not present' khi không truyền parameter keyWord trong request", 'test_type': 'negative', 'category': 'functional', 'priority': 'high', 'rationale': 'Test case này kiểm tra AC1 - yêu cầu bắt buộc về parameter keyWord. Đây là test case quan trọng để đảm bảo API validation hoạt động đúng và trả về lỗi phù hợp khi thiếu parameter bắt buộc.'}, {'test_case': 'TC2: [Quiz Library API] Verify API trả về HTTP 200 và toàn bộ danh sách Quiz trong Quiz Library khi keyWord = null', 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'rationale': 'Test case này kiểm tra AC2 - trường hợp đặc biệt khi keyWord là null. Đây là business logic quan trọng để trả về tất cả Quiz khi không có từ khóa tìm kiếm cụ thể.'}, {'test_case': "TC3: [Quiz Library API] Verify API trả về HTTP 200 và toàn bộ danh sách Quiz trong Quiz Library khi keyWord = 'All'", 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'rationale': "Test case này kiểm tra AC2 - trường hợp đặc biệt khi keyWord bằng 'All'. Đây là business logic quan trọng để trả về tất cả Quiz khi keyWord có giá trị 'All'."}, {'test_case': "TC4: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord = 'JavaScript Basics' (case sensitive test)", 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'rationale': 'Test case này kiểm tra AC3 - tìm kiếm chính xác theo title với từ khóa cụ thể. Đây là chức năng chính của API tìm kiếm Quiz.'}, {'test_case': "TC5: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord = 'javascript basics' (lowercase) và Quiz có title = 'JavaScript Basics' (mixed case)", 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'rationale': 'Test case này kiểm tra AC3 - tính năng không phân biệt hoa thường trong tìm kiếm. Đây là requirement quan trọng để đảm bảo tìm kiếm linh hoạt cho người dùng.'}, {'test_case': "TC6: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord = 'JAVASCRIPT BASICS' (uppercase) và Quiz có title = 'JavaScript Basics' (mixed case)", 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'rationale': 'Test case này kiểm tra AC3 - tính năng không phân biệt hoa thường với trường hợp uppercase. Đây là boundary test case để đảm bảo case-insensitive search hoạt động đúng trong mọi trường hợp.'}, {'test_case': "TC7: [Quiz Library API] Verify API trả về HTTP 200 và danh sách rỗng khi keyWord = 'NonExistentQuiz' (không tồn tại Quiz nào có title trùng khớp)", 'test_type': 'positive', 'category': 'functional', 'priority': 'medium', 'rationale': 'Test case này kiểm tra trường hợp không tìm thấy Quiz nào khớp với keyWord. Đây là scenario quan trọng để đảm bảo API xử lý đúng khi không có kết quả tìm kiếm.'}, {'test_case': 'TC8: [Quiz Library API] Verify API trả về HTTP 200 và cấu trúc response đúng theo AC4 với đầy đủ các field bắt buộc khi tìm kiếm thành công', 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'rationale': 'Test case này kiểm tra AC4 - cấu trúc response. Đây là test case quan trọng để đảm bảo API trả về đúng format dữ liệu như đã định nghĩa trong requirements.'}, {'test_case': "TC9: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa ký tự đặc biệt như 'Quiz-Test@2024'", 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'rationale': 'Test case này kiểm tra edge case khi keyWord chứa ký tự đặc biệt. Đây là boundary test case để đảm bảo API xử lý đúng các ký tự đặc biệt trong tìm kiếm.'}, {'test_case': "TC10: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa khoảng trắng như 'My Quiz Test'", 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'rationale': 'Test case này kiểm tra edge case khi keyWord chứa khoảng trắng. Đây là boundary test case để đảm bảo API xử lý đúng title có nhiều từ.'}, {'test_case': 'TC11: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord là chuỗi rất dài (255 characters)', 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'rationale': 'Test case này kiểm tra boundary value với keyWord có độ dài tối đa. Đây là edge case để đảm bảo API xử lý đúng với input có độ dài lớn.'}, {'test_case': "TC12: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chỉ có 1 ký tự như 'A'", 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'rationale': 'Test case này kiểm tra boundary value với keyWord có độ dài tối thiểu. Đây là edge case để đảm bảo API xử lý đúng với input có độ dài nhỏ nhất.'}, {'test_case': "TC13: [Quiz Library API] Verify API trả về HTTP 200 và danh sách rỗng khi keyWord = '' (empty string)", 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'rationale': 'Test case này kiểm tra edge case khi keyWord là chuỗi rỗng. Đây là boundary test case để đảm bảo API xử lý đúng trường hợp empty string khác với null.'}, {'test_case': "TC14: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa Unicode characters như 'Bài Quiz Tiếng Việt'", 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'rationale': 'Test case này kiểm tra edge case khi keyWord chứa ký tự Unicode. Đây là test case quan trọng để đảm bảo API hỗ trợ đa ngôn ngữ và ký tự đặc biệt.'}, {'test_case': "TC15: [Quiz Library API] Verify API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa số như 'Quiz 123'", 'test_type': 'positive', 'category': 'functional', 'priority': 'medium', 'rationale': 'Test case này kiểm tra trường hợp keyWord chứa số. Đây là test case để đảm bảo API xử lý đúng title có chứa ký tự số.'}, {'test_case': 'TC16: [Quiz Library API] Verify API response time < 3 seconds khi tìm kiếm với keyWord hợp lệ trong database có 1000+ Quiz records', 'test_type': 'performance', 'category': 'performance', 'priority': 'medium', 'rationale': 'Test case này kiểm tra performance của API khi xử lý lượng dữ liệu lớn. Đây là non-functional requirement quan trọng để đảm bảo user experience tốt.'}, {'test_case': 'TC17: [Quiz Library API] Verify API xử lý đúng multiple concurrent requests với cùng keyWord và trả về consistent results', 'test_type': 'performance', 'category': 'performance', 'priority': 'medium', 'rationale': 'Test case này kiểm tra khả năng xử lý concurrent requests của API. Đây là test case quan trọng để đảm bảo API stable trong môi trường multi-user.'}, {'test_case': 'TC18: [Quiz Library API] Verify API trả về đúng HTTP status code và error message format khi server gặp internal error (HTTP 500)', 'test_type': 'negative', 'category': 'functional', 'priority': 'medium', 'rationale': 'Test case này kiểm tra error handling khi server gặp lỗi internal. Đây là test case quan trọng để đảm bảo API xử lý lỗi một cách graceful.'}, {'test_case': "TC19: [Quiz Library API] Verify API chỉ trả về Quiz records có status = 'PUBLIC' hoặc thuộc về current user khi search với keyWord hợp lệ", 'test_type': 'security', 'category': 'functional', 'priority': 'high', 'rationale': 'Test case này kiểm tra data security và access control. Đây là test case quan trọng để đảm bảo user chỉ có thể tìm kiếm và xem Quiz mà họ có quyền truy cập.'}, {'test_case': 'TC20: [Quiz Library API] Verify API trả về đúng pagination information khi có nhiều Quiz records match với keyWord', 'test_type': 'functional', 'category': 'functional', 'priority': 'medium', 'rationale': 'Test case này kiểm tra pagination handling khi có nhiều kết quả tìm kiếm. Đây là test case quan trọng để đảm bảo API xử lý đúng large result sets.'}, {'test_case': 'TC21: [Quiz Library API] Verify API trả về đúng author information với tất cả required fields theo AC4 khi search thành công', 'test_type': 'functional', 'category': 'functional', 'priority': 'high', 'rationale': 'Test case này kiểm tra chi tiết cấu trúc author object trong response theo AC4. Đây là test case quan trọng để đảm bảo data integrity và completeness.'}, {'test_case': 'TC22: [Quiz Library API] Verify API không trả về Quiz records có deletedAt != null khi search với keyWord hợp lệ', 'test_type': 'functional', 'category': 'functional', 'priority': 'high', 'rationale': 'Test case này kiểm tra soft delete logic. Đây là test case quan trọng để đảm bảo Quiz đã bị xóa không xuất hiện trong kết quả tìm kiếm.'}, {'test_case': 'TC23: [Quiz Library API] Verify API trả về đúng data types cho tất cả fields theo AC4 specification (string, integer, boolean, datetime, etc.)', 'test_type': 'functional', 'category': 'functional', 'priority': 'high', 'rationale': 'Test case này kiểm tra data type validation theo AC4. Đây là test case quan trọng để đảm bảo API contract consistency và data integrity.'}, {'test_case': 'TC24: [Quiz Library API] Verify API trả về HTTP 400 khi keyWord parameter có giá trị là SQL injection payload như "\'; DROP TABLE quiz; --"', 'test_type': 'security', 'category': 'security', 'priority': 'high', 'rationale': 'Test case này kiểm tra SQL injection vulnerability. Đây là security test case quan trọng để đảm bảo API được bảo vệ khỏi các cuộc tấn công SQL injection.'}, {'test_case': 'TC25: [Quiz Library API] Verify API trả về HTTP 400 khi keyWord parameter có giá trị là XSS payload như "<script>alert(\'xss\')</script>"', 'test_type': 'security', 'category': 'security', 'priority': 'high', 'rationale': 'Test case này kiểm tra XSS vulnerability. Đây là security test case quan trọng để đảm bảo API được bảo vệ khỏi các cuộc tấn công XSS.'}], 'final_testcases': [{'test_case': "TC1: [Quiz Library API] Xác minh API trả về HTTP 400 với thông báo lỗi 'Required parameter 'keyWord' is not present' khi không truyền parameter keyWord trong request", 'test_type': 'negative', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC2: [Quiz Library API] Xác minh API trả về HTTP 200 và toàn bộ danh sách Quiz trong Quiz Library khi keyWord = null', 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': "TC3: [Quiz Library API] Xác minh API trả về HTTP 200 và toàn bộ danh sách Quiz trong Quiz Library khi keyWord = 'All'", 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': "TC4: [Quiz Library API] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord = 'JavaScript Basics' với dữ liệu test có Quiz title tương ứng", 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': "TC5: [Quiz Library API] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord = 'javascript basics' (lowercase) và Quiz có title = 'JavaScript Basics' (mixed case) để kiểm tra tính năng không phân biệt hoa thường", 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': "TC6: [Quiz Library API] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord = 'JAVASCRIPT BASICS' (uppercase) và Quiz có title = 'JavaScript Basics' (mixed case) để kiểm tra tính năng không phân biệt hoa thường", 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': "TC7: [Quiz Library API] Xác minh API trả về HTTP 200 và danh sách rỗng khi keyWord = 'NonExistentQuiz' (không tồn tại Quiz nào có title trùng khớp)", 'test_type': 'positive', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': 'TC8: [Quiz Library API] Xác minh API trả về HTTP 200 và cấu trúc response đúng theo AC4 với đầy đủ các field bắt buộc bao gồm id, title, description, category, difficulty, duration, questionCount, tags, status, createdAt, updatedAt, deletedAt, authorId, author object với các field con, rating, attempts, passingScore và các field cấu hình khác', 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': "TC9: [Quiz Library API] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa ký tự đặc biệt như 'Quiz-Test@2024'", 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': "TC10: [Quiz Library API] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa khoảng trắng như 'My Quiz Test'", 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': 'TC11: [Quiz Library API] Xác minh API trả về HTTP 200 và xử lý đúng khi keyWord là chuỗi rất dài (255 characters) để kiểm tra boundary value của độ dài input', 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': "TC12: [Quiz Library API] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chỉ có 1 ký tự như 'A'", 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': "TC13: [Quiz Library API] Xác minh API trả về HTTP 200 và xử lý đúng khi keyWord = '' (empty string) để kiểm tra edge case khác với null", 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': "TC14: [Quiz Library API] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa Unicode characters như 'Bài Quiz Tiếng Việt' để kiểm tra hỗ trợ đa ngôn ngữ", 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': "TC15: [Quiz Library API] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa số như 'Quiz 123'", 'test_type': 'positive', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': 'TC16: [Quiz Library API] Xác minh API có response time nhỏ hơn 3 giây khi tìm kiếm với keyWord hợp lệ trong database có 1000+ Quiz records để đảm bảo performance', 'test_type': 'performance', 'category': 'performance', 'priority': 'medium', 'type': 'new'}, {'test_case': 'TC17: [Quiz Library API] Xác minh API xử lý đúng multiple concurrent requests với cùng keyWord và trả về consistent results để kiểm tra tính ổn định trong môi trường multi-user', 'test_type': 'performance', 'category': 'performance', 'priority': 'medium', 'type': 'new'}, {'test_case': 'TC18: [Quiz Library API] Xác minh API trả về đúng HTTP status code và error message format khi server gặp internal error (HTTP 500) để kiểm tra error handling', 'test_type': 'negative', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': "TC19: [Quiz Library API] Xác minh API chỉ trả về Quiz records có status = 'PUBLIC' hoặc thuộc về current user khi search với keyWord hợp lệ để đảm bảo data security và access control", 'test_type': 'security', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC20: [Quiz Library API] Xác minh API trả về đúng pagination information khi có nhiều Quiz records match với keyWord để kiểm tra xử lý large result sets', 'test_type': 'functional', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': 'TC21: [Quiz Library API] Xác minh API trả về đúng author information với tất cả required fields theo AC4 bao gồm id, username, name, email, avatar, joinedAt, lastLoginAt, isActive, role và các field null được set đúng', 'test_type': 'functional', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC22: [Quiz Library API] Xác minh API không trả về Quiz records có deletedAt != null khi search với keyWord hợp lệ để kiểm tra soft delete logic', 'test_type': 'functional', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC23: [Quiz Library API] Xác minh API trả về đúng data types cho tất cả fields theo AC4 specification bao gồm string, integer, boolean, datetime, float và array để đảm bảo data integrity', 'test_type': 'functional', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC24: [Quiz Library API] Xác minh API trả về HTTP 400 và xử lý an toàn khi keyWord parameter chứa SQL injection payload như "\'; DROP TABLE quiz; --" để kiểm tra bảo mật', 'test_type': 'security', 'category': 'security', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC25: [Quiz Library API] Xác minh API trả về HTTP 400 và xử lý an toàn khi keyWord parameter chứa XSS payload như "<script>alert(\'xss\')</script>" để kiểm tra bảo mật', 'test_type': 'security', 'category': 'security', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC26: [Quiz Library API] Xác minh endpoint /api/v1/quiz/search được tạo và hoạt động đúng với HTTP GET method theo implementation trong QuizController', 'test_type': 'positive', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': "TC27: [Quiz Library API] Xác minh parameter name được sử dụng là 'query' thay vì 'keyWord' theo implementation trong code để đảm bảo tính nhất quán", 'test_type': 'functional', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': "TC28: [Quiz Library API] Xác minh API trả về HTTP 400 với thông báo lỗi phù hợp khi không truyền parameter 'query' trong request theo AC1", 'test_type': 'negative', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC29: [Quiz Library API] Xác minh service method search() được gọi đúng và trả về List<Quiz> theo implementation trong QuizService', 'test_type': 'functional', 'category': 'integration', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC30: [Quiz Library API] Xác minh API có JWT authentication được áp dụng đúng thông qua @LogsActivityAnnotation và security configuration', 'test_type': 'security', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC31: [Quiz Library API] Xác minh API trả về HTTP 401 khi JWT token không hợp lệ hoặc không được cung cấp trong Authorization header', 'test_type': 'security', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC32: [Quiz Library API] Xác minh API trả về HTTP 403 khi Origin header không nằm trong CORS whitelist configuration', 'test_type': 'security', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC33: [Quiz Library API] Xác minh response được wrap trong BaseResponse structure với success flag và data field chứa List<Quiz>', 'test_type': 'functional', 'category': 'functional', 'priority': 'high', 'type': 'new'}, {'test_case': 'TC34: [Quiz Library API] Xác minh API xử lý đúng khi query parameter chứa khoảng trắng ở đầu và cuối chuỗi để kiểm tra string trimming', 'test_type': 'edge', 'category': 'functional', 'priority': 'medium', 'type': 'new'}, {'test_case': 'TC35: [Quiz Library API] Xác minh API hoạt động đúng với Content-Type application/json header theo API specification', 'test_type': 'functional', 'category': 'functional', 'priority': 'medium', 'type': 'new'}], 'current_ac': [{'id': 'AC1', 'ac_description': "API tìm kiếm yêu cầu tham số keyWord (bắt buộc): Nếu không truyền keyWord, API phải trả về HTTP 400 với thông báo lỗi: Required parameter 'keyWord' is not present", 'status': 'Đã định nghĩa', 'priority': 'N/A'}, {'id': 'AC2', 'ac_description': 'Trường hợp keyWord là null hoặc bằng "All": API trả về HTTP 200 và trả về toàn bộ danh sách Quiz hiện có trong Quiz Library', 'status': 'Đã định nghĩa', 'priority': 'N/A'}, {'id': 'AC3', 'ac_description': 'Trường hợp keyWord có giá trị cụ thể: API trả về HTTP 200 và trả về danh sách Quiz có title chính xác bằng keyWord và không phân biệt hoa thường', 'status': 'Đã định nghĩa', 'priority': 'N/A'}, {'id': 'AC4', 'ac_description': 'Cấu trúc response: Mỗi phần tử Quiz trong danh sách có định dạng với các trường id, title, description, category, difficulty, duration, questionCount, tags, status, createdAt, updatedAt, deletedAt, authorId, author (object với các trường con), rating, attempts, passingScore, navigationMode, hasTimer, timeLimit, warningTime, allowQuestionPicker, shuffleQuestions, shuffleAnswers, showProgress, allowPause, maxAttempts, questions, quizAttempts, savedByUsers, leaderboardEntries', 'status': 'Đã định nghĩa', 'priority': 'N/A'}, {'id': 'AC_AI_Suggest1', 'ac_description': 'API endpoint và HTTP method: API tìm kiếm Quiz Library phải sử dụng HTTP GET method với endpoint rõ ràng (ví dụ: GET /api/quiz-library/search) để tuân thủ RESTful API design principles', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC_AI_Suggest2', 'ac_description': 'Xử lý keyWord rỗng: Khi keyWord là chuỗi rỗng ("") hoặc chỉ chứa khoảng trắng, API phải trả về HTTP 400 với thông báo lỗi phù hợp để tránh trả về toàn bộ dữ liệu không mong muốn', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC_AI_Suggest3', 'ac_description': 'Giới hạn độ dài keyWord: API phải validate độ dài tối đa của keyWord (ví dụ: 255 ký tự) và trả về HTTP 400 nếu vượt quá giới hạn để tránh các cuộc tấn công DoS', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC_AI_Suggest4', 'ac_description': 'Xử lý ký tự đặc biệt trong keyWord: API phải xử lý an toàn các ký tự đặc biệt, ký tự Unicode và escape sequences trong keyWord để tránh SQL injection hoặc các lỗ hổng bảo mật khác', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC_AI_Suggest5', 'ac_description': 'Response khi không tìm thấy kết quả: Khi keyWord có giá trị cụ thể nhưng không có Quiz nào có title trùng khớp, API phải trả về HTTP 200 với danh sách rỗng []', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC_AI_Suggest6', 'ac_description': 'Content-Type header: API phải trả về response với Content-Type: application/json để đảm bảo client xử lý đúng định dạng dữ liệu', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC_AI_Suggest7', 'ac_description': 'Xử lý lỗi server: Khi có lỗi internal server (database connection, system error), API phải trả về HTTP 500 với thông báo lỗi phù hợp và không expose thông tin nhạy cảm', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC_AI_Suggest8', 'ac_description': 'Performance và timeout: API phải có response time không quá 5 giây trong điều kiện bình thường và có cơ chế timeout để tránh request bị treo vô thời hạn', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC_AI_Suggest9', 'ac_description': 'Phân quyền truy cập: API phải kiểm tra quyền truy cập của user, chỉ trả về các Quiz mà user có quyền xem (PUBLIC quiz hoặc PRIVATE quiz của chính user đó)', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC_AI_Suggest10', 'ac_description': 'Xử lý Quiz đã xóa: API không được trả về các Quiz có deletedAt khác null, chỉ trả về các Quiz đang active', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC_AI_Suggest11', 'ac_description': 'Logging và monitoring: API phải ghi log các request tìm kiếm (không bao gồm thông tin nhạy cảm) để phục vụ debugging và monitoring hệ thống', 'status': 'Đề xuất', 'priority': 'Low'}, {'id': 'AC_AI_Suggest12', 'ac_description': 'Rate limiting: API phải có cơ chế giới hạn số lượng request từ cùng một user/IP trong một khoảng thời gian để tránh abuse', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC_AI_Suggest13', 'ac_description': 'Sắp xếp kết quả: Khi trả về danh sách Quiz, các kết quả phải được sắp xếp theo thứ tự nhất định (ví dụ: theo updatedAt desc) để đảm bảo tính nhất quán', 'status': 'Đề xuất', 'priority': 'Low'}, {'id': 'AC_AI_Suggest14', 'ac_description': 'Validation dữ liệu response: Tất cả các trường trong response phải tuân thủ đúng data type đã định nghĩa, các trường required không được null, và các enum values phải hợp lệ', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC_AI_Suggest15', 'ac_description': 'Xử lý concurrent access: API phải xử lý đúng khi có nhiều request đồng thời và đảm bảo data consistency khi Quiz đang được cập nhật', 'status': 'Đề xuất', 'priority': 'Medium'}], 'generated_missing_ac': [], 'final_ac': [{'id': 'AC1', 'ac_description': "API tìm kiếm yêu cầu tham số query (bắt buộc): Nếu không truyền query, API phải trả về HTTP 400 với thông báo lỗi: Required parameter 'query' is not present", 'status': 'Đã định nghĩa', 'priority': 'High'}, {'id': 'AC2', 'ac_description': 'Trường hợp query là null hoặc bằng "All": API trả về HTTP 200 và trả về toàn bộ danh sách Quiz hiện có trong Quiz Library', 'status': 'Đã định nghĩa', 'priority': 'High'}, {'id': 'AC3', 'ac_description': 'Trường hợp query có giá trị cụ thể: API trả về HTTP 200 và trả về danh sách Quiz có title chính xác bằng query và không phân biệt hoa thường', 'status': 'Đã định nghĩa', 'priority': 'High'}, {'id': 'AC4', 'ac_description': 'Cấu trúc response: Mỗi phần tử Quiz trong danh sách có định dạng với các trường id, title, description, category, difficulty, duration, questionCount, tags, status, createdAt, updatedAt, deletedAt, authorId, author (object với các trường con), rating, attempts, passingScore, navigationMode, hasTimer, timeLimit, warningTime, allowQuestionPicker, shuffleQuestions, shuffleAnswers, showProgress, allowPause, maxAttempts, questions, quizAttempts, savedByUsers, leaderboardEntries', 'status': 'Đã định nghĩa', 'priority': 'High'}, {'id': 'AC5', 'ac_description': 'API endpoint và HTTP method: API tìm kiếm Quiz Library phải sử dụng HTTP GET method với endpoint /api/v1/quiz/search để tuân thủ RESTful API design principles', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC6', 'ac_description': 'Xử lý query rỗng: Khi query là chuỗi rỗng ("") hoặc chỉ chứa khoảng trắng, API phải trả về HTTP 400 với thông báo lỗi phù hợp để tránh trả về toàn bộ dữ liệu không mong muốn', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC7', 'ac_description': 'Giới hạn độ dài query: API phải validate độ dài tối đa của query (255 ký tự) và trả về HTTP 400 nếu vượt quá giới hạn để tránh các cuộc tấn công DoS', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC8', 'ac_description': 'Xử lý ký tự đặc biệt trong query: API phải xử lý an toàn các ký tự đặc biệt, ký tự Unicode và escape sequences trong query để tránh SQL injection hoặc các lỗ hổng bảo mật khác', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC9', 'ac_description': 'Response khi không tìm thấy kết quả: Khi query có giá trị cụ thể nhưng không có Quiz nào có title trùng khớp, API phải trả về HTTP 200 với danh sách rỗng []', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC10', 'ac_description': 'Content-Type header: API phải trả về response với Content-Type: application/json để đảm bảo client xử lý đúng định dạng dữ liệu', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC11', 'ac_description': 'Xử lý lỗi server: Khi có lỗi internal server (database connection, system error), API phải trả về HTTP 500 với thông báo lỗi phù hợp và không expose thông tin nhạy cảm', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC12', 'ac_description': 'Performance và timeout: API phải có response time không quá 5 giây trong điều kiện bình thường và có cơ chế timeout để tránh request bị treo vô thời hạn', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC13', 'ac_description': 'Phân quyền truy cập: API phải kiểm tra quyền truy cập của user, chỉ trả về các Quiz mà user có quyền xem (PUBLIC quiz hoặc PRIVATE quiz của chính user đó)', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC14', 'ac_description': 'Xử lý Quiz đã xóa: API không được trả về các Quiz có deletedAt khác null, chỉ trả về các Quiz đang active', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC15', 'ac_description': 'Logging và monitoring: API phải ghi log các request tìm kiếm (không bao gồm thông tin nhạy cảm) để phục vụ debugging và monitoring hệ thống', 'status': 'Đề xuất', 'priority': 'Low'}, {'id': 'AC16', 'ac_description': 'Rate limiting: API phải có cơ chế giới hạn số lượng request từ cùng một user/IP trong một khoảng thời gian để tránh abuse', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC17', 'ac_description': 'Sắp xếp kết quả: Khi trả về danh sách Quiz, các kết quả phải được sắp xếp theo thứ tự nhất định (ví dụ: theo updatedAt desc) để đảm bảo tính nhất quán', 'status': 'Đề xuất', 'priority': 'Low'}, {'id': 'AC18', 'ac_description': 'Validation dữ liệu response: Tất cả các trường trong response phải tuân thủ đúng data type đã định nghĩa, các trường required không được null, và các enum values phải hợp lệ', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC19', 'ac_description': 'Xử lý concurrent access: API phải xử lý đúng khi có nhiều request đồng thời và đảm bảo data consistency khi Quiz đang được cập nhật', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC20', 'ac_description': "JWT Authentication: API phải yêu cầu JWT token hợp lệ trong Authorization header với format 'Bearer <token>' để truy cập endpoint", 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC21', 'ac_description': 'CORS Policy: API phải kiểm tra Origin header có nằm trong danh sách cors.whitelist và trả về HTTP 403 nếu vi phạm CORS policy', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC22', 'ac_description': 'BaseResponse Structure: Response phải được wrap trong BaseResponse structure với success flag và data field chứa List<Quiz>', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC23', 'ac_description': 'Author Information: Trường author trong response phải chứa đầy đủ thông tin user bao gồm id, username, name, email, avatar, joinedAt, lastLoginAt, isActive, role', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC24', 'ac_description': 'Input Sanitization: API phải sanitize và validate query parameter để tránh XSS attacks và các security vulnerabilities khác', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC25', 'ac_description': 'Unicode Support: API phải hỗ trợ tìm kiếm với query chứa ký tự Unicode và các ngôn ngữ khác nhau', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC26', 'ac_description': 'String Trimming: API phải tự động trim khoảng trắng ở đầu và cuối query parameter trước khi xử lý', 'status': 'Đề xuất', 'priority': 'Low'}, {'id': 'AC27', 'ac_description': 'Activity Logging: API phải ghi log hoạt động user thông qua @LogsActivityAnnotation để tracking và audit', 'status': 'Đề xuất', 'priority': 'Low'}, {'id': 'AC28', 'ac_description': 'Error Message Consistency: Tất cả error responses phải có format nhất quán với error code, message và timestamp', 'status': 'Đề xuất', 'priority': 'Medium'}, {'id': 'AC29', 'ac_description': 'Database Connection Handling: API phải xử lý gracefully khi database connection bị lỗi và trả về appropriate error response', 'status': 'Đề xuất', 'priority': 'High'}, {'id': 'AC30', 'ac_description': 'Memory Management: API phải optimize memory usage khi trả về large result sets và có cơ chế giới hạn số lượng records trả về', 'status': 'Đề xuất', 'priority': 'Medium'}], 'additional_coverage': {}, 'final_analysis_result': {'ac_analysis': {'analysis_metadata': {'jira_task_id': 'SCRUM-1', 'git_commit_id': ['5d6559ed219cbd90c803ebce5387998510106be3', '0090ac14c88895f59409e45d33220ef62ce7d08b', '30b7f27ce6c7c132ffb8f14e85c0c0bc40a76bf6'], 'analysis_date': '2025-01-12T10:30:00+07:00'}, 'detailed_mapping': [{'id': 'AC1', 'ac_description': "API tìm kiếm yêu cầu tham số query (bắt buộc): Nếu không truyền query, API phải trả về HTTP 400 với thông báo lỗi: Required parameter 'query' is not present", 'status': 'Đã định nghĩa', 'testcase_name': "[QuizLibraryService] Xác minh API trả về HTTP 400 với thông báo lỗi 'Required parameter 'keyWord' is not present' khi không truyền parameter keyWord trong request", 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC2', 'ac_description': 'Trường hợp query là null hoặc bằng "All": API trả về HTTP 200 và trả về toàn bộ danh sách Quiz hiện có trong Quiz Library', 'status': 'Đã định nghĩa', 'testcase_name': '[QuizLibraryService] Xác minh API trả về HTTP 200 và toàn bộ danh sách Quiz trong Quiz Library khi keyWord = null', 'code_location': 'QuizServiceImpl.java:509-513', 'assessment': 'Code chưa đủ'}, {'id': 'AC3', 'ac_description': 'Trường hợp query có giá trị cụ thể: API trả về HTTP 200 và trả về danh sách Quiz có title chính xác bằng query và không phân biệt hoa thường', 'status': 'Đã định nghĩa', 'testcase_name': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord = 'JavaScript Basics' với dữ liệu test có Quiz title tương ứng", 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC4', 'ac_description': 'Cấu trúc response: Mỗi phần tử Quiz trong danh sách có định dạng với các trường id, title, description, category, difficulty, duration, questionCount, tags, status, createdAt, updatedAt, deletedAt, authorId, author (object với các trường con), rating, attempts, passingScore, navigationMode, hasTimer, timeLimit, warningTime, allowQuestionPicker, shuffleQuestions, shuffleAnswers, showProgress, allowPause, maxAttempts, questions, quizAttempts, savedByUsers, leaderboardEntries', 'status': 'Đã định nghĩa', 'testcase_name': '[QuizLibraryService] Xác minh API trả về HTTP 200 và cấu trúc response đúng theo AC4 với đầy đủ các field bắt buộc bao gồm id, title, description, category, difficulty, duration, questionCount, tags, status, createdAt, updatedAt, deletedAt, authorId, author object với các field con, rating, attempts, passingScore và các field cấu hình khác', 'code_location': 'QuizServiceImpl.java:522-530', 'assessment': 'Code chưa đủ'}, {'id': 'AC5', 'ac_description': 'API endpoint và HTTP method: API tìm kiếm Quiz Library phải sử dụng HTTP GET method với endpoint /api/v1/quiz/search để tuân thủ RESTful API design principles', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh endpoint /api/v1/quiz/search được tạo và hoạt động đúng với HTTP GET method theo implementation trong QuizController', 'code_location': 'QuizController.java:125-128', 'assessment': 'Đạt yêu cầu'}, {'id': 'AC6', 'ac_description': 'Xử lý query rỗng: Khi query là chuỗi rỗng ("") hoặc chỉ chứa khoảng trắng, API phải trả về HTTP 400 với thông báo lỗi phù hợp để tránh trả về toàn bộ dữ liệu không mong muốn', 'status': 'Đề xuất', 'testcase_name': "[QuizLibraryService] Xác minh API trả về HTTP 200 và xử lý đúng khi keyWord = '' (empty string) để kiểm tra edge case khác với null", 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC7', 'ac_description': 'Giới hạn độ dài query: API phải validate độ dài tối đa của query (255 ký tự) và trả về HTTP 400 nếu vượt quá giới hạn để tránh các cuộc tấn công DoS', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API trả về HTTP 200 và xử lý đúng khi keyWord là chuỗi rất dài (255 characters) để kiểm tra boundary value của độ dài input', 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC8', 'ac_description': 'Xử lý ký tự đặc biệt trong query: API phải xử lý an toàn các ký tự đặc biệt, ký tự Unicode và escape sequences trong query để tránh SQL injection hoặc các lỗ hổng bảo mật khác', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API trả về HTTP 400 và xử lý an toàn khi keyWord parameter chứa SQL injection payload như "\'; DROP TABLE quiz; --" để kiểm tra bảo mật', 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC9', 'ac_description': 'Response khi không tìm thấy kết quả: Khi query có giá trị cụ thể nhưng không có Quiz nào có title trùng khớp, API phải trả về HTTP 200 với danh sách rỗng []', 'status': 'Đề xuất', 'testcase_name': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách rỗng khi keyWord = 'NonExistentQuiz' (không tồn tại Quiz nào có title trùng khớp)", 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC10', 'ac_description': 'Content-Type header: API phải trả về response với Content-Type: application/json để đảm bảo client xử lý đúng định dạng dữ liệu', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API hoạt động đúng với Content-Type application/json header theo API specification', 'code_location': 'QuizController.java:125-128', 'assessment': 'Đạt yêu cầu'}, {'id': 'AC11', 'ac_description': 'Xử lý lỗi server: Khi có lỗi internal server (database connection, system error), API phải trả về HTTP 500 với thông báo lỗi phù hợp và không expose thông tin nhạy cảm', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API trả về đúng HTTP status code và error message format khi server gặp internal error (HTTP 500) để kiểm tra error handling', 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC12', 'ac_description': 'Performance và timeout: API phải có response time không quá 5 giây trong điều kiện bình thường và có cơ chế timeout để tránh request bị treo vô thời hạn', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API có response time nhỏ hơn 3 giây khi tìm kiếm với keyWord hợp lệ trong database có 1000+ Quiz records để đảm bảo performance', 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC13', 'ac_description': 'Phân quyền truy cập: API phải kiểm tra quyền truy cập của user, chỉ trả về các Quiz mà user có quyền xem (PUBLIC quiz hoặc PRIVATE quiz của chính user đó)', 'status': 'Đề xuất', 'testcase_name': "[QuizLibraryService] Xác minh API chỉ trả về Quiz records có status = 'PUBLIC' hoặc thuộc về current user khi search với keyWord hợp lệ để đảm bảo data security và access control", 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC14', 'ac_description': 'Xử lý Quiz đã xóa: API không được trả về các Quiz có deletedAt khác null, chỉ trả về các Quiz đang active', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API không trả về Quiz records có deletedAt != null khi search với keyWord hợp lệ để kiểm tra soft delete logic', 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC15', 'ac_description': 'Logging và monitoring: API phải ghi log các request tìm kiếm (không bao gồm thông tin nhạy cảm) để phục vụ debugging và monitoring hệ thống', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API có JWT authentication được áp dụng đúng thông qua @LogsActivityAnnotation và security configuration', 'code_location': 'QuizController.java:126', 'assessment': 'Đạt yêu cầu'}, {'id': 'AC16', 'ac_description': 'Rate limiting: API phải có cơ chế giới hạn số lượng request từ cùng một user/IP trong một khoảng thời gian để tránh abuse', 'status': 'Đề xuất', 'testcase_name': '', 'code_location': '', 'assessment': 'Chưa có testcase'}, {'id': 'AC17', 'ac_description': 'Sắp xếp kết quả: Khi trả về danh sách Quiz, các kết quả phải được sắp xếp theo thứ tự nhất định (ví dụ: theo updatedAt desc) để đảm bảo tính nhất quán', 'status': 'Đề xuất', 'testcase_name': '', 'code_location': '', 'assessment': 'Chưa có testcase'}, {'id': 'AC18', 'ac_description': 'Validation dữ liệu response: Tất cả các trường trong response phải tuân thủ đúng data type đã định nghĩa, các trường required không được null, và các enum values phải hợp lệ', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API trả về đúng data types cho tất cả fields theo AC4 specification bao gồm string, integer, boolean, datetime, float và array để đảm bảo data integrity', 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC19', 'ac_description': 'Xử lý concurrent access: API phải xử lý đúng khi có nhiều request đồng thời và đảm bảo data consistency khi Quiz đang được cập nhật', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API xử lý đúng multiple concurrent requests với cùng keyWord và trả về consistent results để kiểm tra tính ổn định trong môi trường multi-user', 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC20', 'ac_description': "JWT Authentication: API phải yêu cầu JWT token hợp lệ trong Authorization header với format 'Bearer <token>' để truy cập endpoint", 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API trả về HTTP 401 khi JWT token không hợp lệ hoặc không được cung cấp trong Authorization header', 'code_location': 'AuthConfig.java:25-40', 'assessment': 'Đạt yêu cầu'}, {'id': 'AC21', 'ac_description': 'CORS Policy: API phải kiểm tra Origin header có nằm trong danh sách cors.whitelist và trả về HTTP 403 nếu vi phạm CORS policy', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API trả về HTTP 403 khi Origin header không nằm trong CORS whitelist configuration', 'code_location': 'AppConfig.java:12-25', 'assessment': 'Đạt yêu cầu'}, {'id': 'AC22', 'ac_description': 'BaseResponse Structure: Response phải được wrap trong BaseResponse structure với success flag và data field chứa List<Quiz>', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh response được wrap trong BaseResponse structure với success flag và data field chứa List<Quiz>', 'code_location': 'QuizController.java:128', 'assessment': 'Đạt yêu cầu'}, {'id': 'AC23', 'ac_description': 'Author Information: Trường author trong response phải chứa đầy đủ thông tin user bao gồm id, username, name, email, avatar, joinedAt, lastLoginAt, isActive, role', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API trả về đúng author information với tất cả required fields theo AC4 bao gồm id, username, name, email, avatar, joinedAt, lastLoginAt, isActive, role và các field null được set đúng', 'code_location': 'QuizServiceImpl.java:522-530', 'assessment': 'Code chưa đủ'}, {'id': 'AC24', 'ac_description': 'Input Sanitization: API phải sanitize và validate query parameter để tránh XSS attacks và các security vulnerabilities khác', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API trả về HTTP 400 và xử lý an toàn khi keyWord parameter chứa XSS payload như "<script>alert(\'xss\')</script>" để kiểm tra bảo mật', 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC25', 'ac_description': 'Unicode Support: API phải hỗ trợ tìm kiếm với query chứa ký tự Unicode và các ngôn ngữ khác nhau', 'status': 'Đề xuất', 'testcase_name': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa Unicode characters như 'Bài Quiz Tiếng Việt' để kiểm tra hỗ trợ đa ngôn ngữ", 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC26', 'ac_description': 'String Trimming: API phải tự động trim khoảng trắng ở đầu và cuối query parameter trước khi xử lý', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API xử lý đúng khi query parameter chứa khoảng trắng ở đầu và cuối chuỗi để kiểm tra string trimming', 'code_location': '', 'assessment': 'Chưa có code'}, {'id': 'AC27', 'ac_description': 'Activity Logging: API phải ghi log hoạt động user thông qua @LogsActivityAnnotation để tracking và audit', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API có JWT authentication được áp dụng đúng thông qua @LogsActivityAnnotation và security configuration', 'code_location': 'QuizController.java:126', 'assessment': 'Đạt yêu cầu'}, {'id': 'AC28', 'ac_description': 'Error Message Consistency: Tất cả error responses phải có format nhất quán với error code, message và timestamp', 'status': 'Đề xuất', 'testcase_name': '', 'code_location': '', 'assessment': 'Chưa có testcase'}, {'id': 'AC29', 'ac_description': 'Database Connection Handling: API phải xử lý gracefully khi database connection bị lỗi và trả về appropriate error response', 'status': 'Đề xuất', 'testcase_name': '', 'code_location': '', 'assessment': 'Chưa có testcase'}, {'id': 'AC30', 'ac_description': 'Memory Management: API phải optimize memory usage khi trả về large result sets và có cơ chế giới hạn số lượng records trả về', 'status': 'Đề xuất', 'testcase_name': '[QuizLibraryService] Xác minh API trả về đúng pagination information khi có nhiều Quiz records match với keyWord để kiểm tra xử lý large result sets', 'code_location': '', 'assessment': 'Chưa có code'}], 'coverage_overview': {'total_acceptance_criteria': '30', 'fully_covered': '6', 'partially_covered': '3', 'not_covered': '16', 'requirement_coverage': '13%', 'code_coverage': '30%', 'test_case_coverage': '83%', 'assessment': 'Not Satisfactory', 'quality_score': '35', 'visual_summary_data': {'coverage_distribution': {'fully_covered': '6', 'partially_covered': '3', 'not_covered': '16'}, 'progress_metrics': {'requirement': '13%', 'code': '30%', 'test_case': '83%'}}}}, 'testcase_csv': [{'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 400 với thông báo lỗi 'Required parameter 'keyWord' is not present' khi không truyền parameter keyWord trong request", 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '400', 'requestParamName': '', 'requestParamValue': '', 'requestBody': '{}', 'expectBody': '{"message": "Required parameter \'keyWord\' is not present"}', 'code_coverage_score': '0%: Không có logic xử lý validation parameter bắt buộc', 'explain_coverage': "Code hiện tại không có validation để kiểm tra parameter 'query' có bắt buộc hay không. Method search() chỉ kiểm tra null sau khi nhận parameter, không có @RequestParam(required=true) hoặc validation khác."}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về HTTP 200 và toàn bộ danh sách Quiz trong Quiz Library khi keyWord = null', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': 'null', 'requestBody': '{}', 'expectBody': 'expectBody_1.json', 'code_coverage_score': '30%: Có logic xử lý null nhưng throw exception thay vì trả về toàn bộ danh sách', 'explain_coverage': 'Code hiện tại có kiểm tra query == null nhưng throw BusinessException thay vì trả về toàn bộ danh sách Quiz như yêu cầu. Cần sửa logic để trả về quizRepository.findAll() khi query null.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và toàn bộ danh sách Quiz trong Quiz Library khi keyWord = 'All'", 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"All"', 'requestBody': '{}', 'expectBody': 'expectBody_2.json', 'code_coverage_score': "0%: Không có logic xử lý trường hợp query = 'All'", 'explain_coverage': "Code hiện tại không có logic để xử lý trường hợp đặc biệt khi query = 'All'. Cần thêm điều kiện kiểm tra và trả về toàn bộ danh sách Quiz."}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord = 'JavaScript Basics' với dữ liệu test có Quiz title tương ứng", 'prepareFileName': 'prepareData_1.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"JavaScript Basics"', 'requestBody': '{}', 'expectBody': 'expectBody_3.json', 'code_coverage_score': '0%: Không có logic tìm kiếm theo title', 'explain_coverage': 'Code hiện tại chỉ trả về quizRepository.findAll() cho mọi trường hợp, không có logic tìm kiếm theo title chính xác. Cần implement query để tìm Quiz có title khớp với query parameter.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord = 'javascript basics' (lowercase) và Quiz có title = 'JavaScript Basics' (mixed case) để kiểm tra tính năng không phân biệt hoa thường", 'prepareFileName': 'prepareData_2.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"javascript basics"', 'requestBody': '{}', 'expectBody': 'expectBody_4.json', 'code_coverage_score': '0%: Không có logic tìm kiếm case-insensitive', 'explain_coverage': 'Code hiện tại không có logic tìm kiếm không phân biệt hoa thường. Cần implement query với LOWER() hoặc ILIKE để so sánh title không phân biệt case.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord = 'JAVASCRIPT BASICS' (uppercase) và Quiz có title = 'JavaScript Basics' (mixed case) để kiểm tra tính năng không phân biệt hoa thường", 'prepareFileName': 'prepareData_3.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"JAVASCRIPT BASICS"', 'requestBody': '{}', 'expectBody': 'expectBody_5.json', 'code_coverage_score': '0%: Không có logic tìm kiếm case-insensitive', 'explain_coverage': 'Tương tự test case trước, code hiện tại không có logic tìm kiếm không phân biệt hoa thường cho trường hợp uppercase.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách rỗng khi keyWord = 'NonExistentQuiz' (không tồn tại Quiz nào có title trùng khớp)", 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"NonExistentQuiz"', 'requestBody': '{}', 'expectBody': '{"success": true, "data": []}', 'code_coverage_score': '0%: Không có logic tìm kiếm theo title', 'explain_coverage': 'Code hiện tại luôn trả về toàn bộ danh sách Quiz thay vì tìm kiếm theo query, nên không thể trả về danh sách rỗng khi không tìm thấy.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về HTTP 200 và cấu trúc response đúng theo AC4 với đầy đủ các field bắt buộc bao gồm id, title, description, category, difficulty, duration, questionCount, tags, status, createdAt, updatedAt, deletedAt, authorId, author object với các field con, rating, attempts, passingScore và các field cấu hình khác', 'prepareFileName': 'prepareData_4.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Test Quiz"', 'requestBody': '{}', 'expectBody': 'expectBody_6.json', 'code_coverage_score': '70%: Có trả về Quiz entity nhưng chưa đảm bảo đầy đủ fields theo AC4', 'explain_coverage': 'Code trả về List<Quiz> và có method getQuizAuthor() để populate author information, nhưng cần kiểm tra xem Quiz entity có đầy đủ các fields theo AC4 specification hay không.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa ký tự đặc biệt như 'Quiz-Test@2024'", 'prepareFileName': 'prepareData_5.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Quiz-Test@2024"', 'requestBody': '{}', 'expectBody': 'expectBody_7.json', 'code_coverage_score': '0%: Không có logic tìm kiếm theo title', 'explain_coverage': 'Code hiện tại không có logic tìm kiếm theo title, và cũng không có xử lý đặc biệt cho ký tự đặc biệt trong query parameter.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa khoảng trắng như 'My Quiz Test'", 'prepareFileName': 'prepareData_6.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"My Quiz Test"', 'requestBody': '{}', 'expectBody': 'expectBody_8.json', 'code_coverage_score': '0%: Không có logic tìm kiếm theo title', 'explain_coverage': 'Code hiện tại không có logic tìm kiếm theo title, và không có xử lý cho query chứa khoảng trắng.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về HTTP 200 và xử lý đúng khi keyWord là chuỗi rất dài (255 characters) để kiểm tra boundary value của độ dài input', 'prepareFileName': 'prepareData_7.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"see_prepareData_7"', 'requestBody': '{}', 'expectBody': 'expectBody_9.json', 'code_coverage_score': '0%: Không có validation độ dài input', 'explain_coverage': 'Code hiện tại không có validation để kiểm tra độ dài của query parameter, có thể gây vấn đề với input quá dài.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chỉ có 1 ký tự như 'A'", 'prepareFileName': 'prepareData_8.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"A"', 'requestBody': '{}', 'expectBody': 'expectBody_10.json', 'code_coverage_score': '0%: Không có logic tìm kiếm theo title', 'explain_coverage': 'Code hiện tại không có logic tìm kiếm theo title, không xử lý được trường hợp query có 1 ký tự.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và xử lý đúng khi keyWord = '' (empty string) để kiểm tra edge case khác với null", 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '""', 'requestBody': '{}', 'expectBody': 'expectBody_11.json', 'code_coverage_score': '0%: Không có logic xử lý empty string', 'explain_coverage': 'Code hiện tại chỉ kiểm tra null, không có logic xử lý trường hợp query là empty string.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa Unicode characters như 'Bài Quiz Tiếng Việt' để kiểm tra hỗ trợ đa ngôn ngữ", 'prepareFileName': 'prepareData_9.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Bài Quiz Tiếng Việt"', 'requestBody': '{}', 'expectBody': 'expectBody_12.json', 'code_coverage_score': '0%: Không có logic tìm kiếm theo title', 'explain_coverage': 'Code hiện tại không có logic tìm kiếm theo title, chưa test được khả năng hỗ trợ Unicode characters.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 200 và danh sách Quiz có title chính xác bằng keyWord khi keyWord chứa số như 'Quiz 123'", 'prepareFileName': 'prepareData_10.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Quiz 123"', 'requestBody': '{}', 'expectBody': 'expectBody_13.json', 'code_coverage_score': '0%: Không có logic tìm kiếm theo title', 'explain_coverage': 'Code hiện tại không có logic tìm kiếm theo title, không xử lý được query chứa số.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API có response time nhỏ hơn 3 giây khi tìm kiếm với keyWord hợp lệ trong database có 1000+ Quiz records để đảm bảo performance', 'prepareFileName': 'prepareData_11.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Performance Test"', 'requestBody': '{}', 'expectBody': 'null', 'code_coverage_score': '50%: Có database query nhưng chưa optimize cho performance', 'explain_coverage': 'Code hiện tại sử dụng quizRepository.findAll() có thể chậm với large dataset. Cần optimize query và thêm indexing cho performance test.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API xử lý đúng multiple concurrent requests với cùng keyWord và trả về consistent results để kiểm tra tính ổn định trong môi trường multi-user', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Concurrent Test"', 'requestBody': '{}', 'expectBody': 'null', 'code_coverage_score': '70%: Service method thread-safe nhưng chưa test concurrent access', 'explain_coverage': 'Code sử dụng Spring service và JPA repository có tính thread-safe cơ bản, nhưng cần test cụ thể cho concurrent access scenario.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về đúng HTTP status code và error message format khi server gặp internal error (HTTP 500) để kiểm tra error handling', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '500', 'requestParamName': 'query', 'requestParamValue': '"Error Test"', 'requestBody': '{}', 'expectBody': '{"error": "Internal Server Error"}', 'code_coverage_score': '30%: Có BusinessException nhưng chưa có global error handling', 'explain_coverage': 'Code có throw BusinessException nhưng chưa có global exception handler để xử lý và format error response đúng chuẩn.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API chỉ trả về Quiz records có status = 'PUBLIC' hoặc thuộc về current user khi search với keyWord hợp lệ để đảm bảo data security và access control", 'prepareFileName': 'prepareData_12.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Security Test"', 'requestBody': '{}', 'expectBody': 'expectBody_14.json', 'code_coverage_score': '0%: Không có logic filter theo status và user permission', 'explain_coverage': 'Code hiện tại trả về toàn bộ Quiz mà không filter theo status hoặc ownership. Cần thêm logic security để chỉ trả về Quiz PUBLIC hoặc của current user.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về đúng pagination information khi có nhiều Quiz records match với keyWord để kiểm tra xử lý large result sets', 'prepareFileName': 'prepareData_13.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Pagination Test"', 'requestBody': '{}', 'expectBody': 'expectBody_15.json', 'code_coverage_score': '0%: Không có pagination logic', 'explain_coverage': 'Code hiện tại không có pagination, trả về toàn bộ results có thể gây vấn đề với large datasets. Cần implement pagination với Pageable parameter.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về đúng author information với tất cả required fields theo AC4 bao gồm id, username, name, email, avatar, joinedAt, lastLoginAt, isActive, role và các field null được set đúng', 'prepareFileName': 'prepareData_14.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Author Test"', 'requestBody': '{}', 'expectBody': 'expectBody_16.json', 'code_coverage_score': '80%: Có method getQuizAuthor() nhưng cần verify đầy đủ fields', 'explain_coverage': 'Code có method getQuizAuthor() để populate author information, nhưng cần kiểm tra xem có đầy đủ tất cả fields theo AC4 specification hay không.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API không trả về Quiz records có deletedAt != null khi search với keyWord hợp lệ để kiểm tra soft delete logic', 'prepareFileName': 'prepareData_15.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Soft Delete Test"', 'requestBody': '{}', 'expectBody': 'expectBody_17.json', 'code_coverage_score': '0%: Không có logic filter soft deleted records', 'explain_coverage': 'Code hiện tại sử dụng findAll() mà không filter theo deletedAt. Cần thêm condition để exclude các Quiz đã bị soft delete.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về đúng data types cho tất cả fields theo AC4 specification bao gồm string, integer, boolean, datetime, float và array để đảm bảo data integrity', 'prepareFileName': 'prepareData_16.csv', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Data Type Test"', 'requestBody': '{}', 'expectBody': 'expectBody_18.json', 'code_coverage_score': '70%: Quiz entity có các fields nhưng cần verify data types', 'explain_coverage': 'Code trả về Quiz entity, cần kiểm tra xem các fields có đúng data types theo AC4 specification hay không (string, integer, boolean, datetime, float, array).'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về HTTP 400 và xử lý an toàn khi keyWord parameter chứa SQL injection payload như "\'; DROP TABLE quiz; --" để kiểm tra bảo mật', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '400', 'requestParamName': 'query', 'requestParamValue': '"\'; DROP TABLE quiz; --"', 'requestBody': '{}', 'expectBody': '{"error": "Invalid input parameter"}', 'code_coverage_score': '60%: JPA repository có protection cơ bản nhưng cần input validation', 'explain_coverage': 'Code sử dụng JPA repository có prepared statement protection cơ bản, nhưng cần thêm input validation và sanitization để handle SQL injection attempts.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về HTTP 400 và xử lý an toàn khi keyWord parameter chứa XSS payload như "<script>alert(\'xss\')</script>" để kiểm tra bảo mật', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '400', 'requestParamName': 'query', 'requestParamValue': '"<script>alert(\'xss\')</script>"', 'requestBody': '{}', 'expectBody': '{"error": "Invalid input parameter"}', 'code_coverage_score': '0%: Không có input validation cho XSS protection', 'explain_coverage': 'Code hiện tại không có input validation để detect và block XSS payloads. Cần thêm input sanitization và validation.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh endpoint /api/v1/quiz/search được tạo và hoạt động đúng với HTTP GET method theo implementation trong QuizController', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Endpoint Test"', 'requestBody': '{}', 'expectBody': 'null', 'code_coverage_score': '100%: Endpoint đã được implement đúng', 'explain_coverage': 'Code đã có @GetMapping("/search") trong QuizController với HTTP GET method như yêu cầu.'}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh parameter name được sử dụng là 'query' thay vì 'keyWord' theo implementation trong code để đảm bảo tính nhất quán", 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Parameter Test"', 'requestBody': '{}', 'expectBody': 'null', 'code_coverage_score': '100%: Parameter name đã đúng theo implementation', 'explain_coverage': "Code sử dụng @RequestParam String query đúng như implementation, khác với requirement gốc dùng 'keyWord'."}, {'testCaseKey': '', 'testCaseName': "[QuizLibraryService] Xác minh API trả về HTTP 400 với thông báo lỗi phù hợp khi không truyền parameter 'query' trong request theo AC1", 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '400', 'requestParamName': '', 'requestParamValue': '', 'requestBody': '{}', 'expectBody': '{"message": "Required parameter \'query\' is not present"}', 'code_coverage_score': '0%: Không có validation parameter bắt buộc', 'explain_coverage': 'Code hiện tại không có @RequestParam(required=true) hoặc validation khác để đảm bảo parameter query là bắt buộc.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh service method search() được gọi đúng và trả về List<Quiz> theo implementation trong QuizService', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Service Test"', 'requestBody': '{}', 'expectBody': 'null', 'code_coverage_score': '100%: Service method đã được implement', 'explain_coverage': 'Code đã có QuizService.search() method được gọi từ controller và trả về List<Quiz> đúng như thiết kế.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API có JWT authentication được áp dụng đúng thông qua @LogsActivityAnnotation và security configuration', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Auth Test"', 'requestBody': '{}', 'expectBody': 'null', 'code_coverage_score': '90%: Có JWT authentication và @LogsActivityAnnotation', 'explain_coverage': 'Code có @LogsActivityAnnotation trên endpoint và AuthConfig với JWT authentication setup. Endpoint không nằm trong /api/v1/pub/** nên cần authentication.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về HTTP 401 khi JWT token không hợp lệ hoặc không được cung cấp trong Authorization header', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '401', 'requestParamName': 'query', 'requestParamValue': '"Unauthorized Test"', 'requestBody': '{}', 'expectBody': '{"error": "Unauthorized"}', 'code_coverage_score': '90%: Có JWT authentication và JwtAuthenticationEntryPoint', 'explain_coverage': 'Code có JwtAuthenticationEntryPoint để handle unauthorized access và JWT authentication configuration trong AuthConfig.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API trả về HTTP 403 khi Origin header không nằm trong CORS whitelist configuration', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '403', 'requestParamName': 'query', 'requestParamValue': '"CORS Test"', 'requestBody': '{}', 'expectBody': '{"error": "Forbidden"}', 'code_coverage_score': '90%: Có CORS configuration với whitelist', 'explain_coverage': 'Code có AppConfig với CORS configuration sử dụng cors.whitelist property để control allowed origins.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh response được wrap trong BaseResponse structure với success flag và data field chứa List<Quiz>', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"BaseResponse Test"', 'requestBody': '{}', 'expectBody': '{"success": true, "data": []}', 'code_coverage_score': '100%: Response được wrap trong BaseResponse', 'explain_coverage': 'Code sử dụng baseService.ofSucceeded() để wrap response trong BaseResponse structure với success flag và data field.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API xử lý đúng khi query parameter chứa khoảng trắng ở đầu và cuối chuỗi để kiểm tra string trimming', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"  Trim Test  "', 'requestBody': '{}', 'expectBody': 'null', 'code_coverage_score': '0%: Không có logic trim string', 'explain_coverage': 'Code hiện tại không có logic để trim khoảng trắng ở đầu và cuối query parameter trước khi xử lý.'}, {'testCaseKey': '', 'testCaseName': '[QuizLibraryService] Xác minh API hoạt động đúng với Content-Type application/json header theo API specification', 'prepareFileName': '', 'httpMethod': 'GET', 'expectedHttpCode': '200', 'requestParamName': 'query', 'requestParamValue': '"Content Type Test"', 'requestBody': '{}', 'expectBody': 'null', 'code_coverage_score': '80%: Spring Boot tự động set Content-Type', 'explain_coverage': 'Spring Boot controller tự động set Content-Type: application/json cho response, nhưng cần verify explicitly trong test.'}], 'unrelated_changes': [{'file_path': 'src/main/java/com/edu/onestudy/config/StringListConverter.java', 'change_type': 'modification', 'code_snippet': '// more', 'reason': "Thay đổi comment từ '// moreg' thành '// more' không liên quan đến chức năng tìm kiếm Quiz Library. Đây chỉ là sửa lỗi typo trong comment.", 'severity': 'low', 'category': 'cleanup'}, {'file_path': 'src/main/java/com/edu/onestudy/controller/external/QuizController.java', 'change_type': 'addition', 'code_snippet': '@GetMapping("/search2")
+@LogsActivityAnnotation
+BaseResponse<List<Quiz>> search2(@RequestParam String query) {
+    return baseService.ofSucceeded(quizService.search2(query));
+}', 'reason': 'Thêm endpoint /search2 không được đề cập trong requirements. Có vẻ như đây là endpoint test hoặc backup, không phải part của SCRUM-1 requirement.', 'severity': 'medium', 'category': 'new_feature'}, {'file_path': 'src/main/java/com/edu/onestudy/service/QuizService.java', 'change_type': 'addition', 'code_snippet': 'List<Quiz> search2(String query);', 'reason': 'Thêm method search2() trong interface không được đề cập trong requirements. Có vẻ như đây là method test hoặc backup.', 'severity': 'medium', 'category': 'new_feature'}, {'file_path': 'src/main/java/com/edu/onestudy/service/impl/QuizServiceImpl.java', 'change_type': 'addition', 'code_snippet': '@Override
+public List<Quiz> search2(String query) {
+    if (query == null) throw new BusinessException(ErrorConstant.QUIZ_NOT_FOUND); //TODO: fix msg
+
+    return quizRepository.findAll();
+}', 'reason': 'Implementation của method search2() không được đề cập trong requirements. Logic giống hệt method search() chính, có vẻ như duplicate code.', 'severity': 'medium', 'category': 'new_feature'}]}}

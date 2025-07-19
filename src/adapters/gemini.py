@@ -38,7 +38,7 @@ class Gemini:  # pylint: disable=too-few-public-methods
         self._model = genai.GenerativeModel(model_name)
         self._generation_cfg: Dict[str, Any] = {
             "temperature": temperature,
-            "max_output_tokens": 512000,  # Increased from 512000 to 512000 for longer responses
+            "max_output_tokens": 256000,  # Increased from 512000 to 512000 for longer responses
             "candidate_count": 1,
         }
         self.model_name = model_name
@@ -60,7 +60,7 @@ class Gemini:  # pylint: disable=too-few-public-methods
             
             response = self._model.generate_content(
                 [prompt],
-                generation_config=self._generation_cfg,
+                generation_config=self._generation_cfg
             )
             
             elapsed_time = time.time() - start_time

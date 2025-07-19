@@ -1,0 +1,50 @@
+"### 📋 Final response 
+## 🧪 Test Cases
+
+| Test Case | Type | Category | Priority | Code Coverage | Explanation |
+|-----------|------|----------|----------|----------------|-------------|
+
+
+## 📋 Acceptance Criteria Analysis
+
+| ID | Priority | Status | Description | Test Case | Code Location | Assessment |
+|----|----------|--------|-------------|-----------|----------------|-------------|
+
+
+## 📊 Coverage Overview
+
+- **Total ACs**: 0
+- **Fully Covered**: 0
+- **Partially Covered**: 0
+- **Not Covered**: 0
+- **Requirement Coverage**: 0%%
+- **Code Coverage**: 0%%
+- **Test Case Coverage**: 0%%
+- **Assessment**: Not Satisfactory
+- **Quality Score**: 0
+
+
+## 📦 Test Case CSV Export
+
+|Key   | Name | Method | Expected Code | Param | Param Value | Code Coverage | Explanation |
+|------|------|--------|----------------|--------|--------------|----------------|--------------|
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz thành công khi chỉ nhập các trường thông tin bắt buộc (quiz_name, question_ids với 10 question_id hợp lệ). HTTP 201 Created được trả về với quiz_id, quiz_name, question_count = 10, question_ids, created_at. | POST | 201 |  |  | {\"quizName\": \"Quiz Test\",\"description\": null, \"questionIds\": [\"see_prepareData_1\"],\"tags\": [],\"difficulty\": null} | {\"quizId\": \"string\",\"quizName\": \"Quiz Test\",\"description\": null,\"questionCount\": 10,\"questionIds\": [\"see_prepareData_1\"],\"tags\": [],\"difficulty\": null,\"createAt\": \"date\"} | 80%: Missing validation for 10 question IDs and question existence check. | The code implements the creation of a quiz with basic information and associating question IDs. However, it lacks validation to ensure exactly 10 question IDs are provided and that these IDs correspond to existing and accessible questions. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz thành công khi nhập đầy đủ thông tin (quiz_name, description, question_ids với 10 question_id hợp lệ, tags, difficulty). HTTP 201 Created được trả về với đầy đủ thông tin quiz. | POST | 201 |  |  | {\"quizName\": \"Quiz Test Full\",\"description\": \"Mô tả quiz\",\"questionIds\": [\"see_prepareData_2\"],\"tags\": [\"tag1\", \"tag2\"],\"difficulty\": \"medium\"} | {\"quizId\": \"string\",\"quizName\": \"Quiz Test Full\",\"description\": \"Mô tả quiz\",\"questionCount\": 10,\"questionIds\": [\"see_prepareData_2\"],\"tags\": [\"tag1\", \"tag2\"],\"difficulty\": \"medium\",\"createAt\": \"date\"} | 80%: Missing validation for 10 question IDs and question existence check. | Similar to the previous test case, the code handles all input fields but lacks validation for the number and validity of question IDs. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz thành công khi question_ids được chọn từ danh sách câu hỏi do người dùng tạo. HTTP 201 Created và thông tin quiz được trả về. | POST | 201 |  |  | {\"quizName\": \"Quiz User Questions\",\"description\": null, \"questionIds\": [\"see_prepareData_3\"],\"tags\": [],\"difficulty\": null} | {\"quizId\": \"string\",\"quizName\": \"Quiz User Questions\",\"description\": null,\"questionCount\": 10,\"questionIds\": [\"see_prepareData_3\"],\"tags\": [],\"difficulty\": null,\"createAt\": \"date\"} | 70%: Missing validation for 10 question IDs, question existence check, and user ownership check. | The code doesn't verify if the provided question IDs belong to the current user. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz thành công khi question_ids được chọn từ thư viện câu hỏi chung của hệ thống. HTTP 201 Created và thông tin quiz được trả về. | POST | 201 |  |  | {\"quizName\": \"Quiz Library Questions\",\"description\": null, \"questionIds\": [\"see_prepareData_4\"],\"tags\": [],\"difficulty\": null} | {\"quizId\": \"string\",\"quizName\": \"Quiz Library Questions\",\"description\": null,\"questionCount\": 10,\"questionIds\": [\"see_prepareData_4\"],\"tags\": [],\"difficulty\": null,\"createAt\": \"date\"} | 70%: Missing validation for 10 question IDs, question existence check, and accessibility check. | The code doesn't verify if the provided question IDs are accessible from the shared library. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz trả về HTTP 400 Bad Request và lỗi \"quiz_name không được để trống\" khi quiz_name = \"\". | POST | 400 |  |  | {\"quizName\": \"\",\"description\": null, \"questionIds\": [\"valid_ids\"],\"tags\": [],\"difficulty\": null} | {\"message\": \"quiz_name không được để trống\"} | 0%: No validation for quiz_name. | The code currently doesn't validate if the quiz_name is empty. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz trả về HTTP 400 Bad Request và lỗi về question_ids khi question_ids = []. | POST | 400 |  |  | {\"quizName\": \"Quiz Test\",\"description\": null, \"questionIds\": [],\"tags\": [],\"difficulty\": null} | {\"message\": \"question_ids không được để trống\"} | 0%: No validation for empty question_ids. | The code doesn't check for empty question_ids array. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz trả về HTTP 400 Bad Request và lỗi về số lượng câu hỏi khi question_ids chỉ chứa 9 question_id. | POST | 400 |  |  | {\"quizName\": \"Quiz Test\",\"description\": null, \"questionIds\": [\"see_prepareData_7\"],\"tags\": [],\"difficulty\": null} | {\"message\": \"Quiz phải có chính xác 10 câu hỏi\"} | 0%: No validation for the number of question IDs. | The code doesn't validate the number of question IDs provided. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz trả về HTTP 400 Bad Request và lỗi về số lượng câu hỏi khi question_ids chứa 11 question_id. | POST | 400 |  |  | {\"quizName\": \"Quiz Test\",\"description\": null, \"questionIds\": [\"see_prepareData_8\"],\"tags\": [],\"difficulty\": null} | {\"message\": \"Quiz phải có chính xác 10 câu hỏi\"} | 0%: No validation for the number of question IDs. | The code doesn't validate the number of question IDs provided. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz trả về HTTP 400 hoặc 404 và lỗi \"question_id không tồn tại\" khi question_ids chứa một question_id không hợp lệ. | POST | 400 |  |  | {\"quizName\": \"Quiz Test\",\"description\": null, \"questionIds\": [\"invalid_id\", \"valid_ids\"],\"tags\": [],\"difficulty\": null} | {\"message\": \"question_id không tồn tại\"} | 0%: No validation for question existence. | The code doesn't check if the provided question IDs actually exist. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz trả về HTTP 400 hoặc 403 và lỗi \"không có quyền truy cập question_id\" khi question_ids chứa một question_id người dùng không có quyền truy cập. | POST | 403 |  |  | {\"quizName\": \"Quiz Test\",\"description\": null, \"questionIds\": [\"unauthorized_id\", \"valid_ids\"],\"tags\": [],\"difficulty\": null} | {\"message\": \"không có quyền truy cập question_id\"} | 0%: No access control check for question IDs. | The code doesn't verify if the user has permission to use the provided question IDs. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz trả về HTTP 401 Unauthorized khi không có Authentication token. | POST | 401 |  |  | {\"quizName\": \"Quiz Test\",\"description\": null, \"questionIds\": [\"valid_ids\"],\"tags\": [],\"difficulty\": null} | {\"message\": \"Unauthorized\"} | 100%:  CurrentUser annotation handles authentication. | The `@CurrentUser` annotation in the controller ensures authentication is handled. |
+|  | [oneStudy - Tạo Quiz] Xác minh API tạo quiz trả về HTTP 201 Created và response chứa quiz_id, quiz_name, description, question_count, question_ids, tags, difficulty, created_at khi nhập đầy đủ thông tin, bao gồm tags và difficulty. | POST | 201 |  |  | {\"quizName\": \"Quiz Full Info\",\"description\": \"Full description\",\"questionIds\": [\"see_prepareData_13\"],\"tags\": [\"tag1\", \"tag2\"],\"difficulty\": \"hard\"} | {\"quizId\": \"string\",\"quizName\": \"Quiz Full Info\",\"description\": \"Full description\",\"questionCount\": 10,\"questionIds\": [\"see_prepareData_13\"],\"tags\": [\"tag1\", \"tag2\"],\"difficulty\": \"hard\",\"createAt\": \"date\"} | 80%: Missing validation for 10 question IDs and question existence check. | The code handles all fields correctly but lacks validation for question IDs. |
+|  | [oneStudy - Tạo Quiz] Xác minh hệ thống ghi nhận quiz với thông tin người tạo (authorId) khi tạo quiz thành công. | POST | 201 |  |  | {\"quizName\": \"Quiz with Author\",\"description\": null, \"questionIds\": [\"see_prepareData_14\"],\"tags\": [],\"difficulty\": null} | {\"quizId\": \"string\",\"quizName\": \"Quiz with Author\",\"description\": null,\"questionCount\": 10,\"questionIds\": [\"see_prepareData_14\"],\"tags\": [],\"difficulty\": null,\"createAt\": \"date\"} | 80%: Missing validation for 10 question IDs and question existence check. Author ID is saved correctly. | The code saves the authorId correctly, but other validations are missing. |
+|  | [oneStudy - Tạo Quiz] Kiểm tra hiệu năng API tạo quiz: Thời gian phản hồi < 3s với dữ liệu hợp lệ và 10 question_ids. | POST | 201 |  |  | {\"quizName\": \"Performance Test Quiz\",\"description\": null, \"questionIds\": [\"see_prepareData_15\"],\"tags\": [],\"difficulty\": null} | {} | Not applicable | Performance testing requires separate setup and measurement. |
+
+
+## 🔍 Unrelated Changes
+
+| File Path | Change Type | Code Snippet | Reason | Severity | Category |
+|-----------|------|----------|----------|----------------|-------------|

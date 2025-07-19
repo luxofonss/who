@@ -362,7 +362,7 @@ def _extract_calls(method_node, source: str, this_class: str, var_types: Dict[st
                 elif obj_text[0].isupper():
                     qualified = f"{obj_text}.{method_name}"
                 else:
-                    logger.info(f"Unknown object: '{obj_text}' in method '{method_name}'")
+                    # logger.info(f"Unknown object: '{obj_text}' in method '{method_name}'")
                     qualified = f"unknown.{method_name}"
             else:
                 qualified = f"{this_class}.{method_name}"
@@ -428,7 +428,7 @@ def _infer_chunk_type(node, source: str) -> str:
         return "entity"
     if "filter" in ann_text:
         return "filter"
-    if "configuration" in ann_text:
+    if "configuration" in ann_text or "controlleradvice" in ann_text:
         return "configuration"
     if "component" in ann_text:
         return "component"

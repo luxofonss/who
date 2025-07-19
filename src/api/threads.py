@@ -2,10 +2,12 @@
 Project Thread API endpoints for conversation context management (flat version)
 """
 
+from pathlib import Path
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 import uuid
@@ -15,12 +17,16 @@ from services.chat_chain import ChatChain
 from utils.logger import init_logger
 from utils.file import read_json, write_json, ensure_dir, _split_csv_field
 from utils.query_parser import validate_parsed_query, format_query_help, extract_confluence_page_info, extract_jira_issue_key
-from services.analyzer_chain import AnalyzerChain
+from services.analyzer_chain import AnalyzerChain, StreamingAnalyzerChain
 from services.confluence_mcp_service import ConfluenceMCPService, ConfluenceMCPConfigBuilder
 from services.jira_mcp_service import JiraMCPService, JiraMCPConfigBuilder
 from services.bitbucket_mcp_service import BitbucketMCPService, BitbucketMCPConfigBuilder
 from models import get_db_session, Project, ProjectThread, ChatHistory
 from .analyze import AnalyzeRequest
+from services.parser import parse_project
+from services.neo4j import get_neo4j_connection
+
+STORAGE_DIR = Path("storage")
 
 logger = init_logger()
 
@@ -41,7 +47,7 @@ async def get_thread_context_and_requirements(thread_id: str, db: Session):
 
     api_method = thread.api_method or "GET"
     api_path = thread.api_path or "/"
-    jira_links = _split_csv_field(thread.jira_links)
+    jira_links = [thread_id]
     confluence_business_docs = _split_csv_field(thread.documents)
     confluence_api_docs = _split_csv_field(getattr(thread, 'api_documents', None))
     references = _split_csv_field(getattr(thread, 'references', None))
@@ -68,6 +74,7 @@ async def get_thread_context_and_requirements(thread_id: str, db: Session):
             async with JiraMCPService(config) as jira_service:
                 for url in jira_links:
                     issue_key = extract_jira_issue_key(url)
+                    # issue_key = url
                     if issue_key:
                         logger.info(f"Extracting commits for Jira issue: {issue_key}")
                         try:
@@ -82,7 +89,7 @@ async def get_thread_context_and_requirements(thread_id: str, db: Session):
                                 logger.info(f"No commits found for {issue_key}")
                         except Exception as e:
                             logger.error(f"Error extracting commits for {issue_key}: {str(e)}")
-        
+        logger.info(f"jira_content: {jira_content}")
         # Get diffs for commits using Bitbucket MCP service
         if commits:
             try:
@@ -127,10 +134,12 @@ async def get_thread_context_and_requirements(thread_id: str, db: Session):
         # Format commit content for analysis
         code_commit = ""
         changed_methods = []  # List to store changed methods
+        logger.info(f"Commits: {commits}")
         if commits:
             commit_details = []
             for commit in commits:
-                logger.info(f"Original commit: {commit}")
+                # logger.info(f"Commit: {commit}")
+                # logger.info(f"Original commit: {commit}")
                 commit_detail = f"Commit: {commit.get('commit_hash', 'Unknown')}\n"
                 commit_detail += f"Display ID: {commit.get('display_id', commit.get('commit_hash', '')[:7])}\n"
                 commit_detail += f"Repository: {commit.get('repository', 'Unknown')}\n"
@@ -169,12 +178,9 @@ async def get_thread_context_and_requirements(thread_id: str, db: Session):
                         commit_detail += f"\nDiff:\n{diff_text}\n"
                     
                     # Extract changed methods from diff text
-                    changed_file_paths = [file.get('new_path', file.get('old_path', '')) for file in diff_data.get('files_changed', [])]
-                    for file_path in changed_file_paths:
-                        if file_path:
-                            # Extract methods from diff text for this file
-                            file_changed_methods = bitbucket_service._extract_changed_methods(diff_text, file_path)
-                            changed_methods.extend(file_changed_methods)
+                    new_changed_methods = bitbucket_service.extract_changed_methods(diff_text)
+                    changed_methods.extend(new_changed_methods)
+                    logger.info(f"Changed methods: {changed_methods}")
                 elif commit.get('diff') and commit['diff'].get('status') == 'error':
                     commit_detail += f"\nDiff Error: {commit['diff'].get('error', 'Unknown error')}\n"
                 else:
@@ -184,17 +190,24 @@ async def get_thread_context_and_requirements(thread_id: str, db: Session):
 
             
             code_commit = "\n\n".join(commit_details)
-            logger.info(f"Code commit: {code_commit}")
-            logger.info(f"Formatted {len(commits)} commits with diffs for analysis")
+            # logger.info(f"Code commit: {code_commit}")
+            # logger.info(f"Formatted {len(commits)} commits with diffs for analysis")
             
             # Remove duplicates from changed_methods based on class and method combination
             seen_methods = set()
             deduplicated_methods = []
-            for method_info in changed_methods:
-                method_key = f"{method_info.get('class', '')}.{method_info.get('method', '')}"
+            
+            for method in changed_methods:
+                class_name = method.get("class")
+                method_name = method.get("method")
+                if class_name is None:
+                    logger.warning(f"Skipping invalid method dictionary: {method}")
+                    continue
+                method_key = f"{class_name}.{method_name}"
                 if method_key not in seen_methods:
                     seen_methods.add(method_key)
-                    deduplicated_methods.append(method_info)
+                    deduplicated_methods.append(method)
+            
             changed_methods = deduplicated_methods
             
             logger.info(f"Changed methods (after deduplication): {changed_methods}")
@@ -224,7 +237,7 @@ class CreateThreadRequest(BaseModel):
     api_path: Optional[str] = Field(None, description="API path (e.g. /api/users)")
     documents: Optional[List[str]] = Field(default_factory=list, description="List of business document URLs (comma-separated in DB)")
     api_documents: Optional[List[str]] = Field(default_factory=list, description="List of API document URLs (comma-separated in DB)")
-    jira_links: Optional[List[str]] = Field(default_factory=list, description="List of Jira URLs (comma-separated in DB)")
+    jira_links: List[str] = Field(default_factory=list, description="List of Jira URLs (comma-separated in DB)")
     references: Optional[List[str]] = Field(default_factory=list, description="List of class/method symbols (comma-separated in DB)")
 
 class UpdateThreadRequest(BaseModel):
@@ -253,15 +266,55 @@ async def create_thread(
         project = db.query(Project).filter(Project.project_id == request.project_id).first()
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
-        
-        # Generate unique thread ID
-        thread_id = f"thread_{uuid.uuid4().hex[:8]}"
-        
+        thread = db.query(ProjectThread).filter(ProjectThread.thread_id == request.jira_links[0]).first()
+        if thread:
+            raise HTTPException(status_code=400, detail="Thread already exists")
+
+        config = JiraMCPConfigBuilder.from_env()
+        branch = {}
+        try:
+            async with JiraMCPService(config) as jira_service:
+                branches = await jira_service._extract_branches_from_issue(request.jira_links[0])
+                logger.info(f"Branches: {branches}")
+                if branches and len(branches) > 0:
+                    branch = branches[0]
+        except Exception as e:
+            logger.error(f"Error extracting branches from Jira: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error extracting branches from Jira: {str(e)}")
+
         # Store documents, api_documents, jira_links, references as comma-separated strings
         documents_str = ",".join(request.documents) if request.documents else None
         api_documents_str = ",".join(request.api_documents) if request.api_documents else None
         jira_links_str = ",".join(request.jira_links) if request.jira_links else None
         references_str = ",".join(request.references) if request.references else None
+        
+        thread_id = request.jira_links[0]
+
+        config = BitbucketMCPConfigBuilder.from_env()
+        try:
+            async with BitbucketMCPService(config) as bitbucket:
+                repo_name = branch.get('repository', {}).get("name", '')
+                repo_path = STORAGE_DIR / "repos" / request.project_id
+                clone_result = await bitbucket.clone_repository(
+                    session_id=f"create_project_{request.project_id}",
+                    repository=repo_name,
+                    branch=branch.get('name', 'main'),
+                    target_path=repo_path
+                )
+                if clone_result["status"] != "success":
+                    raise HTTPException(status_code=400, detail=f"Failed to clone Bitbucket repo: {clone_result.get('error', 'Unknown error')}")
+
+            chunks, dep_graph = parse_project(repo_path, request.project_id)
+            if not chunks:
+                raise HTTPException(status_code=400, detail="No Java files found in repository")
+
+            # Use Neo4j connection to import chunks
+            neo4j_conn = get_neo4j_connection()
+            neo4j_conn.delete_project_data(thread_id)
+            neo4j_conn.import_code_chunks(chunks, 50)
+        except Exception as e:
+            logger.error(f"Error cloning Bitbucket repo: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error cloning Bitbucket repo: {str(e)}")
         
         # Create thread
         thread = ProjectThread(
@@ -269,7 +322,9 @@ async def create_thread(
             name=request.name,
             description=request.description,
             project_id=request.project_id,
-            branch=request.branch,
+            branch=branch.get('name', 'main'),
+            last_commit=branch.get('last_commit', {}).get("displayId", ""),
+            repo_path=branch.get('repository', {}).get("slug", ''),
             api_method=request.api_method,
             api_path=request.api_path,
             documents=documents_str,
@@ -488,7 +543,7 @@ async def handle_analyze_request(thread_id: str, user_query: str, db: Session, m
     context_data = await get_thread_context_and_requirements(thread_id, db)
     
     # Run the analyzer
-    analyzer = AnalyzerChain(context_data["project"].project_id, model_name, api_key)
+    analyzer = AnalyzerChain(thread_id, model_name, api_key)
     logger.info(f"Running analysis for endpoint: {context_data['api_path']}")
     logger.info(f"Method: {context_data['api_method']}")
     logger.info(f"User query: {user_query}")
@@ -617,15 +672,16 @@ async def handle_chat_request(thread_id: str, message: str, db: Session, model_n
             }
     return final_response
 
+# Updated FastAPI endpoint
 @router.post("/api/v1/threads/{thread_id}/messages")
 async def send_message_alternative(
     thread_id: str,
     request: ChatMessageRequest,
     model_name: str = Header(..., alias="X-Model-Name"),
     api_key: str = Header(..., alias="X-API-Key"),
+    stream: bool = False,  # Add stream parameter
     db: Session = Depends(get_db_session)
 ):
-
     try:
         # Verify thread exists and is active
         thread = db.query(ProjectThread).filter(ProjectThread.thread_id == thread_id).first()
@@ -634,38 +690,58 @@ async def send_message_alternative(
         
         if not thread.is_active:
             raise HTTPException(status_code=400, detail="Thread is not active")
+
+        config = JiraMCPConfigBuilder.from_env()
+        branch = {}
+        async with JiraMCPService(config) as jira_service:
+            branches = await jira_service._extract_branches_from_issue(thread_id)
+            logger.info(f"Branches: {branches}")
+            branch = branches[0] if branches else {}
         
-        # Verify project exists
-        project = db.query(Project).filter(Project.project_id == thread.project_id).first()
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        logger.info(f"💬 Chat message request for thread {thread_id}: {request.message[:100]}...")
-        
-        # More flexible command detection
+        if branch.get('name', '') != thread.branch:
+            raise HTTPException(status_code=400, detail="Branch is not active")
+
+        if branch.get('last_commit', {}).get("displayId", "") != thread.last_commit:
+            # get last commit from branch
+            chunks, dep_graph = parse_project(branch.get('repository', {}).get("slug", ''), thread_id)
+            if not chunks:
+                raise HTTPException(status_code=400, detail="No Java files found in repository")
+
+            # Use Neo4j connection to import chunks
+            neo4j_conn = get_neo4j_connection()
+            neo4j_conn.delete_project_data(thread_id)
+            neo4j_conn.import_code_chunks(chunks, 50)
+            thread.last_commit = branch.get('last_commit', {}).get("displayId", "")
+            db.commit()
+            db.refresh(thread)
+
+        # Check for analyze request
         message_lower = request.message.strip().lower()
-        
-        # Check for various analyze patterns
         analyze_patterns = ["@analyze", "/analyze", "analyze:", "!analyze"]
         is_analyze_request = any(message_lower.startswith(pattern) for pattern in analyze_patterns)
         
         if is_analyze_request:
-            # Extract the actual query by removing command prefix
+            # Extract the actual query
             for pattern in analyze_patterns:
                 if message_lower.startswith(pattern):
                     user_query = request.message.strip()[len(pattern):].strip()
                     break
             
             logger.info(f"🔍 Detected analyze request: {user_query[:100]}...")
-                        
-            # Use analyze logic
-            result = await handle_analyze_request(thread_id, user_query, db, model_name, api_key)
             
+            if stream:
+                # Return streaming response
+                return await handle_streaming_analyze_request(
+                    thread_id, user_query, db, model_name, api_key
+                )
+            else:
+                # Return regular response
+                return await handle_analyze_request(
+                    thread_id, user_query, db, model_name, api_key
+                )
         else:
             # Use regular chat logic
-            result = await handle_chat_request(thread_id, request.message, db, model_name, api_key)
-        
-        return result
+            return await handle_chat_request(thread_id, request.message, db, model_name, api_key)
         
     except HTTPException:
         raise
@@ -673,7 +749,128 @@ async def send_message_alternative(
         logger.error(f"Error processing message for thread {thread_id}: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+async def handle_streaming_analyze_request(
+    thread_id: str,
+    user_query: str,
+    db: Session,
+    model_name: str,
+    api_key: str
+) -> StreamingResponse:
+    """Handle streaming analyze request"""
+    
+    # Get thread and project info
+    thread = db.query(ProjectThread).filter(ProjectThread.thread_id == thread_id).first()
+    project = db.query(Project).filter(Project.project_id == thread.project_id).first()
+    
+    queue = asyncio.Queue()
+    # Initialize streaming analyzer
+    analyzer = StreamingAnalyzerChain(
+        project_id=thread_id,
+        model_name=model_name,
+        api_key=api_key,
+        streaming_queue=queue
+    )
+    
+    
+    user_message_id = f"msg_{uuid.uuid4().hex[:8]}"
+    user_chat = ChatHistory(
+        message_id=user_message_id,
+        thread_id=thread_id,
+        role="user",
+        content=f"@analyze {user_query}",  # Keep original format
+        analysis_result=None
+    )
+    db.add(user_chat)
+    db.commit()
+
+    start_entry_point = {
+        "type": "analysis_start",
+        "timestamp": datetime.now().isoformat(),
+        "data": { 
+            "result":{
+                "html_response": "### 💻 Starting to analyze. Collecting information from requirements ... ",
+                "status": "starting"
+            }
+        }
+        }
+
+    await queue.put(start_entry_point)
         
+    context_data = await get_thread_context_and_requirements(thread_id, db)
+
+    endpoint = {
+        "path": context_data["api_path"],
+        "method": context_data["api_method"]
+    }
+    # Create streaming generator
+    async def generate_stream():
+        data = "### 💻 Starting to analyze. Collecting information from requirements ... "
+        async for event in analyzer.run_streaming(
+             endpoint=str(endpoint),
+            requirements_txt=context_data["requirements_txt"],
+            user_text=user_query,
+            code_commit=context_data["code_commit"],
+            changed_methods=context_data["changed_methods"]
+        ):
+            # Parse SSE event to extract JSON data
+            final_result = None
+            if event.startswith("data: "):
+                try:
+                    json_str = event[6:]  # Remove "data: " prefix
+                    import json
+                    event_data = json.loads(json_str)
+                    html_response = event_data.get("data", {}).get("result", {}).get("html_response", "")
+                    if html_response:
+                        data += html_response
+                    
+                    logger.info(f"Event data: {event_data}")
+                    res = event_data.get("data", {}).get("result", {})
+                 
+                    logger.info(f"Final result: {res}")
+                    if res:
+                        final_result = res
+                except json.JSONDecodeError:
+                    pass  # Skip non-JSON events like heartbeats
+            yield event
+        
+            # Save assistant message with analysis result
+            assistant_message_id = f"msg_{uuid.uuid4().hex[:8]}"
+            if final_result:
+                logger.info(f"Add final result: {final_result}")
+                assistant_chat = ChatHistory(
+                    message_id=assistant_message_id,
+                    thread_id=thread_id,
+                    role="assistant",
+                    content=data,
+                    analysis_result=final_result
+                )
+                db.add(assistant_chat)
+
+                db.commit()
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
+
+
+def parse_analyze_request(user_query: str) -> Dict[str, Any]:
+    """Parse analyze request to extract parameters"""
+    # Add your parsing logic here
+    return {
+        "endpoint": "",
+        "requirements": user_query,
+        "user_text": user_query,
+        "code_commit": "",
+        "changed_methods": []
+    }
 
 async def retrieve_confluence_content(confluence_urls: list[str], session_id: str) -> str:
     """Retrieve content from Confluence URLs using MCP service"""
@@ -743,7 +940,7 @@ async def retrieve_jira_content(jira_urls: list[str], session_id: str) -> str:
             all_content = []
             
             for url in jira_urls:
-                logger.info(f"Retrieving Jira content from: {url}")
+                # logger.info(f"Retrieving Jira content from: {url}")
                 issue_key = extract_jira_issue_key(url)
                 
                 if issue_key:

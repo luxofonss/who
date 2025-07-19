@@ -24,6 +24,7 @@ class ProjectThread(Base):
     last_activity = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    repo_path = Column(String(500), nullable=True)
 
     # New fields for flat storage
     api_method = Column(String(10), nullable=True)  # GET, POST, etc.
@@ -32,7 +33,7 @@ class ProjectThread(Base):
     api_documents = Column(Text, nullable=True)     # Comma-separated API doc URLs
     jira_links = Column(Text, nullable=True)        # Comma-separated URLs
     references = Column(Text, nullable=True)        # Comma-separated class/method symbols
-
+    last_commit = Column(String(255), nullable=True)
     def __repr__(self):
         return f"<ProjectThread(id={self.id}, thread_id='{self.thread_id}', name='{self.name}')>"
 
@@ -57,5 +58,7 @@ class ProjectThread(Base):
             "api_documents": self.api_documents,
             "jira_links": self.jira_links,
             "references": self.references,
+            "last_commit": self.last_commit,
+            "repo_path": self.repo_path,
         }
         return data 

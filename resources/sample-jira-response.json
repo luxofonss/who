@@ -1,0 +1,221 @@
+{
+     "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+     "id": "10000",
+     "self": "https://luxofons.atlassian.net/rest/api/2/issue/10000",
+     "key": "SCRUM-1",
+     "fields": {
+       "statuscategorychangedate": "2025-07-10T12:30:46.595+0700",
+       "issuetype": {
+         "self": "https://luxofons.atlassian.net/rest/api/2/issuetype/10003",
+         "id": "10003",
+         "description": "Stories track functionality or features expressed as user goals.",
+         "iconUrl": "https://luxofons.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10315?size=medium",
+         "name": "Story",
+         "subtask": false,
+         "avatarId": 10315,
+         "entityId": "cad467bb-f015-4140-a176-ef7665ae21bf",
+         "hierarchyLevel": 0
+       },
+       "timespent": null,
+       "project": {
+         "self": "https://luxofons.atlassian.net/rest/api/2/project/10000",
+         "id": "10000",
+         "key": "SCRUM",
+         "name": "onestudy",
+         "projectTypeKey": "software",
+         "simplified": true,
+         "avatarUrls": {
+           "48x48": "https://luxofons.atlassian.net/rest/api/2/universal_avatar/view/type/project/avatar/10410",
+           "24x24": "https://luxofons.atlassian.net/rest/api/2/universal_avatar/view/type/project/avatar/10410?size=small",
+           "16x16": "https://luxofons.atlassian.net/rest/api/2/universal_avatar/view/type/project/avatar/10410?size=xsmall",
+           "32x32": "https://luxofons.atlassian.net/rest/api/2/universal_avatar/view/type/project/avatar/10410?size=medium"
+         }
+       },
+       "fixVersions": [],
+       "customfield_10033": null,
+       "aggregatetimespent": null,
+       "statusCategory": {
+         "self": "https://luxofons.atlassian.net/rest/api/2/statuscategory/4",
+         "id": 4,
+         "key": "indeterminate",
+         "colorName": "yellow",
+         "name": "In Progress"
+       },
+       "resolution": null,
+       "resolutiondate": null,
+       "workratio": -1,
+       "issuerestriction": {
+         "issuerestrictions": {},
+         "shouldDisplay": true
+       },
+       "watches": {
+         "self": "https://luxofons.atlassian.net/rest/api/2/issue/SCRUM-1/watchers",
+         "watchCount": 1,
+         "isWatching": true
+       },
+       "lastViewed": "2025-07-15T18:00:34.043+0700",
+       "created": "2025-07-07T10:45:07.727+0700",
+       "customfield_10020": [
+         {
+           "id": 1,
+           "name": "SCRUM Sprint 1",
+           "state": "active",
+           "boardId": 1,
+           "goal": "",
+           "startDate": "2025-07-07T03:45:44.200Z",
+           "endDate": "2025-07-21T03:45:35.000Z"
+         }
+       ],
+       "customfield_10021": null,
+       "priority": {
+         "self": "https://luxofons.atlassian.net/rest/api/2/priority/3",
+         "iconUrl": "https://luxofons.atlassian.net/images/icons/priorities/medium_new.svg",
+         "name": "Medium",
+         "id": "3"
+       },
+       "labels": [],
+       "customfield_10016": 8.0,
+       "customfield_10019": "0|hzzzzz:",
+       "timeestimate": null,
+       "aggregatetimeoriginalestimate": null,
+       "versions": [],
+       "issuelinks": [],
+       "assignee": {
+         "self": "https://luxofons.atlassian.net/rest/api/2/user?accountId=62b150b1673f2103622db335",
+         "accountId": "62b150b1673f2103622db335",
+         "emailAddress": "luxofons@gmail.com",
+         "avatarUrls": {
+           "48x48": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png",
+           "24x24": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png",
+           "16x16": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png",
+           "32x32": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png"
+         },
+         "displayName": "Văn Quyền Nguyễn",
+         "active": true,
+         "timeZone": "Asia/Bangkok",
+         "accountType": "atlassian"
+       },
+       "updated": "2025-07-12T06:48:47.823+0700",
+       "status": {
+         "self": "https://luxofons.atlassian.net/rest/api/2/status/10001",
+         "description": "",
+         "iconUrl": "https://luxofons.atlassian.net/",
+         "name": "In Progress",
+         "id": "10001",
+         "statusCategory": {
+           "self": "https://luxofons.atlassian.net/rest/api/2/statuscategory/4",
+           "id": 4,
+           "key": "indeterminate",
+           "colorName": "yellow",
+           "name": "In Progress"
+         }
+       },
+       "components": [],
+       "timeoriginalestimate": null,
+       "description": "h3. *Mô tả:*\n\nLà một *Product Owner*,\nTôi muốn người dùng có thể *tìm kiếm các bài Quiz vừa tạo trong thư viện Quiz (Quiz Library)* bằng tiêu đề,\nĐể họ có thể nhanh chóng kiểm tra, xem lại hoặc chỉnh sửa các nội dung vừa tạo.\n\n\n\n*Acceptance Criteria (AC):*\n\nh4. AC1 - API tìm kiếm yêu cầu tham số keyWord (bắt buộc):\n\n* Nếu *không truyền* keyWord, API phải trả về *HTTP 400* với thông báo lỗi: Required parameter \"keyWord\" is not present \n\nh4. AC2 - Trường hợp keyWord là null hoặc bằng “All”:\n\n* API trả về *HTTP 200*\n* Trả về *toàn bộ danh sách Quiz* hiện có trong Quiz Library\n\nh4. AC3 - Trường hợp keyWord có giá trị cụ thể:\n\n* API trả về *HTTP 200*\n* Trả về *danh sách Quiz* có title *chính xác* bằng keyWord  và không phân biệt hoa thường\n\nh4. AC4 - Cấu trúc response:\n\n* Mỗi phần tử Quiz trong danh sách có định dạng như sau:\n** {{{   \"id\": \"string\",   \"title\": \"string\",   \"description\": \"string\",   \"category\": \"string | null\",   \"difficulty\": \"BEGINNER | INTERMEDIATE | ADVANCED\",   \"duration\": \"integer | null\",   \"questionCount\": \"integer\",   \"tags\": [\"string\"],   \"status\": \"PUBLIC | PRIVATE\",   \"createdAt\": \"datetime\",   \"updatedAt\": \"datetime\",   \"deletedAt\": \"datetime | null\",   \"authorId\": \"string\",   \"author\": {     \"id\": \"string\",     \"username\": \"string\",     \"name\": \"string\",     \"email\": \"string\",     \"avatar\": \"string | null\",     \"joinedAt\": \"datetime\",     \"lastLoginAt\": \"datetime | null\",     \"isActive\": true,     \"role\": \"USER | ADMIN\",     \"credentials\": null,     \"createdQuizzes\": null,     \"quizAttempts\": null,     \"savedQuizzes\": null,     \"leaderboardEntries\": null   },   \"rating\": \"float\",   \"attempts\": \"integer\",   \"passingScore\": \"integer\",   \"navigationMode\": \"FREE_NAVIGATION | SEQUENTIAL\",   \"hasTimer\": \"boolean\",   \"timeLimit\": \"integer\",   \"warningTime\": \"integer\",   \"allowQuestionPicker\": \"boolean\",   \"shuffleQuestions\": \"boolean\",   \"shuffleAnswers\": \"boolean\",   \"showProgress\": \"boolean\",   \"allowPause\": \"boolean\",   \"maxAttempts\": \"integer\",   \"questions\": null,   \"quizAttempts\": null,   \"savedByUsers\": null,   \"leaderboardEntries\": null } }}\n\n----\n\nh3. *Notes:*\n\n* Việc tìm kiếm theo keyWord chỉ trả kết quả nếu tiêu đề *trùng khớp tuyệt đối*, không hỗ trợ tìm kiếm gần đúng hoặc full-text.\n* So sánh tiêu đề *không phân biệt chữ hoa/chữ thường*.",
+       "timetracking": {},
+       "customfield_10015": null,
+       "security": null,
+       "attachment": [],
+       "aggregatetimeestimate": null,
+       "summary": "[oneStudy] Bổ sung API tìm kiếm Quiz Library",
+       "creator": {
+         "self": "https://luxofons.atlassian.net/rest/api/2/user?accountId=70121%3A0bf87338-411c-4d7d-9e52-158b2d708fee",
+         "accountId": "70121:0bf87338-411c-4d7d-9e52-158b2d708fee",
+         "avatarUrls": {
+           "48x48": "https://secure.gravatar.com/avatar/dc4851179bcfad6f9ace20a24121784b?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FPY-5.png",
+           "24x24": "https://secure.gravatar.com/avatar/dc4851179bcfad6f9ace20a24121784b?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FPY-5.png",
+           "16x16": "https://secure.gravatar.com/avatar/dc4851179bcfad6f9ace20a24121784b?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FPY-5.png",
+           "32x32": "https://secure.gravatar.com/avatar/dc4851179bcfad6f9ace20a24121784b?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FPY-5.png"
+         },
+         "displayName": "Phạm Thị Hải Yến",
+         "active": true,
+         "timeZone": "Asia/Bangkok",
+         "accountType": "atlassian"
+       },
+       "subtasks": [],
+       "reporter": {
+         "self": "https://luxofons.atlassian.net/rest/api/2/user?accountId=70121%3A0bf87338-411c-4d7d-9e52-158b2d708fee",
+         "accountId": "70121:0bf87338-411c-4d7d-9e52-158b2d708fee",
+         "avatarUrls": {
+           "48x48": "https://secure.gravatar.com/avatar/dc4851179bcfad6f9ace20a24121784b?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FPY-5.png",
+           "24x24": "https://secure.gravatar.com/avatar/dc4851179bcfad6f9ace20a24121784b?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FPY-5.png",
+           "16x16": "https://secure.gravatar.com/avatar/dc4851179bcfad6f9ace20a24121784b?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FPY-5.png",
+           "32x32": "https://secure.gravatar.com/avatar/dc4851179bcfad6f9ace20a24121784b?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FPY-5.png"
+         },
+         "displayName": "Phạm Thị Hải Yến",
+         "active": true,
+         "timeZone": "Asia/Bangkok",
+         "accountType": "atlassian"
+       },
+       "aggregateprogress": {
+         "progress": 0,
+         "total": 0
+       },
+       "customfield_10000": "{pullrequest={dataType=pullrequest, state=MERGED, stateCount=1}, json={\"cachedValue\":{\"errors\":[],\"summary\":{\"pullrequest\":{\"overall\":{\"count\":1,\"lastUpdated\":\"2025-07-09T15:21:49.574+0700\",\"stateCount\":1,\"state\":\"MERGED\",\"dataType\":\"pullrequest\",\"open\":false},\"byInstanceType\":{\"bitbucket\":{\"count\":1,\"name\":\"Bitbucket Cloud\"}}}},\"isStale\":true}}",
+       "customfield_10001": null,
+       "environment": null,
+       "duedate": null,
+       "progress": {
+         "progress": 0,
+         "total": 0
+       },
+       "votes": {
+         "self": "https://luxofons.atlassian.net/rest/api/2/issue/SCRUM-1/votes",
+         "votes": 0,
+         "hasVoted": false
+       },
+       "comment": {
+         "comments": [
+           {
+             "self": "https://luxofons.atlassian.net/rest/api/2/issue/10000/comment/10000",
+             "id": "10000",
+             "author": {
+               "self": "https://luxofons.atlassian.net/rest/api/2/user?accountId=62b150b1673f2103622db335",
+               "accountId": "62b150b1673f2103622db335",
+               "emailAddress": "luxofons@gmail.com",
+               "avatarUrls": {
+                 "48x48": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png",
+                 "24x24": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png",
+                 "16x16": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png",
+                 "32x32": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png"
+               },
+               "displayName": "Văn Quyền Nguyễn",
+               "active": true,
+               "timeZone": "Asia/Bangkok",
+               "accountType": "atlassian"
+             },
+             "body": "với ticket này sẽ search chính xác theo keyword, không phân biệt hoa thường nhé",
+             "updateAuthor": {
+               "self": "https://luxofons.atlassian.net/rest/api/2/user?accountId=62b150b1673f2103622db335",
+               "accountId": "62b150b1673f2103622db335",
+               "emailAddress": "luxofons@gmail.com",
+               "avatarUrls": {
+                 "48x48": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png",
+                 "24x24": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png",
+                 "16x16": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png",
+                 "32x32": "https://secure.gravatar.com/avatar/61420a43da5f0e993c3f057214e6b7f9?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FVN-4.png"
+               },
+               "displayName": "Văn Quyền Nguyễn",
+               "active": true,
+               "timeZone": "Asia/Bangkok",
+               "accountType": "atlassian"
+             },
+             "created": "2025-07-07T12:40:41.055+0700",
+             "updated": "2025-07-07T12:40:41.055+0700",
+             "jsdPublic": true
+           }
+         ],
+         "self": "https://luxofons.atlassian.net/rest/api/2/issue/10000/comment",
+         "maxResults": 1,
+         "total": 1,
+         "startAt": 0
+       },
+       "worklog": {
+         "startAt": 0,
+         "maxResults": 20,
+         "total": 0,
+         "worklogs": []
+       }
+     }
+   }

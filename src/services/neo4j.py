@@ -3,6 +3,7 @@ import os
 from neo4j import GraphDatabase
 from neo4j.graph import Node
 from typing import List, Dict, Tuple
+from loguru import logger
 
 # Type alias for clarity
 CodeChunk = Dict[str, object]
@@ -72,6 +73,8 @@ def generate_cypher_from_json(chunks: List[CodeChunk], batch_size: int = 100) ->
             # Determine node type
             if chunk_type == "controller" and method_name and endpoint:
                 node_type = "EndpointNode"
+            elif chunk_type == 'configuration':
+                node_type = "ConfigurationNode"
             elif method_name:
                 node_type = "MethodNode"
             else:
@@ -440,6 +443,7 @@ class Neo4jConnection:
             raise e
 
     def find_endpoint_node(self, class_name: str, method_name: str | None, project_id: str) -> List[Node]:
+        logger.info(f"Finding endpoint node for class: {class_name}, method: {method_name}, project_id: {project_id}")
         with self.driver.session() as session:
             # Single query that handles both null and non-null method_name
             query = """
@@ -463,11 +467,12 @@ class Neo4jConnection:
             return [record['endpoint'] for record in result]
 
     def find_related_nodes(self, class_name: str, method_name: str, project_id: str) -> List[Node]:
+        logger.info(f"Finding related nodes for class: {class_name}, method: {method_name}, project_id: {project_id}")
         with self.driver.session() as session:
             query = """
             MATCH (endpoint:EndpointNode {class_name: $class_name, method_name: $method_name})
             CALL apoc.path.expandConfig(endpoint, {
-                relationshipFilter: "CALL>|IMPLEMENTED_BY>|EXTENDED_BY>|USE>",
+                relationshipFilter: "CALL>|IMPLEMENTED_BY>|EXTENDED_BY>|IMPLEMENT|EXTEND|USE>",
                 minLevel: 1,
                 maxLevel: 20,
                 bfs: true,
@@ -481,3 +486,12 @@ class Neo4jConnection:
             """
             result = session.run(query, {'class_name': class_name, 'method_name': method_name, 'project_id': project_id})
             return [record['node'] for record in result]
+    
+    def find_configuration_node(self, project_id: str) -> List[Node]:
+        with self.driver.session() as session:
+            query = """
+            MATCH (configuration:ConfigurationNode {project_id: $project_id})
+            RETURN configuration
+            """
+            result = session.run(query, {'project_id': project_id})
+            return [record['configuration'] for record in result]
